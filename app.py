@@ -2,9 +2,9 @@
 Public-site pilot. Not affiliated with the official Laser Tools website.
 """
 from __future__ import annotations
-import io, re, json, time, zipfile, hashlib, logging
+import io, re, json, time, zipfile, hashlib, logging, html
 from datetime import datetime, timezone
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
 from typing import Any
 
@@ -16,9 +16,9 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy
 
-V6_HOME_PAGE = r'''
+V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v6">
+<link rel="stylesheet" href="/static/styles.css?design=v7">
 <style>
 /* V6 preview layout: one wide hero, two different follow-up formats. */
 .previews{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
@@ -36,7 +36,7 @@ V6_HOME_PAGE = r'''
 <header class="topbar"><div class="wrap nav"><div class="logo">LASER <small>TOOLS</small></div><div class="navright">PRODUCT STUDIO <span class="tag">INTERNAL PILOT</span></div></div></header>
 <main class="wrap">
 <section class="intro"><div class="kicker">LASER TOOLS · AUTOMATED CONTENT STUDIO</div><h1>One part number.<br><span>Three posters. Three different purposes.</span></h1><p>Enter a published Laser Tools part number. We retrieve the official product details and an authentic product image, then generate branded draft marketing materials.</p></section>
-<section class="searchpanel"><form id="searchForm"><label for="part">ENTER A LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9197" placeholder="e.g. 9197" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create previews <b>→</b></button></div></form><div class="examples">Try <button class="linkchip" data-part="9197">9197</button><button class="linkchip" data-part="9395">9395</button><button class="linkchip" data-part="9345">9345</button><button class="linkchip" data-part="9139">9139</button></div><p id="status" class="status" role="status">Ready. Searches use live manufacturer pages, with an official PDF fallback.</p></section>
+<section class="searchpanel"><form id="searchForm"><label for="part">ENTER A LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9197" placeholder="e.g. 9197" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create previews <b>→</b></button></div></form><details style="margin-top:13px;color:#30536f;font-size:13px"><summary style="cursor:pointer;font-weight:700">RRP missing? Paste the official UK product link</summary><input style="margin-top:9px;width:100%;padding:11px 12px;border:1px solid #bed0df;border-radius:7px" id="officialUrl" type="url" placeholder="https://www.toolconnection.co.uk/products/..." aria-label="Official UK Tool Connection product link"></details><div class="examples">Try <button class="linkchip" data-part="9197">9197</button><button class="linkchip" data-part="9395">9395</button><button class="linkchip" data-part="9345">9345</button><button class="linkchip" data-part="9139">9139</button></div><p id="status" class="status" role="status">Ready. Searches use live manufacturer pages, with an official PDF fallback.</p></section>
 <div class="content"><aside><div class="sectioncap">01 / OFFICIAL PRODUCT RECORD</div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">↗</div><b>No product loaded</b><p>Enter a part number above to retrieve the official product information and photograph.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div><div class="sectioncap">02 / AUTOMATIC MARKETING ASSETS</div><h2>Generated poster designs</h2></div><label class="approval"><input type="checkbox" id="reviewed" disabled> I've checked the product information</label></div><div id="previews" class="previews"><div class="posterempty">Your authentic-photo posters will appear here after the official product lookup succeeds.</div></div><div class="downloadbar"><div><b>Complete marketing pack</b><small>Promotional PNG · technical PNG + PDF · RRP PNG · campaign copy</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
 <section class="process"><div class="sectioncap">THE SYSTEM BEHIND THE DEMO</div><h2>Simple enough for every new product launch.</h2><div class="processgrid"><div><strong>1</strong><b>Enter SKU</b><p>Product lookup starts from the official website, not a hand-built five-product list.</p></div><div><strong>2</strong><b>Verify source</b><p>Exact part number, official features, product sheet and genuine image.</p></div><div><strong>3</strong><b>Generate drafts</b><p>Distinct promotional, technical and price-led poster campaigns.</p></div><div><strong>4</strong><b>Approve and use</b><p>Technical and marketing staff review claims before distribution.</p></div></div></section>
@@ -48,9 +48,9 @@ function setState(message,type='neutral'){const el=$('status');el.className='sta
 function reset(){active=null;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function productCard(p,photo){const specs=Object.entries(p.specs||{}).map(([k,v])=>`<div class="spec"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');const fs=(p.features||[]).map(x=>`<li>${esc(x)}</li>`).join('');const warns=(p.warnings||[]).map(x=>`<p class="warn">${esc(x)}</p>`).join('');return `<div class="found"><div class="sourcepill">✓ Live official source</div><h3>${esc(p.part)} <span>${esc(p.title)}</span></h3><div class="recordphoto">${photo?`<img src="${photo}" alt="Genuine Laser ${esc(p.part)} image">`:'<div class="nophoto">No verified photo retrieved</div>'}</div><p class="description">${esc(p.description)}</p>${p.price?`<div class="price">Manufacturer RRP <b>${esc(p.price)}</b></div>`:''}<b class="subheading">Features</b><ul>${fs||'<li>Consult product sheet</li>'}</ul><b class="subheading">Technical specifications</b><div>${specs||'<span class="smallmuted">Refer to official information sheet</span>'}</div><div class="sourceinfo"><div>Source checked: ${esc(p.source_checked)}</div><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">Open official source ↗</a></div>${warns}</div>`;}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified product photo was found. Posters are withheld rather than using an inaccurate AI-generated image.</div>';return;}
-let styles=[['Hero','01 · Promotional advert'],['Technical','02 · Technical breakdown'],['Price','03 · RRP / sales poster']];$('previews').innerHTML=styles.map(([key,label])=>`<div class="posteritem"><div class="posterthumb"><img loading="lazy" src="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v6" alt="${label}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span class=loaderror>Preview unavailable — open the full image or check Render logs.</span>')"></div><div class="posteritemfoot"><span>${label}</span><a target="_blank" href="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v6" download="LASER_${esc(p.part)}_${key}.png">View / save ↗</a></div></div>`).join('');}
+let styles=[['Hero','01 · Promotional advert'],['Technical','02 · Technical breakdown'],['Price','03 · RRP / sales poster']];$('previews').innerHTML=styles.map(([key,label])=>`<div class="posteritem"><div class="posterthumb"><img loading="lazy" src="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v7" alt="${label}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span class=loaderror>Preview unavailable — open the full image or check Render logs.</span>')"></div><div class="posteritemfoot"><span>${label}</span><a target="_blank" href="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v7" download="LASER_${esc(p.part)}_${key}.png">View / save ↗</a></div></div>`).join('');}
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
-try{const res=await fetch(`/api/lookup/${encodeURIComponent(part)}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
+try{const override=$('officialUrl').value.trim();const res=await fetch(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
 catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create previews <b>→</b>';inflight=false;}}
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
@@ -62,7 +62,7 @@ app=Flask(__name__)
 app.config['MAX_CONTENT_LENGTH']=10*1024*1024
 logging.basicConfig(level=logging.INFO)
 ALLOWED={'www.lasertools.co.uk','lasertools.co.uk','lasertools.toolconnection.co.uk','www.toolconnection.co.uk','toolconnection.co.uk'}
-HEADERS={'User-Agent':'Mozilla/5.0 (compatible; LaserProductStudioPilot/1.0; product-content-review)', 'Accept':'text/html,application/pdf,image/avif,image/webp,image/jpeg,image/png,*/*'}
+HEADERS={'User-Agent':'Mozilla/5.0 (compatible; LaserProductStudioPilot/1.0; product-content-review)', 'Accept':'text/html,application/pdf,image/avif,image/webp,image/jpeg,image/png,*/*', 'Accept-Language':'en-GB,en;q=0.9'}
 CACHE: dict[str, tuple[float,dict,bytes|None]]={}
 
 class LookupErrorPublic(Exception): pass
@@ -90,6 +90,69 @@ def official_get(url,session=requests, content_types=None):
 
 def normalize(s):return re.sub(r'\s+',' ',str(s or '')).strip()
 
+# Official English Tool Connection product pages verified for pilot demonstrations.
+# For other part numbers, a search discovery attempt locates the manufacturer page.
+OFFICIAL_UK_PRODUCTS = {
+    '8324':'https://www.toolconnection.co.uk/products/cars-vans/steering-suspension/shock-absorbers/kits/8324-suspension-split-hub-knuckle-spreader',
+    '9395':'https://www.toolconnection.co.uk/products/cars-vans/transmission/wheel-bearings/gen2-wheel-bearing-kits/9395-front-wheel-bearing-kit-for-mercedes-benz-sprinter-vw-crafter',
+}
+
+FOREIGN_MARKERS = re.compile(r"\b(?:les|des|une|pour|avec|sans|afin|lors|sur|roulement|véhicules|comprend|comprennent|utilisation|également|assurer|remarque|utiliser|atelier|montage|pression|permettre|adapté|nécessaire|pièces|dépose|repose|cette|conçu|références|nettoyer|veiller|éviter|outil|lesquels|auxquels|cette|ceci|du|le|la|et)\b", re.I)
+
+def is_french(text):
+    text=normalize(text)
+    words=FOREIGN_MARKERS.findall(text)
+    # Avoid rejecting English 'insertion', 'outil' appearing as model names.
+    return len(words)>=2 or (len(words)>=1 and bool(re.search(r'[àâçéèêëîïôùûüÿœæ]',text,re.I)))
+
+def english_only_features(features):
+    return [x for x in features if not is_french(x) and not re.search(r'\b(?:N\.B\.|REMARQUE)\s*:',x,re.I)]
+
+def english_only_specs(specs):
+    return {k:v for k,v in specs.items() if not is_french(k+' '+str(v))}
+
+def search_official_uk_product(part,session=requests):
+    """Discover the genuine product URL; third-party search snippets are NEVER used for facts/prices."""
+    # The UK site's normal search is tried first. Parsing is restricted to official product links.
+    q=quote(part)
+    choices=[f'https://www.toolconnection.co.uk/search?query={q}',
+             f'https://www.bing.com/search?format=rss&q={quote("site:toolconnection.co.uk/products/ " + part)}']
+    for url in choices:
+        try:
+            r=session.get(url,headers=HEADERS,timeout=5,allow_redirects=True)
+            if not r.ok or len(r.content)>3_000_000:continue
+            soup=BeautifulSoup(r.content,'html.parser')
+            for node in soup.find_all(['a','link']):
+                href=node.get('href') or ''
+                if href.startswith('//'):href='https:'+href
+                if 'uddg=' in href:
+                    href=unquote(parse_qs(urlparse(href).query).get('uddg',[''])[0])
+                resolved=urljoin(r.url,html.unescape(href))
+                if (authorized_url(resolved) and 'toolconnection.co.uk' in urlparse(resolved).hostname
+                    and re.search(r'/products/.*/'+re.escape(part)+r'(?:-|$)',urlparse(resolved).path,re.I)):
+                    return resolved
+            # Bing search RSS URLs appear as text in <link> elements in certain parsers.
+            for match in re.findall(r'https?://(?:www\.)?toolconnection\.co\.uk/products/[^\s<"\']+',r.text,re.I):
+                match=html.unescape(match.split('&amp;')[0])
+                if re.search(r'/'+re.escape(part)+r'(?:-|$)',urlparse(match).path,re.I):return match
+        except Exception:continue
+    return None
+
+def manufacturer_price_from_html(content):
+    """Only read explicit manufacturer RRP next to £-amount, retaining VAT qualification."""
+    soup=BeautifulSoup(content.decode('utf-8','replace') if isinstance(content,bytes) else content,'html.parser')
+    for t in soup(['script','style','nav','noscript']):t.decompose()
+    text=normalize(soup.get_text(' ',strip=True))
+    m=re.search(r'\bRRP\s*£\s*([\d,]+(?:\.\d{1,2})?)(.{0,65})',text,re.I)
+    if not m:return None
+    amount='£'+m.group(1)
+    # The official listing can have both incl and excl VAT prices.
+    suffix=normalize(m.group(2)).lower()
+    if re.search(r'\b(?:inc(?:luding|l)?\.?|with)\s*vat\b',suffix):return amount+' including VAT'
+    if re.search(r'\b(?:plus|exc(?:luding|l)?\.?|ex)\s*vat\b',suffix):return amount+' excluding VAT'
+    # RRP still verified; VAT basis must not be assumed.
+    return amount+' (VAT basis not specified)'
+
 def select_bullets(soup):
     candidates=[]
     for ul in soup.find_all(['ul','ol']):
@@ -101,7 +164,7 @@ def select_bullets(soup):
     return candidates[0][:8]
 
 def parse_html(content,part,url):
-    soup=BeautifulSoup(content,'html.parser')
+    soup=BeautifulSoup(content.decode('utf-8','replace') if isinstance(content,bytes) else content,'html.parser')
     for t in soup(['script','style','header','footer','nav','noscript']):t.decompose()
     text=soup.get_text('\n',strip=True)
     lines=[normalize(x) for x in text.splitlines() if normalize(x)]
@@ -117,20 +180,8 @@ def parse_html(content,part,url):
     if not re.search(r'/(?:'+re.escape(part)+r')(?:\b|[-_/])',path,re.I):
         # search pages are not treated as verified products
         raise LookupErrorPublic('The result was not an exact product page for this part number.')
-    # Preserve the manufacturer's actual VAT basis. Some products list VAT-inclusive
-    # RRP first, others show RRP + VAT; never assume all prices are ex VAT.
-    rrpm=re.search(r'RRP\s*£\s*([\d,]+(?:\.\d{2})?)(.{0,38})',big,re.I)
-    rrp=None
-    if rrpm:
-        amount='£'+rrpm.group(1)
-        suffix=rrpm.group(2).lower()
-        if re.search(r'\b(?:inc(?:luding|l)?\.?|with)\s*vat\b',suffix):
-            rrp=amount+' including VAT'
-        elif re.search(r'\b(?:plus|exc(?:luding|l)?\.?|ex)\s*vat\b',suffix):
-            rrp=amount+' excluding VAT'
-        else:
-            rrp=amount+' (VAT basis not specified)'
-    features=select_bullets(soup)
+    rrp=manufacturer_price_from_html(content)
+    features=english_only_features(select_bullets(soup))
     # Find product description: longest useful paragraph before spec table, not SEO navigation.
     paras=[normalize(x.get_text(' ',strip=True)) for x in soup.find_all('p')]
     paras=[x for x in paras if 80<len(x)<1100 and not re.search(r'(cookies|privacy policy|terms and conditions)',x,re.I)]
@@ -154,6 +205,7 @@ def parse_html(content,part,url):
         src=image.get('src') or image.get('data-src') or ''
         u=urljoin(url,src)
         if authorized_url(u) and (part in src or 'XLarge' in src):image_urls.append(u)
+    specs=english_only_specs(specs)
     if not features and not specs: raise LookupErrorPublic('The product page contains insufficient technical information.')
     return dict(part=part,title=title,description=desc,features=features,specs=specs,price=rrp,source=url,image_candidates=list(dict.fromkeys(image_urls)),source_type='Official Laser/Tool Connection product page')
 
@@ -222,52 +274,90 @@ def valid_image(blob):
         return min(im.size)>=80 and max(im.size)>=300 and im.width*im.height>=50000 and im.width*im.height<=30_000_000
     except Exception:return False
 
-def lookup(part,session=requests,force=False):
+def lookup(part,session=requests,force=False,uk_url=None):
     part=sku_clean(part)
+    if uk_url:
+        uk_url=uk_url.strip()
+        if not (authorized_url(uk_url) and urlparse(uk_url).hostname in ('www.toolconnection.co.uk','toolconnection.co.uk')
+                and re.search(r'/products/.*/'+re.escape(part)+r'(?:-|$)',urlparse(uk_url).path,re.I)):
+            raise LookupErrorPublic('Please paste the official UK Tool Connection product page URL for this exact part number.')
     now=time.time()
-    if not force and part in CACHE and now-CACHE[part][0]<3600:return CACHE[part][1],CACHE[part][2]
-    errors=[];product=None;image_bytes=None
-    # First try the official one-number deep link. This can redirect to a canonical slug.
-    for url in [f'https://www.lasertools.co.uk/product/{part}',f'https://lasertools.toolconnection.co.uk/product/{part}']:
+    if not force and not uk_url and part in CACHE and now-CACHE[part][0]<3600:
+        return CACHE[part][1],CACHE[part][2]
+    errors=[]; product=None; image_bytes=None
+    # Official UK pages are best for English product wording and genuine GBP RRP.
+    uk_candidates=[]
+    if uk_url:uk_candidates.append(uk_url)
+    if part in OFFICIAL_UK_PRODUCTS:uk_candidates.append(OFFICIAL_UK_PRODUCTS[part])
+    else:
+        discovered=search_official_uk_product(part,session)
+        if discovered:uk_candidates.append(discovered)
+    for url in dict.fromkeys(uk_candidates):
         try:
             r=official_get(url,session)
-            if 'pdf' in r.headers.get('Content-Type','').lower() or r.content.startswith(b'%PDF'):
-                product,image_bytes=parse_pis_pdf(r.content,part,r.url)
-            else:product=parse_html(r.content,part,r.url)
+            candidate=parse_html(r.content,part,r.url)
+            # Prefer English UK descriptions; never display a foreign-language product record.
+            if is_french(candidate['title']+' '+candidate['description']):
+                errors.append('UK page returned translated copy');continue
+            product=candidate
             break
-        except Exception as e:errors.append(str(e)[:190])
-    # Product Information Sheet gives reliable part-number lookup even when page routing changes.
+        except Exception as e:errors.append(str(e)[:180])
+    # If no UK listing was found, use Laser's official page, filtering non-English text.
     if product is None:
+        for url in [f'https://www.lasertools.co.uk/product/{part}',f'https://lasertools.toolconnection.co.uk/product/{part}']:
+            try:
+                r=official_get(url,session)
+                if 'pdf' in r.headers.get('Content-Type','').lower() or r.content.startswith(b'%PDF'):
+                    candidate,image_bytes=parse_pis_pdf(r.content,part,r.url)
+                else:candidate=parse_html(r.content,part,r.url)
+                if is_french(candidate['title']+' '+candidate['description']):
+                    errors.append('Manufacturer page not in English');continue
+                product=candidate
+                break
+            except Exception as e:errors.append(str(e)[:180])
+    # English product sheets are a safe fallback when the browser receives French text.
+    # If the UK page is present, keep it as the authoritative RRP source.
+    if product is None or not product.get('features'):
         for url in [f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',f'https://lasertools.co.uk/pis/{part}_PIS.pdf']:
             try:
                 r=official_get(url,session,content_types=['pdf'])
-                product,image_bytes=parse_pis_pdf(r.content,part,r.url)
+                sheet,photo=parse_pis_pdf(r.content,part,r.url)
+                if is_french(sheet['title']+' '+sheet['description']):continue
+                sheet['features']=english_only_features(sheet.get('features',[]))
+                if not product:product=sheet
+                else:
+                    product['features']=product['features'] or sheet['features']
+                    product['specs']={**sheet.get('specs',{}),**product.get('specs',{})}
+                if image_bytes is None:image_bytes=photo
                 break
-            except Exception as e:errors.append(str(e)[:190])
+            except Exception as e:errors.append(str(e)[:180])
     if not product:
-        raise LookupErrorPublic('Could not retrieve a verified official product record for this part number. The manufacturer website may be blocking requests or may not have published an information sheet. No data has been fabricated.')
+        raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
+    product['features']=english_only_features(product.get('features',[]))
+    product['specs']=english_only_specs(product.get('specs',{}))
     if image_bytes is None:
         candidates=product.get('image_candidates',[])+[
-          f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
-          f'https://www.lasertools.co.uk/items/XLarge/{part}.jpg']
+            f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
+            f'https://www.lasertools.co.uk/items/XLarge/{part}.jpg']
         for url in dict.fromkeys(candidates):
             try:
                 r=official_get(url,session)
                 if valid_image(r.content):image_bytes=r.content;break
             except Exception:pass
-    if not image_bytes:
-        # fallback to official PDF image only, even when page metadata lacks a photo
+    if image_bytes is None:
         try:
-            url=f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf'
-            r=official_get(url,session,content_types=['pdf'])
+            r=official_get(f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',session,content_types=['pdf'])
             _,image_bytes=parse_pis_pdf(r.content,part,r.url)
         except Exception:pass
     product['photo_verified']=bool(image_bytes)
     product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
-    product['lookup_status']='Live official website/PDF' # no cache when generated
+    product['lookup_status']='Live official UK/English manufacturer source'
     product['warnings']=[]
-    if not image_bytes:product['warnings'].append('No verified product photo available. Upload an approved photo to create image-based posters.')
-    if product['price'] is None:product['warnings'].append('No verified RRP found. Price will be omitted.')
+    if not image_bytes:product['warnings'].append('No verified manufacturer photo available.')
+    if not product.get('price'):
+        product['warnings'].append('No verified UK RRP found. Paste the exact Tool Connection product URL above to check price; otherwise price is omitted.')
+    if not product['features']:
+        product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
     CACHE[part]=(now,product,image_bytes)
     return product,image_bytes
 
@@ -282,7 +372,7 @@ def safe_override(original,updates):
 
 @app.get('/')
 def home():
-    return render_template_string(V6_HOME_PAGE)
+    return render_template_string(V7_HOME_PAGE)
 
 @app.after_request
 def no_cache_for_drafts(response):
@@ -291,12 +381,12 @@ def no_cache_for_drafts(response):
     return response
 
 @app.get('/api/health')
-def health():return jsonify(ok=True,service='Laser Product Studio',design='v6-three-posters',lookup='official page + PDF fallback')
+def health():return jsonify(ok=True,service='Laser Product Studio',design='v7-english-rrp',lookup='official page + PDF fallback')
 
 @app.get('/api/lookup/<part>')
 def product_lookup(part):
     try:
-        product,image=lookup(part)
+        product,image=lookup(part,uk_url=request.args.get('uk_url') or None)
         return jsonify(product=product,photo_url=f'/api/photo/{part}' if image else None)
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
     except requests.RequestException:return jsonify(error='Official Laser website could not be reached. Please retry.'),502
