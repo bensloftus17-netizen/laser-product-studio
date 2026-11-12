@@ -12,9 +12,51 @@ import fitz
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file, render_template_string
 
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy
+
+V6_HOME_PAGE = r'''
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
+<link rel="stylesheet" href="/static/styles.css?design=v6">
+<style>
+/* V6 preview layout: one wide hero, two different follow-up formats. */
+.previews{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.previews .posteritem:first-child{grid-column:1/-1}
+.previews .posteritem:first-child .posterthumb{height:515px}
+.previews .posterthumb{height:435px;background:#eaf0f5;padding:24px;display:flex;justify-content:center;align-items:center}
+.previews .posterthumb img{max-width:100%;max-height:100%;height:100%;object-fit:contain;box-shadow:0 12px 25px #132b4630}
+.previews .posteritemfoot{background:white;padding:18px 20px;font-size:15px}
+.previews .posteritemfoot span{font-weight:800}
+.previews .posteritemfoot a{white-space:nowrap}
+.posteritem .posterthumb img[data-error="true"]{display:none}
+.posteritem .posterthumb .loaderror{color:#9c3720;font-size:13px}
+@media(max-width:640px){.previews{grid-template-columns:1fr}.previews .posteritem:first-child{grid-column:auto}.previews .posterthumb,.previews .posteritem:first-child .posterthumb{height:360px}}
+</style></head><body>
+<header class="topbar"><div class="wrap nav"><div class="logo">LASER <small>TOOLS</small></div><div class="navright">PRODUCT STUDIO <span class="tag">INTERNAL PILOT</span></div></div></header>
+<main class="wrap">
+<section class="intro"><div class="kicker">LASER TOOLS · AUTOMATED CONTENT STUDIO</div><h1>One part number.<br><span>Three posters. Three different purposes.</span></h1><p>Enter a published Laser Tools part number. We retrieve the official product details and an authentic product image, then generate branded draft marketing materials.</p></section>
+<section class="searchpanel"><form id="searchForm"><label for="part">ENTER A LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9197" placeholder="e.g. 9197" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create previews <b>→</b></button></div></form><div class="examples">Try <button class="linkchip" data-part="9197">9197</button><button class="linkchip" data-part="9395">9395</button><button class="linkchip" data-part="9345">9345</button><button class="linkchip" data-part="9139">9139</button></div><p id="status" class="status" role="status">Ready. Searches use live manufacturer pages, with an official PDF fallback.</p></section>
+<div class="content"><aside><div class="sectioncap">01 / OFFICIAL PRODUCT RECORD</div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">↗</div><b>No product loaded</b><p>Enter a part number above to retrieve the official product information and photograph.</p></div></div></aside>
+<section class="right"><div class="previewtop"><div><div class="sectioncap">02 / AUTOMATIC MARKETING ASSETS</div><h2>Generated poster designs</h2></div><label class="approval"><input type="checkbox" id="reviewed" disabled> I've checked the product information</label></div><div id="previews" class="previews"><div class="posterempty">Your authentic-photo posters will appear here after the official product lookup succeeds.</div></div><div class="downloadbar"><div><b>Complete marketing pack</b><small>Promotional PNG · technical PNG + PDF · RRP PNG · campaign copy</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
+<section class="process"><div class="sectioncap">THE SYSTEM BEHIND THE DEMO</div><h2>Simple enough for every new product launch.</h2><div class="processgrid"><div><strong>1</strong><b>Enter SKU</b><p>Product lookup starts from the official website, not a hand-built five-product list.</p></div><div><strong>2</strong><b>Verify source</b><p>Exact part number, official features, product sheet and genuine image.</p></div><div><strong>3</strong><b>Generate drafts</b><p>Distinct promotional, technical and price-led poster campaigns.</p></div><div><strong>4</strong><b>Approve and use</b><p>Technical and marketing staff review claims before distribution.</p></div></div></section>
+<footer><p>Independent internal pilot. Public Laser Tools / Tool Connection product information is used with source attribution. Prices, product claims and imagery must be approved before external release.</p></footer>
+</main><script>
+const $=id=>document.getElementById(id);let active=null;let inflight=false;
+function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
+function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
+function reset(){active=null;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function productCard(p,photo){const specs=Object.entries(p.specs||{}).map(([k,v])=>`<div class="spec"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');const fs=(p.features||[]).map(x=>`<li>${esc(x)}</li>`).join('');const warns=(p.warnings||[]).map(x=>`<p class="warn">${esc(x)}</p>`).join('');return `<div class="found"><div class="sourcepill">✓ Live official source</div><h3>${esc(p.part)} <span>${esc(p.title)}</span></h3><div class="recordphoto">${photo?`<img src="${photo}" alt="Genuine Laser ${esc(p.part)} image">`:'<div class="nophoto">No verified photo retrieved</div>'}</div><p class="description">${esc(p.description)}</p>${p.price?`<div class="price">Manufacturer RRP <b>${esc(p.price)}</b></div>`:''}<b class="subheading">Features</b><ul>${fs||'<li>Consult product sheet</li>'}</ul><b class="subheading">Technical specifications</b><div>${specs||'<span class="smallmuted">Refer to official information sheet</span>'}</div><div class="sourceinfo"><div>Source checked: ${esc(p.source_checked)}</div><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">Open official source ↗</a></div>${warns}</div>`;}
+function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified product photo was found. Posters are withheld rather than using an inaccurate AI-generated image.</div>';return;}
+let styles=[['Hero','01 · Promotional advert'],['Technical','02 · Technical breakdown'],['Price','03 · RRP / sales poster']];$('previews').innerHTML=styles.map(([key,label])=>`<div class="posteritem"><div class="posterthumb"><img loading="lazy" src="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v6" alt="${label}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span class=loaderror>Preview unavailable — open the full image or check Render logs.</span>')"></div><div class="posteritemfoot"><span>${label}</span><a target="_blank" href="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v6" download="LASER_${esc(p.part)}_${key}.png">View / save ↗</a></div></div>`).join('');}
+async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
+try{const res=await fetch(`/api/lookup/${encodeURIComponent(part)}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
+catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create previews <b>→</b>';inflight=false;}}
+$('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;});
+$('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
+</script></body></html>
+
+'''
 
 app=Flask(__name__)
 app.config['MAX_CONTENT_LENGTH']=10*1024*1024
@@ -239,10 +281,17 @@ def safe_override(original,updates):
     return out
 
 @app.get('/')
-def home():return render_template('index.html')
+def home():
+    return render_template_string(V6_HOME_PAGE)
+
+@app.after_request
+def no_cache_for_drafts(response):
+    if request.path=='/' or request.path.startswith('/api/poster/'):
+        response.headers['Cache-Control']='no-store, max-age=0'
+    return response
 
 @app.get('/api/health')
-def health():return jsonify(ok=True,service='Laser Product Studio',lookup='official page + PDF fallback')
+def health():return jsonify(ok=True,service='Laser Product Studio',design='v6-three-posters',lookup='official page + PDF fallback')
 
 @app.get('/api/lookup/<part>')
 def product_lookup(part):

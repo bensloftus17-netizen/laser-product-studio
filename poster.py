@@ -134,7 +134,13 @@ def trim_photo(photo):
 def contain_photo(im,photo,rect,padding=20,background=WHITE):
     x0,y0,x1,y1=map(int,rect)
     ImageDraw.Draw(im).rectangle((x0,y0,x1,y1),fill=background)
-    img=trim_photo(photo).copy();img.thumbnail((max(1,x1-x0-padding*2),max(1,y1-y0-padding*2)),Image.Resampling.LANCZOS)
+    img=trim_photo(photo).copy()
+    available_w=max(1,x1-x0-padding*2); available_h=max(1,y1-y0-padding*2)
+    # thumbnail() only shrinks images; enlarge smaller official photos too.
+    # Preserve the original pixels, accepting that low-resolution source images
+    # may remain less sharp than a manufacturer-supplied high-res photograph.
+    scale=min(available_w/max(1,img.width),available_h/max(1,img.height))
+    img=img.resize((max(1,int(img.width*scale)),max(1,int(img.height*scale))),Image.Resampling.LANCZOS)
     white=Image.new('RGBA',img.size,(255,255,255,255))
     white.alpha_composite(img)
     img=white.convert('RGB')
@@ -550,6 +556,7 @@ def create_fact_sheet_pdf(p,blob):
 def create_marketing_copy(p):
     key=short_features(p,3)
     head=' '.join(choose_headline(p))
-    value,vat=price_parts(p)
-    price_line=f'Manufacturer RRP: {value} ({vat})' if value else 'Manufacturer RRP: Not verified from retrieved source; do not publish an assumed price.'
+    price=prepared_price(p)
+    price_line=(f"Manufacturer RRP: {price['primary']} ({price['basis']}). "
+                f"{price['source_basis']}") if price else                'Manufacturer RRP: Not verified from retrieved source; do not publish an assumed price.'
     return f'''LASER TOOLS {p.get('part')} — {product_name(p)}\n\nPROMOTIONAL POSTER HEADLINE (DRAFT)\n{head}\n\nShort customer points:\n{chr(10).join('• '+v for v in key)}\n\nTECHNICAL POSTER\nUse only the verified description, source features and specs in the attached source record. No inferred measurements or diagrams.\n\nRRP / SALES POSTER\n{price_line}\n\nPRODUCT SOURCE\n{p.get('source','')}\n\nREVIEW REQUIRED: price, product image rights, application wording, technical correctness and brand approval.\n'''
