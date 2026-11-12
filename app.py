@@ -75,8 +75,19 @@ def parse_html(content,part,url):
     if not re.search(r'/(?:'+re.escape(part)+r')(?:\b|[-_/])',path,re.I):
         # search pages are not treated as verified products
         raise LookupErrorPublic('The result was not an exact product page for this part number.')
-    rrpm=re.search(r'RRP\s*£\s*([\d,]+(?:\.\d{2})?)',big,re.I)
-    rrp=('£'+rrpm.group(1)+' excluding VAT') if rrpm else None
+    # Preserve the manufacturer's actual VAT basis. Some products list VAT-inclusive
+    # RRP first, others show RRP + VAT; never assume all prices are ex VAT.
+    rrpm=re.search(r'RRP\s*£\s*([\d,]+(?:\.\d{2})?)(.{0,38})',big,re.I)
+    rrp=None
+    if rrpm:
+        amount='£'+rrpm.group(1)
+        suffix=rrpm.group(2).lower()
+        if re.search(r'\b(?:inc(?:luding|l)?\.?|with)\s*vat\b',suffix):
+            rrp=amount+' including VAT'
+        elif re.search(r'\b(?:plus|exc(?:luding|l)?\.?|ex)\s*vat\b',suffix):
+            rrp=amount+' excluding VAT'
+        else:
+            rrp=amount+' (VAT basis not specified)'
     features=select_bullets(soup)
     # Find product description: longest useful paragraph before spec table, not SEO navigation.
     paras=[normalize(x.get_text(' ',strip=True)) for x in soup.find_all('p')]
@@ -280,7 +291,7 @@ def generate(part):
 
 @app.get('/api/poster/<part>/<style>')
 def preview(part,style):
-    if style not in ('Hero','Technical','Applications','Social'):return jsonify(error='Poster format not found'),404
+    if style not in ('Hero','Technical','Price'):return jsonify(error='Poster format not found'),404
     try:
         p,img=lookup(part)
         if not img:return jsonify(error='Verified product image missing'),422
