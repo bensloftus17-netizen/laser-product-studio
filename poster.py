@@ -12,7 +12,17 @@ NAVY='#11345C';BLUE='#0B5EA7';PALE='#EAF2FB';INK='#172E47';SUB='#516B85';WHITE='
 FONT_R='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 FONT_B='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 FONT_I='/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed-BoldOblique.ttf'
-def font(s,b=False,italic=False):return ImageFont.truetype(FONT_I if italic else FONT_B if b else FONT_R,s)
+def font(s,b=False,italic=False):
+    """Use the preferred Laser-style fonts, but never let missing host fonts break posters.
+
+    Render's free Linux image may not include the OS-level DejaVu font files.
+    Pillow's own embedded default scalable font is always available as fallback.
+    """
+    chosen = FONT_I if italic else (FONT_B if b else FONT_R)
+    try:
+        return ImageFont.truetype(chosen, s)
+    except (OSError, ValueError):
+        return ImageFont.load_default(size=s)
 def text(d,xy,t,size=28,color=INK,bold=False,italic=False):d.text(xy,str(t),font=font(size,bold,italic),fill=color)
 def fit_lines(d,value,fontobj,width,max_lines=3):
     words=str(value or '').split(); lines=[];row=''
