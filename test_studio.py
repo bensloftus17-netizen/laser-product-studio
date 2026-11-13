@@ -2,7 +2,8 @@
 import io
 import unittest
 from PIL import Image, ImageDraw
-from app import manufacturer_price_from_html, english_only_features, with_reviewed_price
+from app import (manufacturer_price_from_html, english_only_features, with_reviewed_price,
+                 manufacturer_gallery_urls, pdf_render_photo, valid_image)
 from poster import render_hero, render_technical, render_price, prepared_price
 
 class MarketingStudioSmokeTests(unittest.TestCase):
@@ -62,6 +63,34 @@ class MarketingStudioSmokeTests(unittest.TestCase):
             self.assertFalse(valid_image(buf.getvalue()))
         p,photo=self.sample()
         self.assertTrue(valid_image(photo))
+
+    def test_manufacturer_gallery_extracts_real_sku_photos(self):
+        html=b'''<a href="/items/large/9197.jpg">Studio photo</a>
+                   <a href="/items/large/9197_Insitu_1.jpg">Application photo</a>
+                   <a href="/items/large/7130.jpg">Other product</a>'''
+        class FakeResponse:
+            ok=True
+            headers={'Content-Type':'text/html'}
+            content=html
+            def __init__(self,url):self.url=url
+        class FakeSession:
+            def get(self,url,**kwargs):return FakeResponse(url)
+        urls=manufacturer_gallery_urls('9197',FakeSession())
+        self.assertEqual(len(urls),2)
+        self.assertTrue(any('9197.jpg' in u for u in urls))
+        self.assertTrue(any('9197_Insitu_1.jpg' in u for u in urls))
+
+    def test_pdf_composite_photo_fallback(self):
+        import fitz
+        _,photo=self.sample()
+        document=fitz.open()
+        pg=document.new_page(width=595,height=842)
+        pg.insert_image(fitz.Rect(95,100,400,560),stream=photo)
+        pdf=document.tobytes()
+        document.close()
+        visible=pdf_render_photo(pdf)
+        self.assertIsNotNone(visible)
+        self.assertTrue(valid_image(visible))
 
     def test_three_poster_formats(self):
         p,image=self.sample()
