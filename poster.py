@@ -555,6 +555,10 @@ def campaign_benefit(p):
         return 'Remove & fit bushes and bearings with confidence'
     if 'press' in title and ('50 tonne' in title or '50 ton' in title):
         return '50-tonne capacity for professional workshop work'
+    if ('tap' in title and 'die' in title) and '110' in (title+' '+corpus):
+        return '110-piece metric tap and die set for workshop thread cutting'
+    if 'tap' in title and 'die' in title:
+        return 'Professional tap and die tools for thread cutting'
     if 'ball joint separator' in title and 'scissor' in corpus:
         return 'Controlled separation of vehicle ball joints'
     if 'ball joint separator' in title:
@@ -571,6 +575,13 @@ def campaign_quick_facts(p):
     title=clean_name_for_poster(p).lower()
     known=' '.join(facts(p)).lower()+' '+str(p.get('description') or '').lower()
     # Make the reference-like specifications recognizable when they are verified.
+    if 'tap' in title and 'die' in title:
+        if re.search(r'\b110\s*(?:pc|pieces?|piece)\b',title+' '+known):
+            output.append('110 PIECE METRIC SET')
+        if 'split dies' in known:
+            output.append('SPLIT DIES INCLUDED')
+        if 'blow-mould' in known or 'moulded case' in known:
+            output.append('STORAGE CASE INCLUDED')
     if 'split hub' in title:
         if 'double' in known:output.append('DOUBLE-ENDED DESIGN')
         if re.search(r'\b10\s*mm\b',known):output.append('10MM HEX DRIVE')
@@ -592,10 +603,9 @@ def campaign_quick_facts(p):
         if len(item)<32 and item not in output:output.append(item)
         if len(output)>=3:break
     if len(output)<3:
-        for point in short_features(p,5):
+        for point in customer_features(p,6,maxlen=42):
             point=point.upper().strip(' .')
-            if len(point)>37:point=point[:34].rsplit(' ',1)[0]+'…'
-            if point not in output:output.append(point)
+            if len(point)<=39 and point not in output:output.append(point)
             if len(output)>=3:break
     return output[:3]
 
@@ -712,9 +722,9 @@ def render_hero(p,blob,application_blob=None):
         txt(d,(850,1516),'+ VAT',36,WHITE,'italic')
         txt(d,(1184,1546),inc+' INC VAT',17,'#D3EDFE','bold',anchor='ra')
     else:
-        txt(d,(815,1385),'UK RRP',43,WHITE,'italic')
-        txt(d,(785,1461),'VERIFY PRICE',40,WHITE,'italic')
-        txt(d,(887,1530),'BEFORE RELEASE',23,WHITE,'bold')
+        txt(d,(810,1334),'CURRENT PRICE',38,WHITE,'italic')
+        txt(d,(764,1415),'ON REQUEST',57,WHITE,'italic')
+        txt(d,(811,1517),'ASK YOUR DISTRIBUTOR',22,WHITE,'bold')
 
     # Exact fact strip, NOT a row of repeated marketing paragraphs.
     d.rectangle((0,1570,W,1663),fill='#111316')
@@ -791,8 +801,8 @@ def render_price(p,blob):
         txt(d,(1062,290+i*(font_size+13)),row,font_size,WHITE,'bold')
     d.rectangle((1058,497,1540,499),fill='#48AFE9')
     d.rectangle((1060,516,1540,602),fill='#086AB9')
-    txt(d,(1081,538),'UK MANUFACTURER RRP',29,WHITE,'bold')
     details=prepared_price(p)
+    txt(d,(1081,538),'UK MANUFACTURER RRP' if details else 'PRICE ENQUIRIES',29,WHITE,'bold')
     if details:
         ex=details['secondary'].split(' EX VAT')[0]
         inc=details['primary']
@@ -803,9 +813,9 @@ def render_price(p,blob):
         d.rectangle((1060,814,1536,818),fill='#319DD6')
         txt(d,(1073,836),ex+' EX VAT',42,WHITE,'bold')
     else:
-        txt(d,(1075,633),'PRICE',76,WHITE,'bold')
-        txt(d,(1070,736),'NOT VERIFIED',44,WHITE,'bold')
-        txt(d,(1069,835),'REVIEW RRP BEFORE PUBLICATION',19,'#D9EEFF','bold')
+        txt(d,(1075,632),'PRICE',70,WHITE,'bold')
+        txt(d,(1072,735),'ON REQUEST',48,WHITE,'bold')
+        txt(d,(1068,839),'CONTACT YOUR DISTRIBUTOR',24,'#D9EEFF','bold')
     txt(d,(1574,947),'DRAFT · CHECK CURRENT PRICING',16,'#A9D2EB','bold',anchor='ra')
     return png(im)
 
@@ -832,5 +842,5 @@ def create_marketing_copy(p):
     head=' '.join(choose_headline(p))
     price=prepared_price(p)
     price_line=(f"Manufacturer RRP: {price['primary']} ({price['basis']}). "
-                f"{price['source_basis']}") if price else                'Manufacturer RRP: Not verified from retrieved source; do not publish an assumed price.'
+                f"{price['source_basis']}") if price else                'Manufacturer RRP: Not available from verified UK sources. Enquire with your distributor; never assume a price.'
     return f'''LASER TOOLS {p.get('part')} — {product_name(p)}\n\nPROMOTIONAL POSTER HEADLINE (DRAFT)\n{head}\n\nShort customer points:\n{chr(10).join('• '+v for v in key)}\n\nTECHNICAL POSTER\nUse only the verified description, source features and specs in the attached source record. No inferred measurements or diagrams.\n\nRRP / SALES POSTER\n{price_line}\n\nPRODUCT SOURCE\n{p.get('source','')}\n\nREVIEW REQUIRED: price, product image rights, application wording, technical correctness and brand approval.\n'''
