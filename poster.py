@@ -534,7 +534,34 @@ def technical_feature_tiles(im,p,y0,y1,features,specs):
     return count
 
 
-def render_technical(p,blob,application_blob=None):
+def add_distributor_badge(im, distributor_brand, rect):
+    """Add an authentic distributor logo to a white co-brand badge.
+
+    Do not edit, redraw, stretch, colorise or invent the customer's logo.
+    Laser stays primary; the dealer logo is a secondary sign-off.
+    """
+    if not distributor_brand:
+        return False
+    from brand_assets import get_brand_image
+    original=get_brand_image(distributor_brand)
+    if original is None:
+        return False
+    d=ImageDraw.Draw(im)
+    x0,y0,x1,y1=[int(i) for i in rect]
+    if x1<=x0 or y1<=y0:
+        return False
+    d.rounded_rectangle((x0,y0,x1,y1),radius=13,fill=WHITE,
+                        outline='#C7DDEB',width=3)
+    iw=max(1,x1-x0-28)
+    ih=max(1,y1-y0-18)
+    fitted=ImageOps.contain(original.convert('RGB'),(iw,ih),Image.Resampling.LANCZOS)
+    cx=x0+(x1-x0-fitted.width)//2
+    cy=y0+(y1-y0-fitted.height)//2
+    im.paste(fitted,(cx,cy))
+    return True
+
+
+def render_technical(p,blob,application_blob=None,distributor_brand=None):
     """Adaptive navy technical artwork: LIGHT, MEDIUM, DENSE.
 
     - LIGHT: larger real photo and expanded content; no empty spec boxes
@@ -689,6 +716,8 @@ def render_technical(p,blob,application_blob=None):
         technical_body(d,note,665,1337,548,129,
                        sizes=(26,24,22))
 
+    # A compact upper co-brand badge leaves the Laser logo and part number readable.
+    add_distributor_badge(im,distributor_brand,(562,27,890,129))
     # A consistent, uncluttered footer across all three content densities.
     d=ImageDraw.Draw(im)
     d.rectangle((31,1515,1249,1557),fill='#0C477C',outline='#2A91C5',width=2)
@@ -808,7 +837,7 @@ def draw_fitted_panel_copy(d, message, x, y, width, height, sizes,
     return True
 
 
-def render_hero(p,blob,application_blob=None):
+def render_hero(p,blob,application_blob=None,distributor_brand=None):
     """Photo-first reference-style 2:3 ad for ANY Laser SKU.
 
     Giant product-specific name on a white diagonal, strong blue official-logo
@@ -859,6 +888,8 @@ def render_hero(p,blob,application_blob=None):
     d.polygon([(733,0),(772,0),(665,238),(628,242)],fill=WHITE)
     d.rectangle((0,0,575,12),fill='#138DDD')
     logo(d,64,30,143)
+    add_distributor_badge(im,distributor_brand,(858,28,1174,182))
+    d=ImageDraw.Draw(im)
 
     # Huge white oblique product name banner, intentionally independent of
     # the image. Body text is never placed over the actual tool.
@@ -952,7 +983,7 @@ def render_hero(p,blob,application_blob=None):
     return png(im)
 
 
-def render_price(p,blob):
+def render_price(p,blob,distributor_brand=None):
     """Distinct trade-counter sales graphic: landscape with a huge price wall.
 
     Different from the photographic portrait advert AND the technical catalogue.
@@ -984,6 +1015,7 @@ def render_price(p,blob):
         paragraph(d,claim,xpos+27,796,391,23,INK,'bold',limit=3,leading=1.2)
     txt(d,(45,931),'LASER TOOLS  ·  PRODUCT SPOTLIGHT',25,BLUE,'italic')
     txt(d,(651,937),'lasertools.co.uk',19,NAVY,'bold')
+    add_distributor_badge(im,distributor_brand,(723,23,931,147))
     # Right = almost full-height price wall, so the price is immediately legible.
     gradient_box(im,(956,0,W,H),'#004D99','#063560',vertical=False)
     d=ImageDraw.Draw(im)
@@ -1019,17 +1051,17 @@ def render_price(p,blob):
     return png(im)
 
 
-def create_posters(p,blob,application_blob=None):
+def create_posters(p,blob,application_blob=None,distributor_brand=None):
     if not blob:raise ValueError('A verified manufacturer product image is required.')
     return {
-       'Hero':render_hero(p,blob,application_blob),
-       'Technical':render_technical(p,blob,application_blob),
-       'Price':render_price(p,blob),
+       'Hero':render_hero(p,blob,application_blob,distributor_brand),
+       'Technical':render_technical(p,blob,application_blob,distributor_brand),
+       'Price':render_price(p,blob,distributor_brand),
     }
 
-def create_fact_sheet_pdf(p,blob,application_blob=None):
+def create_fact_sheet_pdf(p,blob,application_blob=None,distributor_brand=None):
     # Export the exact technical poster into A4; PNG and PDF cannot contradict.
-    poster=Image.open(io.BytesIO(render_technical(p,blob,application_blob))).convert('RGB')
+    poster=Image.open(io.BytesIO(render_technical(p,blob,application_blob,distributor_brand))).convert('RGB')
     output=io.BytesIO()
     c=canvas.Canvas(output,pagesize=(595.28,841.89))
     c.drawImage(ImageReader(poster),0,0,width=595.28,height=841.89)
