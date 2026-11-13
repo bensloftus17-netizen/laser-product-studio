@@ -46,7 +46,7 @@ const $=id=>document.getElementById(id);let active=null;let inflight=false;
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function reset(){active=null;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
-function productCard(p,photo){const specs=Object.entries(p.specs||{}).map(([k,v])=>`<div class="spec"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');const fs=(p.features||[]).map(x=>`<li>${esc(x)}</li>`).join('');const warns=(p.warnings||[]).map(x=>`<p class="warn">${esc(x)}</p>`).join('');return `<div class="found"><div class="sourcepill">✓ Live official source</div><h3>${esc(p.part)} <span>${esc(p.title)}</span></h3><div class="recordphoto">${photo?`<img src="${photo}" alt="Genuine Laser ${esc(p.part)} image">`:'<div class="nophoto">No verified photo retrieved</div>'}</div><p class="description">${esc(p.description)}</p>${p.price?`<div class="price">Manufacturer RRP <b>${esc(p.price)}</b></div>`:''}<b class="subheading">Features</b><ul>${fs||'<li>Consult product sheet</li>'}</ul><b class="subheading">Technical specifications</b><div>${specs||'<span class="smallmuted">Refer to official information sheet</span>'}</div><div class="sourceinfo"><div>Source checked: ${esc(p.source_checked)}</div><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">Open official source ↗</a></div>${warns}</div>`;}
+function productCard(p,photo){const specs=Object.entries(p.specs||{}).map(([k,v])=>`<div class="spec"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');const fs=(p.features||[]).map(x=>`<li>${esc(x)}</li>`).join('');const warns=(p.warnings||[]).map(x=>`<p class="warn">${esc(x)}</p>`).join('');return `<div class="found"><div class="sourcepill">✓ Live official source</div><h3>${esc(p.part)} <span>${esc(p.title)}</span></h3><div class="recordphoto">${photo?`<img src="${photo}" alt="Genuine Laser ${esc(p.part)} image">`:'<div class="nophoto">No verified photo retrieved</div>'}</div><p class="description">${esc(p.description)}</p>${p.price?`<div class="price">Manufacturer RRP <b>${esc(p.price)}</b><small style="display:block;font-size:12px;color:#486b87">${esc(p.price_status||'Check official source before publishing')}</small></div>`:''}<b class="subheading">Features</b><ul>${fs||'<li>Consult product sheet</li>'}</ul><b class="subheading">Technical specifications</b><div>${specs||'<span class="smallmuted">Refer to official information sheet</span>'}</div><div class="sourceinfo"><div>Source checked: ${esc(p.source_checked)}</div><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">Open official source ↗</a></div>${warns}</div>`;}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified product photo was found. Posters are withheld rather than using an inaccurate AI-generated image.</div>';return;}
 let styles=[['Hero','01 · Promotional advert'],['Technical','02 · Technical breakdown'],['Price','03 · RRP / sales poster']];$('previews').innerHTML=styles.map(([key,label])=>`<div class="posteritem"><div class="posterthumb"><img loading="lazy" src="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v7" alt="${label}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span class=loaderror>Preview unavailable — open the full image or check Render logs.</span>')"></div><div class="posteritemfoot"><span>${label}</span><a target="_blank" href="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v7" download="LASER_${esc(p.part)}_${key}.png">View / save ↗</a></div></div>`).join('');}
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
@@ -97,6 +97,7 @@ OFFICIAL_UK_PRODUCTS = {
     '9395':'https://www.toolconnection.co.uk/products/cars-vans/transmission/wheel-bearings/gen2-wheel-bearing-kits/9395-front-wheel-bearing-kit-for-mercedes-benz-sprinter-vw-crafter',
     '9372':'https://www.toolconnection.co.uk/products/workshop/equipment/hydraulic-press/9372-air-hydraulic-workshop-press-50-tonne',
     '9197':'https://www.toolconnection.co.uk/products/workshop/inspection-lighting/workshop-lamps/9197-under-bonnet-compact-work-lamp-10w-cob-infrared',
+    '4832':'https://www.toolconnection.co.uk/products/cars-vans/brakes/brake-bleeding/brake-bleeders-manual/4832-manual-pressure-brake-bleeder-2l',
 }
 
 
@@ -108,12 +109,39 @@ VERIFIED_UK_RRP = {
     '9372': ('£2,617.62 including VAT', OFFICIAL_UK_PRODUCTS['9372']),
     '9395': ('£630.79 including VAT', OFFICIAL_UK_PRODUCTS['9395']),
     '8324': ('£41.67 excluding VAT', OFFICIAL_UK_PRODUCTS['8324']),
+    '4832': ('£114.70 excluding VAT', OFFICIAL_UK_PRODUCTS['4832']),
 }
+
+# Official UK reference text, used only when live extraction yields no English details.
+# This is a dated product-specific fallback, not a replacement for live data.
+VERIFIED_UK_FACTS = {
+    '4832': {
+        'features': [
+            '2 litre capacity tank for pressure brake bleeding.',
+            'One-way syphoning method.',
+            'Operating pressure 10psi; maximum pressure rating 30psi.',
+            'Quick connector and pressure release valve, with 0–70psi (0–5 bar) gauge.',
+            'For brake master cylinder reservoirs using the supplied 44mm Euro adaptor.',
+        ],
+        'specs': {
+            'Capacity': '2 litres',
+            'Operating pressure': '10psi',
+            'Maximum pressure': '30psi',
+            'Gauge range': '0–70psi / 0–5 bar',
+            'Reservoir adaptor': '44mm Euro',
+        },
+        'source': OFFICIAL_UK_PRODUCTS['4832'],
+        'verified_on': '13 Nov 2026',
+    },
+}
+
+FRENCH_TECH_TERMS = re.compile(r'\b(?:méthode|syphonage|siphonnage|unidirectionnelle|réservoir|système|purge|purger|pressurisation|pression|dépose|repose|moyeu|lorsque|pourra|destiné|vissage|suffisante|particulier|nécessitant|remplissage|permettant)\b',re.I)
 
 FOREIGN_MARKERS = re.compile(r"\b(?:les|des|une|pour|avec|sans|afin|lors|sur|roulement|véhicules|comprend|comprennent|utilisation|également|assurer|remarque|utiliser|atelier|montage|pression|permettre|adapté|nécessaire|pièces|dépose|repose|cette|conçu|références|nettoyer|veiller|éviter|outil|lesquels|auxquels|cette|ceci|du|le|la|et)\b", re.I)
 
 def is_french(text):
     text=normalize(text)
+    if FRENCH_TECH_TERMS.search(text):return True
     words=FOREIGN_MARKERS.findall(text)
     # Avoid rejecting English 'insertion', 'outil' appearing as model names.
     return len(words)>=2 or (len(words)>=1 and bool(re.search(r'[àâçéèêëîïôùûüÿœæ]',text,re.I)))
@@ -348,6 +376,16 @@ def lookup(part,session=requests,force=False,uk_url=None):
         raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
     product['features']=english_only_features(product.get('features',[]))
     product['specs']=english_only_specs(product.get('specs',{}))
+    # Restore manufacturer-confirmed UK facts if the available product sheet was
+    # non-English or returned incomplete technical text.
+    if part in VERIFIED_UK_FACTS:
+        reference=VERIFIED_UK_FACTS[part]
+        if not product['features']:
+            product['features']=reference['features'][:]
+            product['features_status']='Official UK facts checked '+reference['verified_on']
+        if not product['specs']:
+            product['specs']=dict(reference['specs'])
+            product['specs_status']='Official UK facts checked '+reference['verified_on']
     # A product sheet often has no commercial data. Check the official UK listing
     # separately, even if the primary English product record came from a PDF.
     if not product.get('price'):
