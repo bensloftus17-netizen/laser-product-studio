@@ -644,42 +644,59 @@ def render_hero(p,blob,application_blob=None):
 
 
 def render_price(p,blob):
-    """Price-first square retailer graphic, intentionally unrelated to hero composition."""
-    W,H=1200,1200
-    im=Image.new('RGB',(W,H),WHITE)
-    gradient_box(im,(0,0,W,137),'#095EA2','#003C78',vertical=False)
+    """Distinct trade-counter sales graphic: landscape with a huge price wall.
+
+    Different from the photographic portrait advert AND the technical catalogue.
+    Product image is the genuine manufacturer photo. No inferred promotions.
+    """
+    W,H=1600,980
+    im=Image.new('RGB',(W,H),'#F1F5F9')
     d=ImageDraw.Draw(im)
-    logo(d,47,18,60)
-    d.rectangle((950,32,955,110),fill=CYAN)
-    txt(d,(979,27),str(p.get('part','')),70,WHITE,'italic')
-    d.rectangle((0,137,W,147),fill=CYAN)
-    title=clean_name_for_poster(p)
-    name_size,name_rows=fit_title(d,title,1100,(55,49,44,40,36,33),max_lines=2)
-    title_y=175
-    for i,row in enumerate(name_rows):
-        txt(d,(52,title_y+i*(name_size+8)),row,name_size,NAVY,'bold')
-    pic_y=max(300,title_y+len(name_rows)*(name_size+8)+20)
-    d.rectangle((40,pic_y,1160,715),fill='#F3F7FA')
+    # Left = product photography; no technical grid and no advertising background.
+    d.rectangle((0,0,955,H),fill='#EFF5F9')
+    d.polygon([(0,0),(720,0),(663,161),(0,172)],fill='#074F96')
+    logo(d,53,13,98)
+    d.polygon([(0,172),(955,161),(955,179),(0,190)],fill='#2CA4E7')
+    # A subtle studio sweep makes the photograph feel more premium.
+    d.ellipse((-240,252,1095,1260),fill='#E4EEF6')
+    d.ellipse((-160,356,995,1200),outline='#CBDDEB',width=3)
     photo=manufacturer_photo(blob)
-    photo_safe(im,photo,(55,pic_y+8,1145,707),cutout=False)
+    place_cutout(im,photo,(28,267,935,835))
     d=ImageDraw.Draw(im)
-    d.rectangle((0,728,W,1130),fill=BLUE)
-    d.polygon([(1040,728),(1200,728),(1200,1130),(897,1130)],fill='#04477D')
-    data=prepared_price(p)
-    if data:
-        txt(d,(58,754),'UK MANUFACTURER RRP',34,'#D8F3FF','bold')
-        price_size=152 if len(data['primary'])<=8 else 119
-        while price_size>88 and text_width(d,data['primary'],price_size,'bold')>1070:price_size-=7
-        txt(d,(45,818),data['primary'],price_size,WHITE,'bold')
-        txt(d,(69,1020),data['basis'],31,'#D5F1FF','bold')
-        txt(d,(425,1020),data['secondary'],31,WHITE,'bold')
+    txt(d,(52,870),'LASER TOOLS · PRODUCT SPOTLIGHT',33,BLUE,'italic')
+    txt(d,(52,927),'lasertools.co.uk',26,NAVY,'bold')
+    # Right = almost full-height price wall, so the price is immediately legible.
+    gradient_box(im,(956,0,W,H),'#004D99','#063560',vertical=False)
+    d=ImageDraw.Draw(im)
+    d.polygon([(956,0),(1054,0),(995,980),(956,980)],fill='#0985CF')
+    d.rectangle((1019,72,1538,77),fill='#3CC2FC')
+    txt(d,(1070,100),'PART NO.',33,'#BDDEFB','bold')
+    sku=str(p.get('part','')).upper()
+    sku_sz=103
+    while sku_sz>52 and text_width(d,sku,sku_sz,'italic')>490:sku_sz-=5
+    txt(d,(1063,135),sku,sku_sz,WHITE,'italic')
+    title=clean_name_for_poster(p)
+    font_size,rows=fit_title(d,title,455,(48,44,40,36,32,29),max_lines=3)
+    for i,row in enumerate(rows[:3]):
+        txt(d,(1062,290+i*(font_size+13)),row,font_size,WHITE,'bold')
+    d.rectangle((1058,497,1540,499),fill='#48AFE9')
+    d.rectangle((1060,516,1540,602),fill='#086AB9')
+    txt(d,(1081,538),'UK MANUFACTURER RRP',29,WHITE,'bold')
+    details=prepared_price(p)
+    if details:
+        ex=details['secondary'].split(' EX VAT')[0]
+        inc=details['primary']
+        sz=128
+        while sz>55 and text_width(d,inc,sz,'bold')>492:sz-=5
+        txt(d,(1052,622),inc,sz,WHITE,'bold')
+        txt(d,(1072,757),'INCLUDING VAT',30,'#DBF3FF','bold')
+        d.rectangle((1060,814,1536,818),fill='#319DD6')
+        txt(d,(1073,836),ex+' EX VAT',42,WHITE,'bold')
     else:
-        txt(d,(58,772),'UK MANUFACTURER RRP',35,'#D8F3FF','bold')
-        txt(d,(59,845),'NOT VERIFIED',88,WHITE,'bold')
-        txt(d,(61,1034),'REVIEW OFFICIAL PRODUCT PRICING',26,WHITE,'bold')
-    d.rectangle((0,1130,W,H),fill=NAVY)
-    txt(d,(49,1145),'lasertools.co.uk',24,WHITE,'bold')
-    txt(d,(1155,1145),'DRAFT · CHECK PRICE BEFORE PUBLICATION',16,'#B7D4E5','bold',anchor='ra')
+        txt(d,(1075,633),'PRICE',76,WHITE,'bold')
+        txt(d,(1070,736),'NOT VERIFIED',44,WHITE,'bold')
+        txt(d,(1069,835),'REVIEW RRP BEFORE PUBLICATION',19,'#D9EEFF','bold')
+    txt(d,(1574,947),'DRAFT · CHECK CURRENT PRICING',16,'#A9D2EB','bold',anchor='ra')
     return png(im)
 
 
