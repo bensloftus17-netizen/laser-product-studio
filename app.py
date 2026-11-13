@@ -13,6 +13,8 @@ import fitz
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image, ImageOps
+from langdetect import detect_langs, DetectorFactory, LangDetectException
+DetectorFactory.seed = 0
 from flask import Flask, request, jsonify, send_file, render_template_string
 
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price
@@ -116,6 +118,7 @@ OFFICIAL_UK_PRODUCTS = {
     '9197':'https://www.toolconnection.co.uk/products/workshop/inspection-lighting/workshop-lamps/9197-under-bonnet-compact-work-lamp-10w-cob-infrared',
     '4832':'https://www.toolconnection.co.uk/products/cars-vans/brakes/brake-bleeding/brake-bleeders-manual/4832-manual-pressure-brake-bleeder-2l',
     '8899':'https://www.toolconnection.co.uk/products/cars-vans/steering-suspension/general-ball-joints/scissor/8899-ball-joint-separator-for-jlr',
+    '9024':'https://www.toolconnection.co.uk/products/workshop/air-tools-accessories/air-tools/impact-wrenches/9024-air-impact-wrench-1-d-with-6-anvil',
 }
 
 
@@ -129,6 +132,7 @@ VERIFIED_UK_RRP = {
     '8324': ('£41.67 excluding VAT', OFFICIAL_UK_PRODUCTS['8324']),
     '4832': ('£114.70 excluding VAT', OFFICIAL_UK_PRODUCTS['4832']),
     '8899': ('£144.16 excluding VAT', OFFICIAL_UK_PRODUCTS['8899']),
+    '9024': ('£510.35 excluding VAT', OFFICIAL_UK_PRODUCTS['9024']),
 }
 
 # Official UK reference text, used only when live extraction yields no English details.
@@ -150,6 +154,28 @@ VERIFIED_UK_FACTS = {
             'Reservoir adaptor': '44mm Euro',
         },
         'source': OFFICIAL_UK_PRODUCTS['4832'],
+        'verified_on': '13 Nov 2026',
+    },
+    '9024': {
+        'features': [
+            '1-inch drive air impact wrench with an extended 6-inch anvil for recessed wheel nuts.',
+            'Maximum torque 2170Nm; nut-busting torque 3526Nm.',
+            'Working torque 1763Nm at 5 seconds; loosening torque 3526Nm at 25 seconds.',
+            'Noise level 98.5dB; air consumption 7cfm; length 520mm.',
+            'Magnesium alloy and composite body, twin-hammer mechanism and side exhaust.',
+            'Air inlet 3/8-inch BSPT; working air pressure 90psi.',
+        ],
+        'specs': {
+            'Drive': '1-inch square drive',
+            'Anvil': '6-inch extended',
+            'Maximum torque': '2170Nm',
+            'Nut-busting torque': '3526Nm',
+            'Working pressure': '90psi',
+            'Air consumption': '7cfm',
+            'Noise level': '98.5dB',
+            'Length': '520mm',
+        },
+        'source': OFFICIAL_UK_PRODUCTS['9024'],
         'verified_on': '13 Nov 2026',
     },
     '8899': {
@@ -190,28 +216,109 @@ FRENCH_TECH_TERMS = re.compile(r'\b(?:méthode|syphonage|siphonnage|unidirection
 
 FOREIGN_MARKERS = re.compile(r"\b(?:les|des|une|pour|avec|sans|afin|lors|sur|roulement|véhicules|comprend|comprennent|utilisation|également|assurer|remarque|utiliser|atelier|montage|pression|permettre|adapté|nécessaire|pièces|dépose|repose|cette|conçu|références|nettoyer|veiller|éviter|outil|lesquels|auxquels|cette|ceci|du|le|la|et)\b", re.I)
 
+# Foreign-language markers are not a replacement for language detection:
+# the official PDFs sometimes contain Dutch, French and German content.
+DUTCH_TECH=re.compile(
+    r'\b(?:slagmoersleutel|buitenmantel|slagmoersleutels|wielmoeren|'
+    r'losdraaimoment|luchtdruk|luchtverbruik|geluidsniveau|'
+    r'magnesiumlegering|tweevoudige|schroefdraad|uitgerust|'
+    r'verlengde|onderhoudswerkzaamheden|luchtgereedschap|'
+    r'voertuigreparatie|werklast|gebruiksvriendelijk)\b',re.I)
+DUTCH_WORDS=re.compile(
+    r'\b(?:met|een|het|voor|van|deze|zijn|door|zoals|'
+    r'wordt|kunnen|zonder|gebruik|gemonteerd|hierdoor|'
+    r'verwijderen|tijdens|aanbrengen|snelheid|'
+    r'gewicht|maximumkoppel|aandrijving|onderdeel|'
+    r'werkplaats|wagen|luchtinlaat|dubbel|'
+    r'bevat|werkdruk|geschikt)\b',re.I)
+GERMAN_TECH=re.compile(
+    r'\b(?:Drehmoment|Druckluft|Schlagschrauber|Werkzeugstahl|'
+    r'geeignet\s+für|Fahrzeuge|Verwendung|Ausführung|'
+    r'Kugellager|Montagewerkzeug)\b',re.I)
+SPANISH_TECH=re.compile(
+    r'\b(?:herramienta|vehículos|rodamiento|para\s+la|'
+    r'presión\s+de|aplicaciones|fabricado|incluye)\b',re.I)
+FOREIGN_FUNCTION_WORDS=re.compile(
+    r'\b(?:de|het|een|voor|met|van|deze|zonder|'
+    r'pour|avec|une|les|des|dans|sur|'
+    r'und|mit|für|der|die|das|zum|'
+    r'para|con|los|las|una|del)\b',re.I)
+
+
+def is_non_english(text):
+    """Conservatively reject non-English marketing copy, never translate specs.
+
+    Exact model names, isolated measurements and brief technical labels are kept
+    because statistical language identification is unreliable on short strings.
+    """
+    phrase=normalize(text)
+    if not phrase:return False
+    if (FRENCH_STRONG.search(phrase) or FRENCH_TECH_TERMS.search(phrase)
+        or DUTCH_TECH.search(phrase) or GERMAN_TECH.search(phrase)
+        or SPANISH_TECH.search(phrase)):
+        return True
+    if len(DUTCH_WORDS.findall(phrase))>=3:return True
+    french_words=FOREIGN_MARKERS.findall(phrase)
+    if len(french_words)>=2:return True
+    if len(french_words)>=1 and re.search(r'[àâçéèêëîïôùûüÿœæ]',phrase,re.I):return True
+    alphabet=re.findall(r'[A-Za-zÀ-ÿ]+',phrase)
+    if len(alphabet)<8:return False
+    try:
+        likely=detect_langs(phrase)
+        if likely and likely[0].lang in ('nl','fr','de','es','it','pt','pl') and likely[0].prob>.90:
+            return bool(FOREIGN_FUNCTION_WORDS.search(phrase)) or len(DUTCH_WORDS.findall(phrase))>=2
+    except LangDetectException:
+        pass
+    return False
+
+
 def is_french(text):
-    text=normalize(text)
-    if FRENCH_STRONG.search(text) or FRENCH_TECH_TERMS.search(text):return True
-    words=FOREIGN_MARKERS.findall(text)
-    return len(words)>=2 or (len(words)>=1 and bool(re.search(r'[àâçéèêëîïôùûüÿœæ]',text,re.I)))
+    """Compatibility wrapper: now rejects other languages too."""
+    return is_non_english(text)
+
 
 def english_only_features(features):
-    """Only unique, actual English facts reach the record or artwork."""
     output=[]
     seen=set()
     for feature in features or []:
         phrase=normalize(feature)
         key=phrase.casefold().strip(' .')
-        if (not phrase or key in seen or is_french(phrase)
-                or re.search(r'\b(?:N\.B\.|REMARQUE)\s*:',phrase,re.I)):
+        if (not phrase or key in seen or is_non_english(phrase)
+            or re.search(r'\b(?:N\.B\.|REMARQUE)\s*:',phrase,re.I)):
             continue
         seen.add(key)
         output.append(phrase)
     return output
 
+
 def english_only_specs(specs):
-    return {k:v for k,v in (specs or {}).items() if not is_french(str(k)+' '+str(v))}
+    return {k:v for k,v in (specs or {}).items()
+            if not is_non_english(str(k)+' '+str(v))}
+
+
+def english_description(text):
+    """Do not let translated PDF sentences leak into poster-purpose copy."""
+    original=normalize(text)
+    if not original:return ''
+    parts=re.split(r'(?<=[.!?])\s+(?=[A-Za-zÀ-ÿ])',original)
+    good=[part for part in parts if part and not is_non_english(part)]
+    if not good:return ''
+    return normalize(' '.join(good))[:900]
+
+
+def normalise_product_language(product):
+    """Last line of defence for the record and every generated artwork format."""
+    result=dict(product)
+    if is_non_english(result.get('title','')):
+        raise LookupErrorPublic('Official English product name unavailable for this part number.')
+    result['features']=english_only_features(result.get('features',[]))
+    result['specs']=english_only_specs(result.get('specs',{}))
+    result['description']=english_description(result.get('description',''))
+    if not result['description']:
+        result['description']=(result['features'][0] if result['features']
+                               else 'Refer to the official English manufacturer product information.')
+    return result
+
 
 def search_official_uk_product(part,session=requests):
     """Discover the genuine product URL; third-party search snippets are NEVER used for facts/prices."""
@@ -291,7 +398,7 @@ def parse_html(content,part,url):
     features=english_only_features(select_bullets(soup))
     # Find product description: longest useful paragraph before spec table, not SEO navigation.
     paras=[normalize(x.get_text(' ',strip=True)) for x in soup.find_all('p')]
-    paras=[x for x in paras if 80<len(x)<1100 and not is_french(x) and not re.search(r'(cookies|privacy policy|terms and conditions)',x,re.I)]
+    paras=[x for x in paras if 80<len(x)<1100 and not is_non_english(x) and not re.search(r'(cookies|privacy policy|terms and conditions)',x,re.I)]
     desc=paras[0] if paras else (features[0] if features else '')
     specs={}
     for tr in soup.find_all('tr'):
@@ -526,14 +633,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
             except Exception as e:errors.append(str(e)[:180])
     if not product:
         raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
-    product['features']=english_only_features(product.get('features',[]))
-    product['specs']=english_only_specs(product.get('specs',{}))
-    # Never surface any residual French in the product title/description either.
-    if is_french(product.get('title','')):
-        raise LookupErrorPublic('English product title not found; paste the official UK product link.')
-    if is_french(product.get('description','')):
-        english=product['features']
-        product['description']=english[0] if english else 'Refer to the official English manufacturer product information.'
+    product=normalise_product_language(product)
     # Restore manufacturer-confirmed UK facts if the available product sheet was
     # non-English or returned incomplete technical text.
     if part in VERIFIED_UK_FACTS:
@@ -544,6 +644,8 @@ def lookup(part,session=requests,force=False,uk_url=None):
         if not product['specs']:
             product['specs']=dict(reference['specs'])
             product['specs_status']='Official UK facts checked '+reference['verified_on']
+    # Recheck the record after verified English fallbacks.
+    product=normalise_product_language(product)
     # A product sheet often has no commercial data. Check the official UK listing
     # separately, even if the primary English product record came from a PDF.
     if not product.get('price'):
