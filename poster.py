@@ -449,144 +449,197 @@ def render_technical(p,blob):
     txt(d,(30,1559),f'LASER TOOLS    |    {part}    |    PRODUCT TECHNICAL INFORMATION',19,WHITE,'bold')
     return png(im)
 
+def campaign_benefit(p):
+    """Compact, defensible sales benefit from official product facts."""
+    title=clean_name_for_poster(p).lower()
+    corpus=' '.join(facts(p)).lower()+' '+str(p.get('description') or '').lower()
+    if 'split hub' in title and ('strut' in corpus and ('leaving the hub' in corpus or 'without removing' in corpus)):
+        return 'Remove & refit struts without removing the hub'
+    if ('brake bleeder' in title or 'bleeding' in title) and ('one' in corpus or 'pump' in corpus or 'pressure' in corpus):
+        return 'Controlled pressure bleeding for workshop servicing'
+    if any(word in title for word in ('work lamp','under bonnet','inspection lamp')) and ('magnet' in corpus or 'hook' in corpus):
+        return 'Hands-free illumination for hard-to-reach jobs'
+    if ('bearing' in title or 'bush' in title) and ('remov' in corpus or 'fit' in corpus):
+        return 'Remove & fit bushes and bearings with confidence'
+    if 'press' in title and ('50 tonne' in title or '50 ton' in title):
+        return '50-tonne capacity for professional workshop work'
+    if facts(p):
+        fact=short_features(p,1)[0]
+        return fact[:106].rstrip(' ,.;') if len(fact)>106 else fact
+    return short_purpose(p)[:106].rstrip(' ,.;')
+
+
+def campaign_quick_facts(p):
+    """A strictly factual three-cell bottom strip, no copied sales paragraphs."""
+    output=[]
+    title=clean_name_for_poster(p).lower()
+    known=' '.join(facts(p)).lower()+' '+str(p.get('description') or '').lower()
+    # Make the reference-like specifications recognizable when they are verified.
+    if 'split hub' in title:
+        if 'double' in known:output.append('DOUBLE-ENDED DESIGN')
+        if re.search(r'\b10\s*mm\b',known):output.append('10MM HEX DRIVE')
+        if re.search(r'\b15\s*mm\b',known):output.append('15MM MAX OPENING')
+    if 'work lamp' in title or 'under bonnet' in title:
+        if 'magnet' in known:output.append('MAGNETIC MOUNTING')
+        if re.search(r'\b10\s*w(?:att)?\b',known):output.append('10W COB LIGHT')
+        if 'usb-c' in known:output.append('USB-C RECHARGEABLE')
+    if 'press' in title:
+        if '50 tonne' in title or '50 ton' in title:output.append('50-TONNE CAPACITY')
+        if 'air' in known:output.append('AIR-HYDRAULIC')
+        if 'foot control' in known:output.append('FOOT CONTROL')
+    for key,val in best_specs(p,5):
+        item=(str(val)+' '+str(key)).upper().strip()
+        if len(item)<32 and item not in output:output.append(item)
+        if len(output)>=3:break
+    if len(output)<3:
+        for point in short_features(p,5):
+            point=point.upper().strip(' .')
+            if len(point)>37:point=point[:34].rsplit(' ',1)[0]+'…'
+            if point not in output:output.append(point)
+            if len(output)>=3:break
+    return output[:3]
+
+
 def render_hero(p,blob,application_blob=None):
-    """Portrait Laser-inspired campaign poster using *only* real product photos.
+    """Photo-first reference-style 2:3 ad for ANY Laser SKU.
 
-    Layout: diagonal blue identity, oversized slanted product-title ribbon,
-    SKU number wedge, dramatic photographic stage, white benefit call-out,
-    ex-VAT RRP banner, three quick facts, and full-width blue footer.
-
-    The composition is product-aware for all retrieved Laser SKUs. No
-    imaginary photo-realistic tools, applications, drawings or prices.
+    Giant product-specific name on a white diagonal, strong blue official-logo
+    header, large authentic tool shot over photographic manufacturer imagery,
+    angled RRP ribbon (ex-VAT prominent), black spec strip and full-width
+    blue footer. Does NOT redraw/change the tool or fabricate a workshop photo.
     """
-    W,H=1200,1700
-    im=Image.new('RGB',(W,H),'#E9EEF2')
-    # Genuine manufacturer use-shot makes the workshop background when provided.
-    # Otherwise create a clearly graphical brushed-metal background, rather
-    # than fabricating a workshop or a tool application with generative AI.
-    if application_blob:
-        try:
-            scene=manufacturer_photo(application_blob).convert('RGB')
-            scene=ImageOps.fit(scene,(W,1110),Image.Resampling.LANCZOS,centering=(.5,.5))
-            scene=scene.filter(ImageFilter.GaussianBlur(5))
-            scene=Image.blend(scene,Image.new('RGB',scene.size,'#263341'),.32)
-            im.paste(scene,(0,185))
-        except Exception:
-            application_blob=None
-    if not application_blob:
-        gradient_box(im,(0,180,W,1300),'#89939D','#3B444F')
-        d=ImageDraw.Draw(im)
-        # Deliberately graphic strokes; never impersonates a product in use.
-        for i in range(0,1200,23):
-            shade='#7A8792' if i%2 else '#677682'
-            d.line((i,200,i-380,1260),fill=shade,width=1)
-        d.polygon([(0,1130),(1200,1050),(1200,1299),(0,1299)],fill='#616D79')
-        for j in range(14):
-            y=1140+j*11
-            d.line((0,y,1200,y-50),fill='#73818E',width=1)
-    # Product itself is always the *real manufacturer product photo* (no AI redraw).
-    # This isolated foreground tool is what stays accurate for every part number.
-    place_cutout(im,manufacturer_photo(blob),(45,590,1160,1260))
+    W,H=1200,1800
+    photo=manufacturer_photo(blob)
+    im=Image.new('RGB',(W,H),'#435565')
+    # Background: manufacturer's own application photograph wherever available.
+    # Other SKUs use an atmospheric, blurred *real product photograph* rather
+    # than a simulated workshop with an invented tool or a bland flat panel.
+    stage_rect=(0,190,W,1510)
+    stage_h=stage_rect[3]-stage_rect[1]
+    try:
+        original=manufacturer_photo(application_blob) if application_blob else photo
+        background=ImageOps.fit(original.convert('RGB'),(W,stage_h),Image.Resampling.LANCZOS,centering=(.50,.45))
+        background=background.filter(ImageFilter.GaussianBlur(7 if application_blob else 55))
+        tint=Image.new('RGB',background.size,'#213443')
+        background=Image.blend(background,tint,.23 if application_blob else .62)
+        im.paste(background,(0,stage_rect[1]))
+    except Exception:
+        gradient_box(im,stage_rect,'#5E6E7B','#253B4E')
     d=ImageDraw.Draw(im)
-    # Distinctive large diagonal blue LASER identity.
-    d.polygon([(0,0),(768,0),(650,230),(0,256)],fill='#0358A5')
-    d.polygon([(717,0),(768,0),(650,230),(618,230)],fill=WHITE)
-    d.rectangle((0,0,580,9),fill='#1C96D6')
-    logo(d,65,40,111)
-    # Reference-style white oblique title ribbon; actual product name, not a
-    # category-agnostic "BUILT FOR THE JOB" slogan.
-    d.polygon([(0,249),(1143,206),(1062,530),(0,568)],fill=WHITE)
-    name=clean_name_for_poster(p).upper()
-    title_rows=[]
-    title_size=75
-    for candidate in (75,70,65,61,57,53,49,46,43):
-        rows=lines(d,name,1000,candidate,'italic',max_lines=3)
-        if rows and not rows[-1].endswith('…'):
-            title_rows=rows;title_size=candidate;break
-    if not title_rows:
-        title_size=43
-        title_rows=lines(d,name,1000,title_size,'italic',max_lines=3)
-    title_y=275+(3-len(title_rows))*19
-    step=title_size+16
-    for i,row in enumerate(title_rows):
-        txt(d,(55,title_y+i*step),row,title_size,'#11151A' if i==0 else '#0058AB','italic')
-    # The part number is its own strong diagonal blue tab.
-    d.polygon([(0,558),(470,540),(394,665),(0,680)],fill='#005AAE')
-    part=str(p.get('part','')).upper()
-    sku_size=105
-    while sku_size>58 and text_width(d,part,sku_size,'italic')>345:sku_size-=5
-    txt(d,(52,561),part,sku_size,WHITE,'italic')
-    # White benefit call-out over the lower edge of the photograph.
-    d.polygon([(0,1260),(783,1237),(702,1505),(0,1505)],fill=WHITE)
-    d.line((48,1306,22,1436),fill='#0063B9',width=8)
-    benefits=short_features(p,1)
-    benefit=benefits[0] if benefits else short_purpose(p)
-    benefit=' '.join(benefit.split()).strip(' .')
-    if len(benefit)<18:
-        benefit=short_purpose(p)
-    benefit_size=49
-    benefit_rows=[]
-    for candidate in (49,46,43,40,37,34,31):
-        rows=lines(d,benefit,577,candidate,'italic',max_lines=3)
-        if rows and not rows[-1].endswith('…'):
-            benefit_size=candidate;benefit_rows=rows;break
-    if not benefit_rows:
-        benefit_size=31
-        benefit_rows=lines(d,benefit,577,31,'italic',max_lines=3)
-    benefit_y=1317+(3-len(benefit_rows))*17
-    for i,row in enumerate(benefit_rows):
-        txt(d,(75,benefit_y+i*(benefit_size+9)),row,benefit_size,'#11161A','italic')
-    # Foreground blue RRP wedge. Ex VAT takes the headline position as in the
-    # supplied poster, and the calculated inc VAT is clearly labelled below.
-    d.polygon([(765,1237),(1200,1237),(1200,1505),(675,1505)],fill='#0057A9')
-    d.polygon([(765,1237),(1200,1237),(1200,1250),(759,1250)],fill='#168ED1')
-    amount=prepared_price(p)
-    if amount:
-        ex_vat=amount['secondary'].split(' EX VAT')[0]
-        inc_vat=amount['primary']
-        txt(d,(797,1267),'UK RRP',47,WHITE,'italic')
-        size=113
-        while size>42 and text_width(d,ex_vat,size,'italic')>430:size-=5
-        txt(d,(775,1318),ex_vat,size,WHITE,'italic')
-        txt(d,(791,1445),'EX VAT',29,WHITE,'bold')
-        txt(d,(993,1450),inc_vat+' INC VAT',19,'#D9EDFF','bold',anchor='ma')
+    # Faint steel surface horizon, deliberately graphic so it is not a faked
+    # real product demonstration.
+    d.polygon([(0,1292),(1200,1238),(1200,1510),(0,1510)],fill=(55,64,72))
+    for n in range(13):
+        y=1308+n*15
+        d.line((0,y,1200,y-55),fill='#687887',width=1)
+
+    # Render the authentic product large over the background.
+    # Tall lamps and presses get a taller stage; horizontal kits fill the width.
+    cropped=trim_photo(photo)
+    aspect=cropped.width/max(1,cropped.height)
+    if aspect<.64:
+        stage=(270,607,1100,1410)
+    elif aspect>1.45:
+        stage=(4,679,1194,1407)
     else:
-        txt(d,(795,1284),'UK RRP',48,WHITE,'italic')
-        txt(d,(779,1350),'NOT VERIFIED',49,WHITE,'italic')
-        txt(d,(790,1448),'CONFIRM BEFORE RELEASE',19,WHITE,'bold')
-    # A black strip with three *verified* condensed facts.
-    d.rectangle((0,1505,W,1587),fill='#111317')
-    points=[]
-    for key,val in best_specs(p,4):
-        point=(str(key)+' '+str(val)).strip().upper()
-        if point and len(point)<=49 and point not in points:points.append(point)
-        if len(points)>=3:break
-    if len(points)<3:
-        for feature in short_features(p,5):
-            point=feature.upper().strip(' .')
-            if len(point)>45:
-                point=point[:42].rsplit(' ',1)[0]+'…'
-            if point and point not in points:points.append(point)
-            if len(points)>=3:break
-    if not points:points=['SEE VERIFIED PRODUCT DETAILS']
-    cell_w=400
-    for i,point in enumerate(points[:3]):
-        x=i*cell_w
-        if i>0:d.polygon([(x-10,1522),(x-3,1522),(x-22,1573),(x-29,1573)],fill='#0876C9')
-        row_size=28
-        while row_size>18 and len(lines(d,point,342,row_size,'italic',max_lines=2))>1:
-            row_size-=2
-        rows=lines(d,point,340,row_size,'italic',max_lines=2)
-        for j,line in enumerate(rows):
-            width=text_width(d,line,row_size,'italic')
-            txt(d,(x+(cell_w-width)//2,1523+j*(row_size+5)),line,row_size,WHITE,'italic')
-    # Footer keeps the poster visually connected to Laser Tools house branding.
-    gradient_box(im,(0,1605,W,H),'#004A91','#0868B8',vertical=False)
+        stage=(28,644,1188,1424)
+    place_cutout(im,photo,stage)
     d=ImageDraw.Draw(im)
-    logo(d,43,1603,64)
-    d.line((686,1620,665,1676),fill=WHITE,width=5)
-    txt(d,(715,1630),'lasertools.co.uk',43,WHITE,'italic')
-    txt(d,(1180,1684),'MARKETING DRAFT · VERIFY FACTS, PRICE & BRAND',12,'#D9EAF6','bold',anchor='ra')
+
+    # Oversized, angular blue Laser masthead as in the supplied reference.
+    d.polygon([(0,0),(770,0),(648,246),(0,267)],fill='#0457A8')
+    d.polygon([(733,0),(772,0),(665,238),(628,242)],fill=WHITE)
+    d.rectangle((0,0,575,12),fill='#138DDD')
+    logo(d,64,30,143)
+
+    # Huge white oblique product name banner, intentionally independent of
+    # the image. Body text is never placed over the actual tool.
+    d.polygon([(0,268),(1173,224),(1108,605),(0,643)],fill=WHITE)
+    name=clean_name_for_poster(p).upper().replace(' - ',' ')
+    # Retain every title word while trying 2 lines first for headline impact.
+    chosen=None
+    for maxlines in (2,3):
+        for sz in (116,110,104,98,92,86,80,74,68,62,57,52):
+            test=lines(d,name,1098,sz,'italic',max_lines=maxlines)
+            if test and not test[-1].endswith('…') and len(test)<=maxlines:
+                chosen=(sz,test)
+                break
+        if chosen:break
+    if chosen is None:
+        chosen=(52,lines(d,name,1098,52,'italic',max_lines=3))
+    size,rows=chosen
+    step=size+15
+    title_y=307+(3-len(rows))*14
+    for i,row in enumerate(rows):
+        ink='#101417' if i==0 else '#005BAD'
+        txt(d,(54,title_y+i*step),row,size,ink,'italic')
+
+    # Part number, floating in a standalone blue wedge under the headline.
+    d.polygon([(0,635),(457,615),(391,763),(0,777)],fill='#0759AF')
+    sku=str(p.get('part') or '').upper()
+    sku_size=128
+    while sku_size>70 and text_width(d,sku,sku_size,'italic')>355:sku_size-=5
+    txt(d,(52,647),sku,sku_size,WHITE,'italic')
+
+    # Overlay the reference-style white benefit ribbon, not a paragraph panel.
+    d.polygon([(0,1389),(765,1366),(703,1570),(0,1570)],fill=WHITE)
+    d.line((61,1437,29,1541),fill='#0067BB',width=9)
+    benefit=campaign_benefit(p)
+    picked=None
+    for sz in (50,47,44,41,38,35,32):
+        rows=lines(d,benefit,575,sz,'italic',max_lines=3)
+        if rows and not rows[-1].endswith('…'):
+            picked=sz,rows
+            break
+    if picked is None:picked=(32,lines(d,benefit,575,32,'italic',max_lines=3))
+    bsz,brows=picked
+    benefit_y=1434+(3-len(brows))*13
+    for idx,row in enumerate(brows):
+        txt(d,(83,benefit_y+idx*(bsz+9)),row,bsz,'#11151C','italic')
+
+    # Oversized right price wedge in the artwork (not a normal UI box).
+    d.polygon([(779,1360),(1200,1360),(1200,1570),(675,1570)],fill='#0059B1')
+    d.polygon([(779,1360),(1200,1360),(1200,1373),(775,1373)],fill='#17A3E5')
+    price=prepared_price(p)
+    if price:
+        ex=price['secondary'].split(' EX VAT')[0]
+        inc=price['primary']
+        txt(d,(786,1385),'RRP',48,WHITE,'italic')
+        amount_size=119
+        while amount_size>40 and text_width(d,ex,amount_size,'italic')>455:
+            amount_size-=5
+        txt(d,(757,1426),ex,amount_size,WHITE,'italic')
+        txt(d,(850,1522),'+ VAT',34,WHITE,'italic')
+        txt(d,(1117,1537),inc+' INC VAT',16,'#D3EDFE','bold',anchor='rm')
+    else:
+        txt(d,(815,1385),'UK RRP',43,WHITE,'italic')
+        txt(d,(785,1461),'VERIFY PRICE',40,WHITE,'italic')
+        txt(d,(887,1530),'BEFORE RELEASE',23,WHITE,'bold')
+
+    # Exact fact strip, NOT a row of repeated marketing paragraphs.
+    d.rectangle((0,1570,W,1663),fill='#111316')
+    points=campaign_quick_facts(p)
+    for i in range(3):
+        x=i*400
+        if i:
+            d.polygon([(x-14,1583),(x-4,1583),(x-20,1648),(x-30,1648)],fill='#0078CA')
+        if i>=len(points):continue
+        point=points[i]
+        font_size=27
+        rows=lines(d,point,356,font_size,'italic',max_lines=2)
+        while font_size>18 and (len(rows)>1 or rows[-1].endswith('…')):
+            font_size-=2;rows=lines(d,point,356,font_size,'italic',max_lines=2)
+        for j,row in enumerate(rows):
+            width=text_width(d,row,font_size,'italic')
+            txt(d,(x+(400-width)//2,1596+j*(font_size+4)),row,font_size,WHITE,'italic')
+
+    # Big brand-blue footer to echo the reference's full-width end card.
+    gradient_box(im,(0,1690,W,H),'#0062B4','#003D83',vertical=False)
+    d=ImageDraw.Draw(im)
+    logo(d,39,1694,79)
+    d.line((708,1703,681,1772),fill=WHITE,width=6)
+    txt(d,(754,1717),'lasertools.co.uk',44,WHITE,'italic')
+    txt(d,(1180,1780),'MARKETING DRAFT · VERIFY SOURCE, RRP & DESIGN BEFORE RELEASE',13,'#D2E9F8','bold',anchor='ra')
     return png(im)
 
 
