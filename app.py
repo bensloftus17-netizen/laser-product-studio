@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 from PIL import Image
 from flask import Flask, request, jsonify, send_file, render_template_string
 
-from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy
+from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -552,8 +552,8 @@ def preview(part,style):
         p,img=lookup(part)
         p=with_reviewed_price(p,request.args.get('staff_rrp_ex'),request.args.get('staff_rrp_reviewed')=='1')
         if not img:return jsonify(error='Verified product image missing'),422
-        assets=create_posters(p,img)
-        return send_file(io.BytesIO(assets[style]),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
+        renderer={'Hero':render_hero,'Technical':render_technical,'Price':render_price}[style]
+        return send_file(io.BytesIO(renderer(p,img)),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
 
 if __name__=='__main__':
