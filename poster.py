@@ -265,23 +265,37 @@ def choose_headline(p):
         return ('LIGHT THE WAY','TO A BETTER JOB.')
     return ('BUILT FOR','THE JOB IN HAND.')
 
+def customer_features(p,n=5,maxlen=118):
+    """Select compact, complete English sales facts; never paste catalogue size dumps.
+
+    Long comma-separated kit-content inventories are kept in the audited source
+    record but excluded from customer artwork. Statements are only shortened
+    at genuine sentence/clause boundaries, never completed by invented wording.
+    """
+    out=[]
+    for raw in facts(p):
+        full=' '.join(raw.split()).strip(' •-')
+        if not full:continue
+        number_count=len(re.findall(r'\b\d+(?:[.,]\d+)?(?:mm|Nm|W|psi)?\b',full,re.I))
+        if (len(full)>185 or (number_count>=7 and full.count(',')>=4)):
+            continue
+        # Split only on a known sentence or clause boundary, not arbitrarily
+        # cutting "suitable for" vehicle lists into inaccurate claims.
+        choices=[full]
+        choices.extend(re.split(r'(?<=[.!?])\s+',full))
+        choices.extend(re.split(r';\s*',full))
+        phrase=next((v.strip(' .;') for v in choices if 16<=len(v.strip())<=maxlen),None)
+        if not phrase:continue
+        phrase=phrase[0].upper()+phrase[1:]
+        if phrase.casefold() not in {v.casefold() for v in out}:
+            out.append(phrase)
+        if len(out)>=n:break
+    return out
+
 def short_features(p,n=3):
-    """Extract small, grounded customer-facing phrases without inventing benefits."""
-    result=[]
-    for f in facts(p):
-        s=re.sub(r'^(ideal for|suitable for|includes|features)\s+', '',f,flags=re.I)
-        s=s.split(';')[0].split('. ')[0].strip(' .')
-        if len(s)>96:
-            s=re.split(r', | together with | which | and also ',s,1)[0]
-        if len(s)>98:
-            s=s.split(' (')[0]
-            if len(s)>98:s=s[:95].rsplit(' ',1)[0]+'…'
-        if s:
-            s=s[0].upper()+s[1:]
-            if s not in result:result.append(s)
-        if len(result)>=n:break
-    if not result and p.get('description'):result=[p['description'][:95]]
-    return result
+    """Short, source-true features; omit rather than print fragments or micro-text."""
+    return customer_features(p,n,maxlen=91)
+
 
 def png(im):
     buffer=io.BytesIO();im.save(buffer,'PNG',optimize=True)
@@ -331,7 +345,7 @@ def clean_name_for_poster(p):
     return name.strip()
 
 def feature_text(p,amount=4):
-    return facts(p)[:amount]
+    return customer_features(p,amount,maxlen=125)
 
 def application_from_record(p):
     s=props(p)
@@ -349,14 +363,25 @@ def application_from_record(p):
     return 'Refer to the official product listing for approved applications.'
 
 def short_purpose(p):
-    s=' '.join(str(p.get('description') or '').split())
-    if not s:
-        s=(facts(p) or ['See the manufacturer product information sheet.'])[0]
-    # Use only an authentic description, shortened at a sentence boundary when feasible.
-    first=re.split(r'(?<=[.!?])\s+',s)
-    v=first[0]
-    if len(v)<110 and len(first)>1:v+=' '+first[1]
-    return v[:340] if len(v)>340 else v
+    """Readable product purpose with only manufacturer-supported English text."""
+    content=' '.join(str(p.get('description') or '').split())
+    if not content:
+        concise=customer_features(p,1,145)
+        return concise[0] if concise else 'See the official product information for application and operating details.'
+    clauses=re.split(r'(?<=[.!?])\s+',content)
+    # Keep the first coherent, manageable sentence instead of a miniature
+    # paragraph that is unreadable when printed.
+    line=next((v for v in clauses if 24<=len(v)<=198),None)
+    if line:return line
+    first=clauses[0]
+    if len(first)<=210:return first
+    # Cut at a clause boundary only, otherwise use a safe generic reference.
+    chunks=re.split(r';\s+|,\s+(?=(?:with|and|for|which)\b)',first)
+    for chunk in chunks:
+        if 24<=len(chunk)<=195:return chunk.strip(' ,;')+'.'
+    concise=customer_features(p,1,145)
+    return concise[0] if concise else 'Refer to the official manufacturer product information.'
+
 
 def callout_feature(p,index=0,maxlen=75):
     fs=facts(p)
