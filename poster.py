@@ -495,6 +495,16 @@ def render_hero(p,blob,application_blob=None):
     # Part number on its own solid panel so it reads against any source image.
     d.polygon([(1283,22),(1570,22),(1540,130),(1270,130)],fill='#075A9D')
     txt(d,(1322,36),str(p.get('part','')),76,WHITE,'italic')
+    # A discreet approved-price badge on the advert; the separate sales graphic
+    # remains the only poster where RRP is the primary focal point.
+    uk_price=prepared_price(p)
+    if uk_price:
+        d.rounded_rectangle((1132,651,1575,792),radius=7,fill='#065EAA')
+        d.rectangle((1132,651,1575,659),fill=CYAN)
+        txt(d,(1154,669),'UK RRP INC VAT',24,WHITE,'bold')
+        point_size=68
+        while point_size>39 and text_width(d,uk_price['primary'],point_size,'bold')>408:point_size-=4
+        txt(d,(1152,704),uk_price['primary'],point_size,WHITE,'bold')
     # An off-white benefits strip, not repeated spec blocks.
     d.rectangle((0,800,W,920),fill='#F2F7FB')
     points=short_features(p,3)
