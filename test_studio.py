@@ -94,7 +94,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
 
     def test_three_poster_formats(self):
         p,image=self.sample()
-        formats=[(render_hero,(1200,1700)),(render_technical,(1280,1590)),(render_price,(1200,1200))]
+        formats=[(render_hero,(1200,1800)),(render_technical,(1280,1590)),(render_price,(1600,980))]
         for renderer,dimensions in formats:
             with self.subTest(format=renderer.__name__):
                 result=renderer(p,image)
@@ -110,7 +110,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
             alternate=render_hero(p,image,data.getvalue())
             self.assertGreater(len(alternate),4000)
             with Image.open(io.BytesIO(alternate)) as graphic:
-                self.assertEqual(graphic.size,(1200,1700))
+                self.assertEqual(graphic.size,(1200,1800))
 
 
     def test_reference_promo_for_different_skus_and_prices(self):
@@ -127,7 +127,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
                 content=render_hero(custom,photo)
                 self.assertGreater(len(content),5000)
                 with Image.open(io.BytesIO(content)) as image:
-                    self.assertEqual(image.size,(1200,1700))
+                    self.assertEqual(image.size,(1200,1800))
 
 if __name__=='__main__':
     unittest.main()
