@@ -6,7 +6,7 @@ from app import (manufacturer_price_from_html, english_only_features, with_revie
                  manufacturer_gallery_urls, pdf_render_photo, valid_image, is_french,
                  OFFICIAL_UK_PRODUCTS, VERIFIED_UK_RRP, VERIFIED_UK_FACTS, parse_html,
                  is_non_english, normalise_product_language)
-from poster import render_hero, render_technical, render_price, prepared_price, create_fact_sheet_pdf, create_posters, customer_features, campaign_quick_facts
+from poster import render_hero, render_technical, render_price, prepared_price, create_fact_sheet_pdf, create_posters, customer_features, campaign_quick_facts, technical_layout_mode
 
 class MarketingStudioSmokeTests(unittest.TestCase):
     def sample(self):
@@ -134,6 +134,85 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         self.assertEqual(cleaned['features'],[english[0]])
         self.assertIn('Drive',cleaned['specs'])
         self.assertNotIn('Werkdruk',cleaned['specs'])
+
+    def test_ratchet_9364_three_piece_vs_9365_four_piece_sources(self):
+        self.assertIn('9364',OFFICIAL_UK_PRODUCTS)
+        self.assertIn('9365',OFFICIAL_UK_PRODUCTS)
+        self.assertEqual(VERIFIED_UK_RRP['9364'][0],'£101.48 excluding VAT')
+        self.assertEqual(VERIFIED_UK_RRP['9365'][0],'£178.00 excluding VAT')
+        self.assertIn('3',VERIFIED_UK_FACTS['9364']['specs']['Number of pieces'])
+        self.assertIn('4',VERIFIED_UK_FACTS['9365']['specs']['Number of pieces'])
+        self.assertTrue(all(not is_non_english(x) for x in VERIFIED_UK_FACTS['9364']['features']))
+        self.assertTrue(all(not is_non_english(x) for x in VERIFIED_UK_FACTS['9365']['features']))
+
+    def test_adaptive_technical_modes_and_density(self):
+        sample,photo=self.sample()
+        ratchet3={**sample,
+            'part':'9364',
+            'title':'9364 Ratchet Set with Comfort Handle 3pc - 50th Anniversary',
+            'features':VERIFIED_UK_FACTS['9364']['features'][:],
+            'specs':dict(VERIFIED_UK_FACTS['9364']['specs']),
+        }
+        ratchet4={**sample,
+            'part':'9365',
+            'title':'9365 Stainless Steel High-Quality Ratchet Set 4pc',
+            'features':VERIFIED_UK_FACTS['9365']['features'][:],
+            'specs':dict(VERIFIED_UK_FACTS['9365']['specs']),
+        }
+        bearing={**sample,
+            'part':'9395',
+            'title':'9395 Front Wheel Bearing Kit - for Mercedes-Benz Sprinter and VW Crafter',
+            'features':[
+                'Applications: Mercedes-Benz Sprinter and Volkswagen Crafter.',
+                'Kit includes extraction and insertion clamshells.',
+                'Suitable for use with a standard workshop press.',
+                'The bearing is fitted by pressing on the outer race.',
+                'Follow the fitting instructions supplied with the kit.',
+            ],
+            'specs':{
+                'Number of pieces':'17',
+                'Material':'Steel',
+                'Tool type':'Gen 2 wheel bearing fitting kit',
+                'Storage':'Metal tin',
+                'Vehicle manufacturer':'Mercedes-Benz, Volkswagen',
+                'Vehicle model':'Sprinter, Crafter',
+            },
+        }
+        medium={**sample,
+            'part':'4832','title':'Manual Pressure Brake Bleeder 2L',
+            'features':['2 litre pressure bleeding tank.',
+                        'One-way syphoning method.',
+                        'Includes pressure release valve.'],
+            'specs':{'Capacity':'2 litres','Operating pressure':'10psi'},
+        }
+        sparse={**sample,
+            'part':'9364','title':'Ratchet Set with Comfort Handle 3pc',
+            'description':'Set of three workshop ratchets.',
+            'features':[],'specs':{},
+        }
+        for product,mode in [(ratchet3,'light'),(ratchet4,'light'),
+                             (bearing,'dense'),(medium,'medium'),(sparse,'light')]:
+            with self.subTest(part=product['part'],expected=mode):
+                self.assertEqual(technical_layout_mode(product),mode)
+                art=render_technical(product,photo)
+                self.assertGreater(len(art),5500)
+                with Image.open(io.BytesIO(art)) as image:
+                    self.assertEqual(image.size,(1280,1590))
+        from unittest.mock import patch
+        import poster
+        with patch.object(poster,'technical_section',wraps=poster.technical_section) as sections:
+            render_technical(sparse,photo)
+            headings=[str(call.args[4]) for call in sections.call_args_list]
+            self.assertIn('PRODUCT OVERVIEW',headings)
+            self.assertNotIn('VERIFIED TECHNICAL DATA',headings)
+            self.assertFalse(any('FEATURE' in x for x in headings))
+        with patch.object(poster,'technical_section',wraps=poster.technical_section) as sections:
+            render_technical(bearing,photo)
+            headings=[str(call.args[4]) for call in sections.call_args_list]
+            self.assertIn('KEY FEATURES',headings)
+            self.assertIn('VERIFIED TECHNICAL DATA',headings)
+        self.assertTrue(create_fact_sheet_pdf(ratchet3,photo).startswith(b'%PDF'))
+        self.assertTrue(create_fact_sheet_pdf(bearing,photo).startswith(b'%PDF'))
 
     def test_9395_style_technical_png_pdf_and_secondary_photo(self):
         p,blob=self.sample()
