@@ -21,7 +21,7 @@ from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy,
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v13">
+<link rel="stylesheet" href="/static/styles.css?design=v14">
 <style>
 /* V10 preview: reference-inspired portrait promotional flyer + technical + price. */
 .previews{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
@@ -51,7 +51,7 @@ function setState(message,type='neutral'){const el=$('status');el.className='sta
 function reset(){active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function productCard(p,photo){const specs=Object.entries(p.specs||{}).map(([k,v])=>`<div class="spec"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('');const fs=(p.features||[]).map(x=>`<li>${esc(x)}</li>`).join('');const warns=(p.warnings||[]).map(x=>`<p class="warn">${esc(x)}</p>`).join('');return `<div class="found"><div class="sourcepill">✓ Live official source</div><h3>${esc(p.part)} <span>${esc(p.title)}</span></h3><div class="recordphoto">${photo?`<img src="${photo}" alt="Genuine Laser ${esc(p.part)} image">`:'<div class="nophoto">No verified photo retrieved</div>'}</div><p class="description">${esc(p.description)}</p>${p.price?`<div class="price">Manufacturer RRP <b>${esc(p.price)}</b><small style="display:block;font-size:12px;color:#486b87">${esc(p.price_status||'Check official source before publishing')}</small></div>`:''}<b class="subheading">Features</b><ul>${fs||'<li>Consult product sheet</li>'}</ul><b class="subheading">Technical specifications</b><div>${specs||'<span class="smallmuted">Refer to official information sheet</span>'}</div><div class="sourceinfo"><div>Source checked: ${esc(p.source_checked)}</div><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">Open official source ↗</a></div>${warns}</div>`;}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified product photo was found. Posters are withheld rather than using an inaccurate AI-generated image.</div>';return;}
-let styles=[['Hero','01 · Laser-style promotional advert'],['Technical','02 · Technical breakdown'],['Price','03 · RRP / sales poster']];$('previews').innerHTML=styles.map(([key,label])=>`<div class="posteritem"><div class="posterthumb"><img loading="lazy" src="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v13${staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):''}" alt="${label}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span class=loaderror>Preview unavailable — open the full image or check Render logs.</span>')"></div><div class="posteritemfoot"><span>${label}</span><a target="_blank" href="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v13${staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):''}" download="LASER_${esc(p.part)}_${key}.png">View / save ↗</a></div></div>`).join('');}
+let styles=[['Hero','01 · Laser-style promotional advert'],['Technical','02 · Technical breakdown'],['Price','03 · RRP / sales poster']];$('previews').innerHTML=styles.map(([key,label])=>`<div class="posteritem"><div class="posterthumb"><img loading="lazy" src="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v14${staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):''}" alt="${label}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span class=loaderror>Preview unavailable — open the full image or check Render logs.</span>')"></div><div class="posteritemfoot"><span>${label}</span><a target="_blank" href="/api/poster/${encodeURIComponent(p.part)}/${key}?design=v14${staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):''}" download="LASER_${esc(p.part)}_${key}.png">View / save ↗</a></div></div>`).join('');}
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
 try{const override=$('officialUrl').value.trim();const res=await fetch(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;activePhoto=data.photo_url;$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
 catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create previews <b>→</b>';inflight=false;}}
@@ -59,7 +59,7 @@ $('applyRrp').addEventListener('click',()=>{
     if(!active){setState('Find a product first.','error');return;}
     const raw=$('staffRrp').value.trim(),approved=$('staffReview').checked,number=Number(raw);
     if(!raw||!approved||!Number.isFinite(number)||number<=0||number>500000){
-        setState('Enter a positive ex-VAT RRP and tick the staff review box.','error');return;
+        setState('Enter a positive UK RRP and tick the staff review box.','error');return;
     }
     staffApplied=number.toFixed(2);staffBasis=$('staffRrpBasis').value;
     active.price='£'+number.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})+(staffBasis==='inc'?' including VAT':' excluding VAT');
@@ -783,13 +783,13 @@ def no_cache_for_drafts(response):
     return response
 
 @app.get('/api/health')
-def health():return jsonify(ok=True,service='Laser Product Studio',design='v13-english-vat-and-reference-templates',lookup='official page + PDF fallback')
+def health():return jsonify(ok=True,service='Laser Product Studio',design='v14-dark-blue-technical-and-english-only',lookup='official page + PDF fallback')
 
 @app.get('/api/lookup/<part>')
 def product_lookup(part):
     try:
         product,image=lookup(part,uk_url=request.args.get('uk_url') or None)
-        return jsonify(product=product,photo_url=f'/api/photo/{part}?design=v13' if image else None)
+        return jsonify(product=product,photo_url=f'/api/photo/{part}?design=v14' if image else None)
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
     except requests.RequestException:return jsonify(error='Official Laser website could not be reached. Please retry.'),502
     except Exception:
@@ -816,7 +816,7 @@ def generate(part):
         product=with_reviewed_price(product,body.get('staff_rrp_ex'),body.get('staff_rrp_reviewed') is True,body.get('staff_rrp_basis','ex'))
         if not img:return jsonify(error='No verified official product photograph available; marketing posters will not be generated with a fabricated photo.'),422
         assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part))
-        tech=create_fact_sheet_pdf(product,img)
+        tech=create_fact_sheet_pdf(product,img,APPLICATION_IMAGE_CACHE.get(part))
         txt=create_marketing_copy(product)
         with io.BytesIO() as zbuf:
             with zipfile.ZipFile(zbuf,'w',zipfile.ZIP_DEFLATED) as z:
@@ -839,7 +839,7 @@ def preview(part,style):
         p=with_reviewed_price(p,request.args.get('staff_rrp_ex'),request.args.get('staff_rrp_reviewed')=='1',request.args.get('staff_rrp_basis','ex'))
         if not img:return jsonify(error='Verified product image missing'),422
         renderer={'Hero':render_hero,'Technical':render_technical,'Price':render_price}[style]
-        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part)) if style=='Hero' else renderer(p,img)
+        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part)) if style in ('Hero','Technical') else renderer(p,img)
         return send_file(io.BytesIO(artwork),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
 
