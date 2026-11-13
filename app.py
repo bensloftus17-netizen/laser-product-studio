@@ -80,6 +80,7 @@ logging.basicConfig(level=logging.INFO)
 ALLOWED={'www.lasertools.co.uk','lasertools.co.uk','lasertools.toolconnection.co.uk','www.toolconnection.co.uk','toolconnection.co.uk'}
 HEADERS={'User-Agent':'Mozilla/5.0 (compatible; LaserProductStudioPilot/1.0; product-content-review)', 'Accept':'text/html,application/pdf,image/avif,image/webp,image/jpeg,image/png,*/*', 'Accept-Language':'en-GB,en;q=0.9'}
 CACHE: dict[str, tuple[float,dict,bytes|None]]={}
+APPLICATION_IMAGE_CACHE: dict[str,bytes]={}
 
 class LookupErrorPublic(Exception): pass
 
@@ -493,6 +494,25 @@ def lookup(part,session=requests,force=False,uk_url=None):
                 product['photo_source']=r.url
         except Exception:pass
     product['photo_verified']=bool(image_bytes)
+    # When the manufacturer provides a separate photo of the tool in use, keep
+    # it for the campaign poster; catalogue and price designs use the studio photo.
+    # A single extra official photo is attempted, never a random search-engine image.
+    APPLICATION_IMAGE_CACHE.pop(part,None)
+    application_candidates=[
+        x for x in product.get('image_candidates',[])
+        if re.search(r'in[ _-]?situ',x,re.I)
+    ]
+    application_candidates.append(f'https://www.lasertools.co.uk/items/large/{part}_InSitu_A.jpg')
+    product['application_photo_source']=None
+    for image_url in dict.fromkeys(application_candidates[:2]):
+        try:
+            if not re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(image_url).path,re.I):continue
+            result=official_get(image_url,session)
+            if valid_image(result.content):
+                APPLICATION_IMAGE_CACHE[part]=result.content
+                product['application_photo_source']=result.url
+                break
+        except Exception:pass
     product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
     product['lookup_status']='Live official UK/English manufacturer source'
     product['warnings']=[]
@@ -578,7 +598,7 @@ def generate(part):
         product=safe_override(product,body.get('edits') or {})
         product=with_reviewed_price(product,body.get('staff_rrp_ex'),body.get('staff_rrp_reviewed') is True)
         if not img:return jsonify(error='No verified official product photograph available; marketing posters will not be generated with a fabricated photo.'),422
-        assets=create_posters(product,img)
+        assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part))
         tech=create_fact_sheet_pdf(product,img)
         txt=create_marketing_copy(product)
         with io.BytesIO() as zbuf:
@@ -602,7 +622,8 @@ def preview(part,style):
         p=with_reviewed_price(p,request.args.get('staff_rrp_ex'),request.args.get('staff_rrp_reviewed')=='1')
         if not img:return jsonify(error='Verified product image missing'),422
         renderer={'Hero':render_hero,'Technical':render_technical,'Price':render_price}[style]
-        return send_file(io.BytesIO(renderer(p,img)),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
+        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part)) if style=='Hero' else renderer(p,img)
+        return send_file(io.BytesIO(artwork),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
 
 if __name__=='__main__':
