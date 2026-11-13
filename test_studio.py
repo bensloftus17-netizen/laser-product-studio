@@ -6,7 +6,7 @@ from app import (manufacturer_price_from_html, english_only_features, with_revie
                  manufacturer_gallery_urls, pdf_render_photo, valid_image, is_french,
                  OFFICIAL_UK_PRODUCTS, VERIFIED_UK_RRP, VERIFIED_UK_FACTS, parse_html,
                  is_non_english, normalise_product_language)
-from poster import render_hero, render_technical, render_price, prepared_price, create_fact_sheet_pdf, create_posters
+from poster import render_hero, render_technical, render_price, prepared_price, create_fact_sheet_pdf, create_posters, customer_features, campaign_quick_facts
 
 class MarketingStudioSmokeTests(unittest.TestCase):
     def sample(self):
@@ -157,6 +157,64 @@ class MarketingStudioSmokeTests(unittest.TestCase):
                 self.assertTrue(pdf.startswith(b'%PDF'))
         assets=create_posters(p,blob,scene)
         self.assertEqual(set(assets),{'Hero','Technical','Price'})
+
+    def test_4554_dutch_kit_list_removed_for_sales_demo(self):
+        foreign=[
+            'Tappen (2 van elk) en snijbekken, maten M2 x 0,4, M3 x 0,5, M4 x 0,7.',
+            '2 x verstelbare taphouders van M6-M20; 2 snijplaathouders.',
+            'Gemaakt van gelegeerd staal.',
+            'Geleverd in een stevige kunststof behuizing om veilig op te bergen.',
+        ]
+        for phrase in foreign:
+            with self.subTest(phrase=phrase):
+                self.assertTrue(is_non_english(phrase))
+        p,photo=self.sample()
+        p.update(part='4554',
+                 title='4554 Metric Tap & Die Set 110pc',
+                 description='Professional quality metric tap and die set, featuring split dies, three tap holders and two die holders. Supplied in a blow-moulded storage case.',
+                 features=foreign+['Supplied in a blow-moulded storage case.'],
+                 price=None,
+                 specs={})
+        cleaned=normalise_product_language(p)
+        self.assertEqual(cleaned['features'],['Supplied in a blow-moulded storage case.'])
+        self.assertTrue(all(not is_non_english(x) for x in cleaned['features']))
+        self.assertIn('source_raw_features',cleaned)
+        assets=create_posters(cleaned,photo)
+        self.assertEqual(set(assets),{'Hero','Technical','Price'})
+        for name,data in assets.items():
+            with self.subTest(poster=name):
+                with Image.open(io.BytesIO(data)) as im:
+                    self.assertGreater(im.width,1000)
+
+    def test_customer_poster_avoids_long_catalogue_size_lists(self):
+        p,photo=self.sample()
+        p['features']=[
+            'Tap sizes: '+', '.join('M'+str(i)+' x 1mm' for i in range(2,35))+'.',
+            'Includes a blow-moulded storage case.',
+            'Split dies for metric threads.',
+            'Precision thread cutting tools suitable for service work.',
+        ]
+        points=customer_features(p,5,maxlen=100)
+        self.assertTrue(points)
+        self.assertTrue(all(len(x)<=100 for x in points))
+        self.assertFalse(any('M32 x 1mm' in x for x in points))
+        p['title']='4554 Metric Tap & Die Set 110pc'
+        chips=campaign_quick_facts(p)
+        self.assertIn('110 PIECE METRIC SET',chips)
+        self.assertTrue(all(len(x)<43 for x in chips))
+        from unittest.mock import patch
+        import poster
+        p['price']=None
+        with patch.object(poster,'txt',wraps=poster.txt) as draws:
+            render_hero(p,photo)
+            text=[str(c.args[2]) for c in draws.call_args_list if len(c.args)>=3]
+            self.assertIn('ON REQUEST',text)
+            self.assertNotIn('VERIFY PRICE',text)
+        with patch.object(poster,'txt',wraps=poster.txt) as draws:
+            render_price(p,photo)
+            text=[str(c.args[2]) for c in draws.call_args_list if len(c.args)>=3]
+            self.assertIn('ON REQUEST',text)
+            self.assertNotIn('NOT VERIFIED',text)
 
     def test_photo_validation_rejects_broken_banner(self):
         from app import valid_image
