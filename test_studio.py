@@ -355,6 +355,74 @@ class MarketingStudioSmokeTests(unittest.TestCase):
                 self.assertEqual(graphic.size,(1200,1800))
 
 
+    def test_v17_guided_homepage_has_working_controls(self):
+        from app import app, V7_HOME_PAGE
+        from bs4 import BeautifulSoup
+        client=app.test_client()
+        response=client.get('/')
+        self.assertEqual(response.status_code,200)
+        document=BeautifulSoup(response.get_data(as_text=True),'html.parser')
+        required=('part','searchForm','searchBtn','officialUrl','staffRrp',
+                  'staffRrpBasis','staffReview','applyRrp','record','previews',
+                  'reviewed','download','status')
+        for id_ in required:
+            with self.subTest(id=id_):
+                self.assertIsNotNone(document.find(id=id_))
+        ids=[node.get('id') for node in document.find_all(id=True)]
+        self.assertEqual(len(ids),len(set(ids)))
+        self.assertEqual(len(document.select('.step[data-step]')),3)
+        self.assertEqual(len(document.select('.hero-art .art-sheet')),3)
+        self.assertIn('design=v17',V7_HOME_PAGE)
+        self.assertIn('function setProgress(stage)',V7_HOME_PAGE)
+        self.assertIn('function showPreviews(p,photo)',V7_HOME_PAGE)
+        self.assertIn('class="advanced-options"',V7_HOME_PAGE)
+        self.assertEqual(client.get('/static/styles.css').status_code,200)
+
+    def test_promo_fitted_text_never_overlaps_price_or_feature_strip(self):
+        from unittest.mock import patch
+        from PIL import ImageFont
+        import poster
+        p,photo=self.sample()
+        p.update(part='9395',
+                 title='9395 Front Wheel Bearing Kit for Mercedes-Benz Sprinter & VW Crafter',
+                 description='Front wheel bearings on the Volkswagen Crafter and Mercedes-Benz Sprinter are difficult to remove with the hub in place. Once the hub is removed the bearing can be pressed out and replaced using a standard workshop press.',
+                 features=['The bearing can be pressed out and replaced using a standard workshop press.',
+                           'Applications: Mercedes Sprinter and Volkswagen Crafter.',
+                           'Kit includes bearing fitting and removal adapters.'],
+                 price='£525.66 excluding VAT')
+        image=Image.new('RGB',(1200,1800),'white')
+        d=ImageDraw.Draw(image)
+        boxes=[
+            ('headline',54,286,1000,300,'FRONT WHEEL BEARING KIT FOR MERCEDES-BENZ SPRINTER & VW CRAFTER'),
+            ('benefit',84,1401,535,154,poster.campaign_benefit(p)),
+            ('price',832,1391,343,111,'£525.66'),
+        ]
+        for label,x,y,w,h,text in boxes:
+            sizes=(92,86,80,74,68,62,56,50,44,38,32) if label=='headline' else (
+                (47,44,41,38,35,32,29,26,23) if label=='benefit' else
+                (112,103,94,86,78,71,64,57,50,43,36))
+            with self.subTest(panel=label):
+                rendered=[]
+                def capture(draw,pos,value,size=26,color=None,style='italic',anchor=None):
+                    bbox=draw.textbbox((0,0),value,font=poster.font(size,style))
+                    rendered.append((pos[0]+bbox[0],pos[1]+bbox[1],
+                                     pos[0]+bbox[2],pos[1]+bbox[3],str(value)))
+                with patch.object(poster,'txt',side_effect=capture):
+                    ok=poster.draw_fitted_panel_copy(
+                        d,text,x,y,w,h,sizes,style='italic',
+                        colors=['#101417'] if label=='headline' else None,max_lines=3 if label!='price' else 1)
+                self.assertTrue(ok)
+                self.assertTrue(rendered)
+                for left,top,right,bottom,value in rendered:
+                    self.assertGreaterEqual(left,x-1,(label,value))
+                    self.assertGreaterEqual(top,y-1,(label,value))
+                    self.assertLessEqual(right,x+w+1,(label,value))
+                    self.assertLessEqual(bottom,y+h+1,(label,value))
+                    self.assertNotIn('…',value)
+        generated=render_hero(p,photo)
+        with Image.open(io.BytesIO(generated)) as im:
+            self.assertEqual(im.size,(1200,1800))
+
     def test_reference_promo_for_different_skus_and_prices(self):
         p,photo=self.sample()
         names=[
