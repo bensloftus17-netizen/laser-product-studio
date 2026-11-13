@@ -3,7 +3,8 @@ import io
 import unittest
 from PIL import Image, ImageDraw
 from app import (manufacturer_price_from_html, english_only_features, with_reviewed_price,
-                 manufacturer_gallery_urls, pdf_render_photo, valid_image)
+                 manufacturer_gallery_urls, pdf_render_photo, valid_image, is_french,
+                 OFFICIAL_UK_PRODUCTS, VERIFIED_UK_RRP, VERIFIED_UK_FACTS, parse_html)
 from poster import render_hero, render_technical, render_price, prepared_price
 
 class MarketingStudioSmokeTests(unittest.TestCase):
@@ -52,6 +53,47 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         reviewed=with_reviewed_price(p,'114.70',True)
         self.assertEqual(prepared_price(reviewed)['primary'],'£137.64')
         self.assertIn('Staff-entered',reviewed['price_status'])
+
+    def test_8899_official_english_price_and_no_french(self):
+        self.assertIn('8899',OFFICIAL_UK_PRODUCTS)
+        self.assertEqual(VERIFIED_UK_RRP['8899'][0],'£144.16 excluding VAT')
+        record={'price':VERIFIED_UK_RRP['8899'][0]}
+        self.assertEqual(prepared_price(record)['primary'],'£172.99')
+        self.assertEqual(prepared_price(record)['secondary'],'£144.16 EX VAT')
+        self.assertTrue(is_french('En acier au carbone 45 traité thermiquement.'))
+        self.assertTrue(is_french('Méthode de syphonage unidirectionnelle'))
+        self.assertFalse(is_french('Manufactured from heat-treated carbon steel.'))
+        self.assertFalse(is_french('Land Rover Discovery V L462 and Range Rover IV L405.'))
+        self.assertEqual(
+            english_only_features(['En acier au carbone 45 traité thermiquement.',
+                                   'Scissor-type ball joint separator for JLR.',
+                                   'Scissor-type ball joint separator for JLR.']),
+            ['Scissor-type ball joint separator for JLR.']
+        )
+        self.assertGreater(len(VERIFIED_UK_FACTS['8899']['specs']),3)
+
+    def test_staff_rrp_ex_and_inc_vat_inputs(self):
+        base={'part':'8899','price':None,'warnings':['UK RRP not verified.']}
+        ex=with_reviewed_price(base,'144.16',True,'ex')
+        inc=with_reviewed_price(base,'172.99',True,'inc')
+        self.assertEqual(prepared_price(ex)['primary'],'£172.99')
+        self.assertEqual(prepared_price(inc)['primary'],'£172.99')
+        self.assertEqual(prepared_price(inc)['secondary'],'£144.16 EX VAT')
+        self.assertIn('Staff-entered',inc['price_status'])
+        with self.assertRaises(Exception):
+            with_reviewed_price(base,'144.16',False,'ex')
+        with self.assertRaises(Exception):
+            with_reviewed_price(base,'144.16',True,'bogus')
+
+    def test_uk_html_product_parser_english_price_and_bullets(self):
+        page=b"""<html><h1>Ball Joint Separator - for JLR</h1>
+           <p>A heavy-duty ball joint separator for Land Rover vehicles suitable for professional workshops.</p>
+           <div>8899</div><div>RRP\xc2\xa3144.16plus VAT</div>
+           <ul><li>En acier au carbone 45 trait\xc3\xa9 thermiquement.</li>
+           <li>Scissor type joint separator for Land Rover Discovery V vehicles.</li></ul></html>"""
+        product=parse_html(page,'8899',OFFICIAL_UK_PRODUCTS['8899'])
+        self.assertEqual(product['price'],'£144.16 excluding VAT')
+        self.assertEqual(product['features'],['Scissor type joint separator for Land Rover Discovery V vehicles.'])
 
     def test_photo_validation_rejects_broken_banner(self):
         from app import valid_image
