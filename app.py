@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import fitz
 import requests
 from bs4 import BeautifulSoup
-from PIL import Image
+from PIL import Image, ImageOps
 from flask import Flask, request, jsonify, send_file, render_template_string
 
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price
