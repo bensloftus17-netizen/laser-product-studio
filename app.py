@@ -873,6 +873,14 @@ def with_reviewed_price(product,raw,approved=False,basis='ex'):
     return result
 
 
+def selected_distributor(value):
+    """Accept only the three user-supplied demo marks."""
+    code=str(value or 'none').strip().lower()
+    if code not in BRAND_LABELS:
+        raise ValueError('Unknown customer branding. Select a listed distributor or None.')
+    return None if code=='none' else code
+
+
 def safe_override(original,updates):
     out={**original}
     for key in ('title','description'):
@@ -888,12 +896,27 @@ def home():
 
 @app.after_request
 def no_cache_for_drafts(response):
-    if request.path=='/' or request.path.startswith('/api/poster/') or request.path.startswith('/api/photo/'):
+    if request.path=='/' or request.path.startswith('/api/poster/') or request.path.startswith('/api/photo/') or request.path.startswith('/api/distributor-logo/'):
         response.headers['Cache-Control']='no-store, max-age=0'
     return response
 
 @app.get('/api/health')
-def health():return jsonify(ok=True,service='Laser Product Studio',design='v17-guided-premium-studio-safe-text',lookup='official page + PDF fallback')
+def health():return jsonify(ok=True,service='Laser Product Studio',design='v18-customer-distributor-logo-branding',lookup='official page + PDF fallback')
+
+@app.get('/api/distributor-logo/<brand>')
+def distributor_logo(brand):
+    try:
+        code=selected_distributor(brand)
+        if code is None:return jsonify(error='No distributor logo selected'),404
+        image=get_brand_image(code)
+        if image is None:return jsonify(error='Distributor logo unavailable'),404
+        output=io.BytesIO()
+        image.save(output,format='PNG')
+        output.seek(0)
+        return send_file(output,mimetype='image/png',download_name=code+'_logo.png')
+    except ValueError:
+        return jsonify(error='Unknown distributor'),404
+
 
 @app.get('/api/lookup/<part>')
 def product_lookup(part):
@@ -925,9 +948,12 @@ def generate(part):
             return jsonify(error='Please confirm you reviewed the official product facts before generating external marketing drafts.'),400
         product=normalise_product_language(safe_override(product,body.get('edits') or {}))
         product=with_reviewed_price(product,body.get('staff_rrp_ex'),body.get('staff_rrp_reviewed') is True,body.get('staff_rrp_basis','ex'))
+        distributor=selected_distributor(body.get('distributor_brand','none'))
+        product['distributor_brand']=BRAND_LABELS[distributor] if distributor else None
+        if distributor:product['brand_use_notice']='Customer logo for draft use only. Obtain brand owner approval before external publication.'
         if not img:return jsonify(error='No verified official product photograph available; marketing posters will not be generated with a fabricated photo.'),422
-        assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part))
-        tech=create_fact_sheet_pdf(product,img,APPLICATION_IMAGE_CACHE.get(part))
+        assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part),distributor)
+        tech=create_fact_sheet_pdf(product,img,APPLICATION_IMAGE_CACHE.get(part),distributor)
         txt=create_marketing_copy(product)
         with io.BytesIO() as zbuf:
             with zipfile.ZipFile(zbuf,'w',zipfile.ZIP_DEFLATED) as z:
@@ -937,6 +963,7 @@ def generate(part):
                 z.writestr(f'LASER_{part}_Source_Record.json',json.dumps(product,indent=2))
             zbuf.seek(0)
             return send_file(io.BytesIO(zbuf.getvalue()),mimetype='application/zip',download_name=f'LASER_{part}_Marketing_Pack.zip',as_attachment=True)
+    except ValueError as e:return jsonify(error=str(e)),400
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
     except Exception:
         app.logger.exception('generation error')
@@ -948,10 +975,12 @@ def preview(part,style):
     try:
         p,img=lookup(part)
         p=with_reviewed_price(p,request.args.get('staff_rrp_ex'),request.args.get('staff_rrp_reviewed')=='1',request.args.get('staff_rrp_basis','ex'))
+        distributor=selected_distributor(request.args.get('distributor_brand','none'))
         if not img:return jsonify(error='Verified product image missing'),422
         renderer={'Hero':render_hero,'Technical':render_technical,'Price':render_price}[style]
-        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part)) if style in ('Hero','Technical') else renderer(p,img)
+        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part),distributor) if style in ('Hero','Technical') else renderer(p,img,distributor)
         return send_file(io.BytesIO(artwork),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
+    except ValueError as e:return jsonify(error=str(e)),400
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
 
 if __name__=='__main__':
