@@ -767,6 +767,47 @@ def campaign_quick_facts(p):
     return output[:3]
 
 
+def choose_fitted_lines(d, message, width, height, sizes, style='italic', max_lines=3,
+                        line_spacing=1.13):
+    """Return a fully fitting, untruncated layout or no lines.
+
+    PIL's drawing API will happily paint underneath another panel. Every line
+    must pass both width and height checks before the first pixel is painted.
+    """
+    phrase=' '.join(str(message or '').split())
+    for size in sizes:
+        rows=lines(d,phrase,width,size,style,max_lines=max_lines)
+        if not rows or any(row.endswith('…') for row in rows):
+            continue
+        if ' '.join(rows).strip()!=phrase:
+            continue
+        advance=int(round(size*line_spacing))
+        bbox=[d.textbbox((0,0),row,font=font(size,style)) for row in rows]
+        full_height=(len(rows)-1)*advance+max(box[3] for box in bbox)
+        if all(text_width(d,row,size,style)<=width for row in rows) and full_height<=height:
+            return size, rows, advance
+    return None, [], 0
+
+
+def draw_fitted_panel_copy(d, message, x, y, width, height, sizes,
+                           style='italic', colors=None, max_lines=3):
+    """Center fitted words inside an explicit protected rectangle."""
+    size,rows,advance=choose_fitted_lines(
+        d,message,width,height,sizes,style,max_lines=max_lines)
+    if size is None:
+        return False
+    bounds=[d.textbbox((0,0),row,font=font(size,style)) for row in rows]
+    low=min(b[1] for b in bounds)
+    high=max(b[3] for b in bounds)
+    total=(len(rows)-1)*advance+high-low
+    top=y+max(0,(height-total)//2)-low
+    for i,row in enumerate(rows):
+        ink=(colors[i] if colors and i<len(colors) else
+             colors[-1] if colors else '#11151C')
+        txt(d,(x,top+i*advance),row,size,ink,style)
+    return True
+
+
 def render_hero(p,blob,application_blob=None):
     """Photo-first reference-style 2:3 ad for ANY Laser SKU.
 
@@ -823,23 +864,19 @@ def render_hero(p,blob,application_blob=None):
     # the image. Body text is never placed over the actual tool.
     d.polygon([(0,268),(1173,224),(1108,605),(0,643)],fill=WHITE)
     name=clean_name_for_poster(p).upper().replace(' - ',' ')
-    # Retain every title word while trying 2 lines first for headline impact.
-    chosen=None
-    for maxlines in (2,3):
-        for sz in (116,110,104,98,92,86,80,74,68,62,57,52):
-            test=lines(d,name,1098,sz,'italic',max_lines=maxlines)
-            if test and not test[-1].endswith('…') and len(test)<=maxlines:
-                chosen=(sz,test)
-                break
-        if chosen:break
-    if chosen is None:
-        chosen=(52,lines(d,name,1098,52,'italic',max_lines=3))
-    size,rows=chosen
-    step=size+15
-    title_y=307+(3-len(rows))*14
-    for i,row in enumerate(rows):
-        ink='#101417' if i==0 else '#005BAD'
-        txt(d,(54,title_y+i*step),row,size,ink,'italic')
+    # Protected white headline slab: y=288..583, x=54..1050. Using
+    # measured glyph bounds avoids spilling onto the product or number tab.
+    drawn=draw_fitted_panel_copy(
+        d,name,54,286,1000,300,
+        sizes=(92,86,80,74,68,62,56,50,44,38,32),
+        style='italic',colors=['#101417','#005BAD','#005BAD'],max_lines=3)
+    if not drawn:
+        # Never crop a long title; a smaller manufacturer-backed display
+        # name can still be paired with the full name in the technical PDF.
+        short=product_name(p).upper()
+        draw_fitted_panel_copy(d,short,54,286,1000,300,
+                               sizes=(70,62,54,48,42,36,30,26),
+                               style='italic',max_lines=4)
 
     # Part number, floating in a standalone blue wedge under the headline.
     d.polygon([(0,635),(457,615),(391,763),(0,777)],fill='#0759AF')
@@ -852,17 +889,16 @@ def render_hero(p,blob,application_blob=None):
     d.polygon([(0,1389),(765,1366),(703,1570),(0,1570)],fill=WHITE)
     d.line((61,1437,29,1541),fill='#0067BB',width=9)
     benefit=campaign_benefit(p)
-    picked=None
-    for sz in (50,47,44,41,38,35,32):
-        rows=lines(d,benefit,575,sz,'italic',max_lines=3)
-        if rows and not rows[-1].endswith('…'):
-            picked=sz,rows
-            break
-    if picked is None:picked=(32,lines(d,benefit,575,32,'italic',max_lines=3))
-    bsz,brows=picked
-    benefit_y=1434+(3-len(brows))*13
-    for idx,row in enumerate(brows):
-        txt(d,(83,benefit_y+idx*(bsz+9)),row,bsz,'#11151C','italic')
+    # The white ribbon ends at y=1570. Keep actual letter pixels fully in
+    # x=84..625 and y=1404..1555, regardless of title or tool category.
+    if not draw_fitted_panel_copy(d,benefit,84,1401,535,154,
+                                  sizes=(47,44,41,38,35,32,29,26,23),
+                                  style='italic',max_lines=3):
+        # Product category text is guaranteed to be grounded in the title.
+        category=clean_name_for_poster(p)
+        draw_fitted_panel_copy(d,category,84,1401,535,154,
+                               sizes=(34,30,27,24,21,19),
+                               style='italic',max_lines=3)
 
     # Oversized right price wedge in the artwork (not a normal UI box).
     d.polygon([(779,1295),(1200,1295),(1200,1570),(675,1570)],fill='#0059B1')
@@ -871,13 +907,16 @@ def render_hero(p,blob,application_blob=None):
     if price:
         ex=price['secondary'].split(' EX VAT')[0]
         inc=price['primary']
-        txt(d,(807,1323),'RRP',54,WHITE,'italic')
-        amount_size=119
-        while amount_size>40 and text_width(d,ex,amount_size,'italic')>455:
-            amount_size-=5
-        txt(d,(772,1382),ex,amount_size,WHITE,'italic')
-        txt(d,(850,1516),'+ VAT',36,WHITE,'italic')
-        txt(d,(1184,1546),inc+' INC VAT',17,'#D3EDFE','bold',anchor='ra')
+        txt(d,(838,1323),'UK RRP',43,WHITE,'italic')
+        # Price stays entirely in the blue wedge; right edge x=1183.
+        # Do not use x=772 plus up to 455px: that runs off the canvas.
+        amount_ok=draw_fitted_panel_copy(d,ex,832,1391,343,111,
+                                         sizes=(112,103,94,86,78,71,64,57,50,43,36),
+                                         style='italic',colors=[WHITE],max_lines=1)
+        if not amount_ok:
+            txt(d,(836,1414),'SEE PRICE',38,WHITE,'italic')
+        txt(d,(842,1504),'+ VAT',32,WHITE,'italic')
+        txt(d,(1178,1539),inc+' INC VAT',17,'#D3EDFE','bold',anchor='ra')
     else:
         txt(d,(810,1334),'CURRENT PRICE',38,WHITE,'italic')
         txt(d,(764,1415),'ON REQUEST',57,WHITE,'italic')
@@ -893,12 +932,15 @@ def render_hero(p,blob,application_blob=None):
         if i>=len(points):continue
         point=points[i]
         font_size=27
-        rows=lines(d,point,356,font_size,'italic',max_lines=2)
-        while font_size>18 and (len(rows)>1 or rows[-1].endswith('…')):
-            font_size-=2;rows=lines(d,point,356,font_size,'italic',max_lines=2)
+        sz,rows,step=choose_fitted_lines(
+            d,point,340,67,(27,25,23,21,19,17),'italic',max_lines=2)
+        if sz is None:
+            continue
+        full=(len(rows)-1)*step+sz
+        y=1581+max(0,(68-full)//2)
         for j,row in enumerate(rows):
-            width=text_width(d,row,font_size,'italic')
-            txt(d,(x+(400-width)//2,1596+j*(font_size+4)),row,font_size,WHITE,'italic')
+            width=text_width(d,row,sz,'italic')
+            txt(d,(x+(400-width)//2,y+j*step),row,sz,WHITE,'italic')
 
     # Big brand-blue footer to echo the reference's full-width end card.
     gradient_box(im,(0,1690,W,H),'#0062B4','#003D83',vertical=False)
