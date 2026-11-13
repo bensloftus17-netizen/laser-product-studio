@@ -299,26 +299,31 @@ def page_footer(d,W,H,p,color=NAVY):
 from decimal import Decimal, ROUND_HALF_UP
 
 def prepared_price(p):
-    """Return display amounts only when the manufacturer's record contains a price.
-    VAT-inclusive amount is derived *only* from an explicitly VAT-exclusive price.
+    """Consistent UK RRP display: inc VAT prominent, ex VAT secondary.
+
+    Uses the 20% UK standard VAT rate for this automotive tools pilot.
+    Amounts are always labelled as calculated where a source supplied just one.
     """
     raw=str(p.get('price') or '').strip()
-    match=re.search(r'£\s*([\d,]+(?:\.\d{2})?)',raw)
+    match=re.search(r'£\s*([\d,]+(?:\.\d{1,2})?)',raw)
     if not match:return None
-    try: amount=Decimal(match.group(1).replace(',',''))
+    try:amount=Decimal(match.group(1).replace(',',''))
     except Exception:return None
+    if not amount.is_finite() or amount<=0:return None
+    fmt=lambda a:f'£{a:,.2f}'
     text=raw.lower()
-    fmt=lambda v:f'£{v:,.2f}'
-    if any(t in text for t in ('excluding vat','plus vat','exc vat','ex vat','excl vat')):
-        # UK standard-rate goods: show explicit derivation, not a manufacturer quotation.
+    is_ex=any(v in text for v in ('excluding vat','plus vat','exc vat','ex vat','excl vat'))
+    is_inc=any(v in text for v in ('including vat','inc vat','inc. vat','incl vat'))
+    if is_ex:
         inc=(amount*Decimal('1.20')).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP)
-        return {'primary':fmt(inc),'basis':'INC VAT @ 20%','secondary':f'{fmt(amount)} ex VAT',
-                'source_basis':'Manufacturer RRP excluding VAT; inclusive amount calculated at 20%.'}
-    if any(t in text for t in ('including vat','inc vat','inc. vat','incl vat')):
-        return {'primary':fmt(amount),'basis':'INC VAT','secondary':'MANUFACTURER RRP',
-                'source_basis':'Manufacturer RRP including VAT.'}
-    return {'primary':fmt(amount),'basis':'VAT BASIS UNVERIFIED','secondary':'CHECK SOURCE BEFORE USE',
-            'source_basis':'VAT basis not explicit in retrieved official listing.'}
+        return {'primary':fmt(inc),'basis':'INC VAT','secondary':f'{fmt(amount)} EX VAT',
+                'source_basis':'UK RRP excluding VAT; inc VAT calculated at 20%.'}
+    if is_inc:
+        ex=(amount/Decimal('1.20')).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP)
+        return {'primary':fmt(amount),'basis':'INC VAT','secondary':f'{fmt(ex)} EX VAT',
+                'source_basis':'UK RRP including VAT; ex VAT calculated at 20%.'}
+    return None
+
 
 def clean_name_for_poster(p):
     name=product_name(p)
@@ -445,113 +450,91 @@ def render_technical(p,blob):
     return png(im)
 
 def render_hero(p,blob):
-    """Dark, campaign-led portrait advert. Real product pixels, no invented workshop scene."""
-    W,H=1240,1510
-    im=Image.new('RGB',(W,H),'#071A31')
-    gradient_box(im,(0,0,W,570),'#061C34','#075593',vertical=False)
+    """Campaign advert: cinematic landscape, bold benefit headline, dominant authentic product."""
+    W,H=1600,920
+    im=Image.new('RGB',(W,H),'#071B31')
+    gradient_box(im,(0,0,W,H),'#071C34','#0F4575',vertical=False)
     d=ImageDraw.Draw(im)
-    d.polygon([(1050,0),(1240,0),(1094,570),(912,570)],fill='#0674B8')
-    d.polygon([(1144,0),(1240,0),(1189,360),(1080,360)],fill='#0D94D0')
-    logo(d,54,28,75)
-    line(d,(760,75),(760,151),'#6FADD9',3)
-    txt(d,(790,68),str(p.get('part','')),91,WHITE,'italic')
-    line(d,(54,182),(1185,182),'#6F9CC0',2)
-    first,second=choose_headline(p)
-    for idx,(head,colour) in enumerate([(first,WHITE),(second,'#36BDFC')]):
-        sz=71
-        if text_width(d,head,sz,'italic')>1130:sz=62
-        txt(d,(54,220+idx*91),head,sz,colour,'italic')
+    # Strong asymmetrical Laser-blue accents, not an invented workshop photograph.
+    d.polygon([(1175,0),(1600,0),(1600,420),(1388,700),(1053,700)],fill='#075994')
+    d.polygon([(1490,0),(1600,0),(1600,468),(1430,468)],fill='#17A0E3')
+    d.rectangle((0,0,W,13),fill=CYAN)
+    logo(d,63,30,73)
+    d.rectangle((1120,58,1125,144),fill=CYAN)
+    txt(d,(1160,52),str(p.get('part','')),91,WHITE,'italic')
+    d.rectangle((63,188,1532,191),fill='#3E86B7')
+    a,b=choose_headline(p)
+    headline1=75 if text_width(d,a,75,'italic')<=810 else 63
+    headline2=75 if text_width(d,b,75,'italic')<=810 else 63
+    txt(d,(67,234),a,headline1,WHITE,'italic')
+    txt(d,(67,333),b,headline2,'#32C7FC','italic')
     name=clean_name_for_poster(p)
-    title_size,rows=fit_title(d,name,1100,(48,44,40,36,33),max_lines=2)
-    for i,row in enumerate(rows):
-        txt(d,(58,418+i*(title_size+9)),row,title_size,WHITE,'bold')
-    # Split the stage into a graphic sales column and an oversized official photo.
-    d.rectangle((35,570,1205,1234),fill='#ECF3F8')
-    d.rectangle((52,588,450,1217),fill='#0A3459')
-    d.rectangle((470,588,1190,1217),fill=WHITE)
-    d=ImageDraw.Draw(im)
-    txt(d,(78,615),'WHY IT WORKS',30,'#54C7FB','bold')
-    points=short_features(p,3)
-    if not points:
-        points=[short_purpose(p)]
-    y=687
-    for i,claim in enumerate(points[:3]):
-        if y>1150:break
-        d.rectangle((78,y+8,91,y+22),fill=CYAN)
-        y=text_rows(d,claim,108,y,314,25,4,'bold',WHITE,1.2)+37
-    # Keep the manufacturer photo completely accurate. The backdrop is graphic,
-    # not a fabricated photo of the tool being used.
+    nsize,nrows=fit_title(d,name,758,(43,40,37,34,31),max_lines=3)
+    for idx,row in enumerate(nrows[:3]):
+        txt(d,(70,464+idx*(nsize+9)),row,nsize,'#E7F3FD','bold')
+    d.rectangle((73,644,462,650),fill=CYAN)
+    txt(d,(74,679),'LASER PROFESSIONAL',27,WHITE,'bold')
+    txt(d,(74,717),'WORKSHOP TOOLS',27,WHITE,'bold')
+    # Oversized official photo, placed against clean light photographic panel.
+    # Cutting out is only attempted on nearly white studio shots.
+    d.polygon([(870,198),(1530,198),(1530,756),(814,756)],fill='#DCEAF4')
+    d.rectangle((899,228,1510,730),fill=WHITE)
     photo=manufacturer_photo(blob)
-    photo_safe(im,photo,(476,596,1184,1210),cutout=False)
+    place_cutout(im,photo,(910,228,1490,725))
     d=ImageDraw.Draw(im)
-    d.rectangle((0,1234,W,1457),fill='#0569B8')
-    d.polygon([(0,1234),(786,1234),(690,1457),(0,1457)],fill='#094675')
-    txt(d,(49,1269),'PROFESSIONAL WORKSHOP',27,'#ABDFFA','bold')
-    txt(d,(47,1309),'LASER TOOLS',48,WHITE,'italic')
-    txt(d,(48,1376),'ENGINEERED FOR THE JOB.',26,WHITE,'bold')
-    price=prepared_price(p)
-    if price:
-        txt(d,(835,1255),'UK RRP',31,'#D8F1FF','bold')
-        amount=price['primary']
-        size=68 if len(amount)<=10 else 55
-        txt(d,(825,1300),amount,size,WHITE,'bold')
-        txt(d,(825,1386),price['basis'],21,WHITE,'bold')
-    else:
-        txt(d,(810,1300),'SEE PRODUCT',42,WHITE,'bold')
-        txt(d,(811,1353),'DETAILS',42,WHITE,'bold')
-    d.rectangle((0,1457,W,H),fill='#061A2E')
-    txt(d,(49,1472),'lasertools.co.uk',25,WHITE,'bold')
-    txt(d,(1186,1478),'DRAFT · VERIFY CLAIMS AND RRP',17,'#A9CBE1','bold',anchor='ra')
+    d.rectangle((884,747,1529,755),fill=CYAN)
+    d.rectangle((0,787,W,H),fill='#F7FAFC')
+    d.rectangle((0,787,W,800),fill=BLUE)
+    points=short_features(p,3)
+    if not points:points=[short_purpose(p)]
+    for i in range(3):
+        x=53+518*i
+        if i>0:d.rectangle((x-24,820,x-21,888),fill='#B4CEDF')
+        d.rectangle((x,818,x+38,854),fill=BLUE)
+        txt(d,(x+9,821),str(i+1),23,WHITE,'bold')
+        claim=points[i] if i<len(points) else (points[0] if i==0 else '')
+        if claim:text_rows(d,claim,x+52,814,440,24,3,'bold',INK,1.16)
+    txt(d,(1535,894),'lasertools.co.uk  •  MARKETING DRAFT',15,MUTED,anchor='ra')
     return png(im)
 
 
 def render_price(p,blob):
-    """Bright retailer price card — landscape, intentionally unlike the dark hero."""
-    W,H=1600,1000
-    im=Image.new('RGB',(W,H),'#FAFCFE')
+    """Price-first square retailer graphic, intentionally unrelated to hero composition."""
+    W,H=1200,1200
+    im=Image.new('RGB',(W,H),WHITE)
+    gradient_box(im,(0,0,W,137),'#095EA2','#003C78',vertical=False)
     d=ImageDraw.Draw(im)
-    gradient_box(im,(0,0,W,142),'#066EB8','#003D76',vertical=False)
-    d=ImageDraw.Draw(im)
-    logo(d,48,13,64)
-    d.rectangle((1272,25,1277,118),fill='#66C4F7')
-    txt(d,(1302,35),str(p.get('part','')),75,WHITE,'italic')
-    d.rectangle((0,142,1600,156),fill=CYAN)
+    logo(d,47,18,60)
+    d.rectangle((950,32,955,110),fill=CYAN)
+    txt(d,(979,27),str(p.get('part','')),70,WHITE,'italic')
+    d.rectangle((0,137,W,147),fill=CYAN)
     title=clean_name_for_poster(p)
-    size,rows=fit_title(d,title,1470,(60,53,47,42,38,34),max_lines=2)
-    for i,row in enumerate(rows):
-        txt(d,(58,183+i*(size+6)),row,size,NAVY,'bold')
-    top=max(340,183+len(rows)*(size+6)+26)
-    # Full-sized genuine product photography on clean neutral white.
-    d.rectangle((49,top,847,838),fill='#EEF4F8')
-    d.polygon([(49,top),(307,top),(49,top+246)],fill='#DDECF7')
+    name_size,name_rows=fit_title(d,title,1100,(55,49,44,40,36,33),max_lines=2)
+    title_y=175
+    for i,row in enumerate(name_rows):
+        txt(d,(52,title_y+i*(name_size+8)),row,name_size,NAVY,'bold')
+    pic_y=max(300,title_y+len(name_rows)*(name_size+8)+20)
+    d.rectangle((40,pic_y,1160,715),fill='#F3F7FA')
     photo=manufacturer_photo(blob)
-    photo_safe(im,photo,(70,top+10,825,820),cutout=False)
+    photo_safe(im,photo,(55,pic_y+8,1145,707),cutout=False)
     d=ImageDraw.Draw(im)
-    # Price is the primary graphic, not a small badge.
-    d.rectangle((879,top,1555,837),fill='#005BA6')
-    d.rectangle((879,top,1555,top+14),fill=CYAN)
-    txt(d,(916,top+40),'MANUFACTURER UK RRP',31,'#DDF5FF','bold')
-    d.rectangle((912,top+95,1523,top+97),fill='#4CB2EF')
+    d.rectangle((0,728,W,1130),fill=BLUE)
+    d.polygon([(1040,728),(1200,728),(1200,1130),(897,1130)],fill='#04477D')
     data=prepared_price(p)
     if data:
-        amount=data['primary']
-        amount_size=111 if len(amount)<=9 else 88
-        if text_width(d,amount,amount_size,'bold')>610:amount_size=75
-        txt(d,(910,top+128),amount,amount_size,WHITE,'bold')
-        txt(d,(917,top+265),data['basis'],31,WHITE,'bold')
-        txt(d,(917,top+310),data['secondary'],27,'#D5F1FF')
+        txt(d,(58,754),'UK MANUFACTURER RRP',34,'#D8F3FF','bold')
+        price_size=152 if len(data['primary'])<=8 else 119
+        while price_size>88 and text_width(d,data['primary'],price_size,'bold')>1070:price_size-=7
+        txt(d,(45,818),data['primary'],price_size,WHITE,'bold')
+        txt(d,(69,1020),data['basis'],31,'#D5F1FF','bold')
+        txt(d,(425,1020),data['secondary'],31,WHITE,'bold')
     else:
-        txt(d,(913,top+130),'RRP',82,WHITE,'bold')
-        txt(d,(917,top+238),'NOT VERIFIED',49,WHITE,'bold')
-        txt(d,(918,top+313),'DO NOT PUBLISH AS PRICED',22,'#FFF1D0','bold')
-    txt(d,(915,top+390),'CHECK CURRENT RRP BEFORE USE',21,'#EAF8FF','bold')
-    # Thin benefit strip rather than another technical summary.
-    d.rectangle((0,857,W,1000),fill='#0B2B4A')
-    firsts=short_features(p,2)
-    for i in range(2):
-        x=55+i*780
-        d.rectangle((x,884,x+6,953),fill=CYAN)
-        text_rows(d,firsts[i] if i<len(firsts) else short_purpose(p),x+25,882,720,25,3,'bold',WHITE,1.2)
+        txt(d,(58,772),'UK MANUFACTURER RRP',35,'#D8F3FF','bold')
+        txt(d,(59,845),'NOT VERIFIED',88,WHITE,'bold')
+        txt(d,(61,1034),'REVIEW OFFICIAL PRODUCT PRICING',26,WHITE,'bold')
+    d.rectangle((0,1130,W,H),fill=NAVY)
+    txt(d,(49,1145),'lasertools.co.uk',24,WHITE,'bold')
+    txt(d,(1155,1145),'DRAFT · CHECK PRICE BEFORE PUBLICATION',16,'#B7D4E5','bold',anchor='ra')
     return png(im)
 
 
