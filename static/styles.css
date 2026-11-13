@@ -215,3 +215,35 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
   .how-grid{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+
+/* V18 — demo customer and distributor co-branding selector */
+.distributor-config{
+ margin:19px 0 0;padding:20px 22px;border-radius:12px;border:1px solid #cfe1ef;
+ background:linear-gradient(110deg,#f6faff 0%,#edf6ff 100%);
+}
+.distributor-label{display:flex;align-items:baseline;justify-content:space-between;gap:13px;margin-bottom:12px}
+.distributor-label label{font-size:14px;font-weight:810;color:#153b5f}
+.distributor-label label span{font-weight:560;color:#6d8399;font-size:12px}
+.distributor-label>small{font-size:11px;color:#687f97;line-height:1.4}
+.distributor-controls{display:flex;align-items:center;gap:14px}
+.distributor-controls select{
+ flex:1;max-width:480px;min-width:190px;border:1px solid #bad1e3;background:#fff;
+ color:#133958;font-size:14px;font-weight:680;padding:13px 15px;border-radius:9px;cursor:pointer
+}
+.distributor-logo-preview{
+ width:240px;max-width:42%;height:84px;flex:none;background:#fff;border:1px solid #d7e5ef;
+ border-radius:9px;display:grid;place-items:center;overflow:hidden;padding:9px;
+ box-shadow:0 2px 8px #07345b12
+}
+.distributor-logo-preview img{width:100%;height:100%;object-fit:contain;display:block}
+.distributor-logo-preview span{font-size:11px;letter-spacing:1.1px;color:#668199;font-weight:790;text-align:center}
+.brand-disclaimer{display:block;margin-top:10px;font-size:10px;color:#687f97;line-height:1.45}
+@media(max-width:700px){
+ .distributor-config{padding:16px;margin-top:16px}
+ .distributor-label{display:block}
+ .distributor-label>small{display:block;margin-top:6px}
+ .distributor-controls{gap:10px}
+ .distributor-controls select{min-width:0;font-size:12px;padding:12px 9px}
+ .distributor-logo-preview{width:125px;height:70px;max-width:40%;padding:5px}
+}
