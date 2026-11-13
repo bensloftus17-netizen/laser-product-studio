@@ -569,6 +569,11 @@ def lookup(part,session=requests,force=False,uk_url=None):
                 product['application_photo_source']=response.url
                 break
         except Exception:pass
+    # Some products offer only an application photo. It is still a real,
+    # part-specific manufacturer photograph, and preferable to no poster at all.
+    if image_bytes is None and part in APPLICATION_IMAGE_CACHE:
+        image_bytes=APPLICATION_IMAGE_CACHE[part]
+        product['photo_source']=product['application_photo_source']
     product['photo_verified']=bool(image_bytes)
     product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
     product['lookup_status']='Live official UK/English manufacturer source'
