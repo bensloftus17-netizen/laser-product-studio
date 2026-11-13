@@ -372,7 +372,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         self.assertEqual(len(ids),len(set(ids)))
         self.assertEqual(len(document.select('.step[data-step]')),3)
         self.assertEqual(len(document.select('.hero-art .art-sheet')),3)
-        self.assertIn('design=v17',V7_HOME_PAGE)
+        self.assertIn('design=v18',V7_HOME_PAGE)
         self.assertIn('function setProgress(stage)',V7_HOME_PAGE)
         self.assertIn('function showPreviews(p,photo)',V7_HOME_PAGE)
         self.assertIn('class="advanced-options"',V7_HOME_PAGE)
@@ -422,6 +422,82 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         generated=render_hero(p,photo)
         with Image.open(io.BytesIO(generated)) as im:
             self.assertEqual(im.size,(1200,1800))
+
+    def test_v18_three_authentic_distributor_logos_and_routes(self):
+        from app import app, selected_distributor, V7_HOME_PAGE
+        from brand_assets import BRAND_LABELS, get_brand_image
+        from bs4 import BeautifulSoup
+        doc=BeautifulSoup(V7_HOME_PAGE,'html.parser')
+        chooser=doc.find(id='distributorBrand')
+        self.assertIsNotNone(chooser)
+        self.assertEqual([v.get('value') for v in chooser.select('option')],
+                         ['none','gsf','euro','mpd'])
+        self.assertIsNotNone(doc.find(id='distributorPreview'))
+        self.assertIn('function updateDistributorPreview()',V7_HOME_PAGE)
+        self.assertIn('distributor_brand:selectedDistributor()',V7_HOME_PAGE)
+        self.assertIn('design=v18',V7_HOME_PAGE)
+        self.assertIsNone(selected_distributor('none'))
+        with self.assertRaises(ValueError):
+            selected_distributor('../secrets')
+        client=app.test_client()
+        for code in ('gsf','euro','mpd'):
+            with self.subTest(distributor=code):
+                self.assertEqual(selected_distributor(code),code)
+                logo=get_brand_image(code)
+                self.assertIsNotNone(logo)
+                self.assertGreater(logo.width,100)
+                self.assertGreater(logo.height,45)
+                self.assertIn(code,BRAND_LABELS)
+                response=client.get('/api/distributor-logo/'+code)
+                self.assertEqual(response.status_code,200)
+                self.assertEqual(response.mimetype,'image/png')
+                with Image.open(io.BytesIO(response.data)) as image:
+                    self.assertEqual(image.size,logo.size)
+        self.assertEqual(client.get('/api/distributor-logo/none').status_code,404)
+        self.assertEqual(client.get('/api/distributor-logo/../../bad').status_code,404)
+
+    def test_v18_cobrand_posters_and_zip_export(self):
+        from app import app, selected_distributor
+        from unittest.mock import patch
+        import app as app_module
+        import json,zipfile
+        p,photo=self.sample()
+        # Every customer choice alters all three poster outputs and not
+        # the underlying genuine product photo or manufacturer facts.
+        original=create_posters(p,photo)
+        for brand in ('gsf','euro','mpd'):
+            with self.subTest(brand=brand):
+                assets=create_posters(p,photo,distributor_brand=brand)
+                self.assertEqual(set(assets),{'Hero','Technical','Price'})
+                for style in ('Hero','Technical','Price'):
+                    with self.subTest(format=style):
+                        self.assertNotEqual(original[style],assets[style])
+                        with Image.open(io.BytesIO(assets[style])) as im:
+                            self.assertEqual(im.mode,'RGB')
+                branded_pdf=create_fact_sheet_pdf(p,photo,distributor_brand=brand)
+                self.assertTrue(branded_pdf.startswith(b'%PDF'))
+        client=app.test_client()
+        with patch.object(app_module,'lookup',return_value=(p,photo)):
+            response=client.post('/api/generate/9197',
+                json={'confirmed':True,'distributor_brand':'gsf'})
+            self.assertEqual(response.status_code,200)
+            with zipfile.ZipFile(io.BytesIO(response.data)) as z:
+                names=z.namelist()
+                for kind in ('Hero','Technical','Price'):
+                    self.assertIn('LASER_9197_'+kind+'.png',names)
+                self.assertIn('LASER_9197_Technical_Sheet.pdf',names)
+                record=json.loads(z.read('LASER_9197_Source_Record.json'))
+                self.assertEqual(record['distributor_brand'],'GSF Car Parts')
+                self.assertIn('brand_use_notice',record)
+                self.assertTrue(z.read('LASER_9197_Technical_Sheet.pdf').startswith(b'%PDF'))
+            failed=client.post('/api/generate/9197',
+                json={'confirmed':True,'distributor_brand':'not-listed'})
+            self.assertEqual(failed.status_code,400)
+            poster=client.get('/api/poster/9197/Hero?distributor_brand=mpd')
+            self.assertEqual(poster.status_code,200)
+            unbranded=client.get('/api/poster/9197/Hero?distributor_brand=none')
+            self.assertEqual(unbranded.status_code,200)
+            self.assertNotEqual(poster.data,unbranded.data)
 
     def test_reference_promo_for_different_skus_and_prices(self):
         p,photo=self.sample()
