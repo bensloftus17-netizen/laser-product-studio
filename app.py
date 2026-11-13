@@ -293,10 +293,13 @@ def is_non_english(text):
         likely=detect_langs(phrase)
         if likely and likely[0].lang in ('nl','fr','de','es','it','pt','pl'):
             threshold=.76 if len(alphabet)>=8 else .88
+            # Never reject fluent English just because a statistical model
+            # misclassified specialist workshop jargon or measurements.
+            # Require actual foreign function words or multiple Dutch terms.
             if likely[0].prob>=threshold and (
-                FOREIGN_FUNCTION_WORDS.search(phrase)
-                or dutch_hits>=1
-                or not ENGLISH_SAFETY_WORDS.search(phrase)
+                (FOREIGN_FUNCTION_WORDS.search(phrase)
+                 and not ENGLISH_SAFETY_WORDS.search(phrase))
+                or dutch_hits>=2
             ):return True
     except LangDetectException:
         pass
