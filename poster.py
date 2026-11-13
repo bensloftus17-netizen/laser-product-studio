@@ -384,7 +384,6 @@ def photo_safe(im,photo,box,cutout=False):
 
 def technical_section(d,x,y,w,label,height=51):
     """Cobalt header with white lettering for the 9395-style engineering panels."""
-    gradient_box(d._image if hasattr(d,'_image') else None,(0,0,0,0),'#06467A','#0A70B7') if False else None
     d.rectangle((x,y,x+w,y+height),fill='#0868AB')
     d.rectangle((x,y,x+8,y+height),fill='#2A99D7')
     txt(d,(x+19,y+10),label.upper(),26,WHITE,'bold')
@@ -411,22 +410,22 @@ def render_technical(p,blob,application_blob=None):
     gradient_box(im,(15,15,1265,139),'#035EAA','#062C52',vertical=False)
     d=ImageDraw.Draw(im)
     d.rectangle((15,15,1265,22),fill='#2799DC')
-    logo(d,47,20,88)
+    logo(d,47,16,75)
     txt(d,(1034,37),str(p.get('part','')),77,WHITE,'italic')
     d.line((1007,31,1007,119),fill='#40A7DE',width=3)
     # Keep full product title readable at normal poster size.
     name=clean_name_for_poster(p).upper()
-    name_size,name_rows=fit_title(d,name,1212,(62,58,54,50,46,42,39),max_lines=2)
+    name_size,name_rows=fit_title(d,name,1212,(53,50,47,44,41,38,35),max_lines=2)
     for idx,line in enumerate(name_rows[:2]):
-        txt(d,(34,154+idx*(name_size+7)),line,name_size,WHITE,'bold')
+        txt(d,(34,151+idx*(name_size+8)),line,name_size,WHITE,'bold')
     # This line becomes fitment info when a valid vehicle application is present;
     # otherwise it is a short use-case summary, not an invented compatible model.
     application=application_from_record(p)
     if 'Refer to the official' in application:
         application=short_purpose(p)
-    app_rows=lines(d,application,1200,24,'regular',max_lines=2)
+    app_rows=lines(d,application,1200,22,'regular',max_lines=2)
     for idx,line in enumerate(app_rows):
-        txt(d,(35,260+idx*31),line,24,'#D2E4F3')
+        txt(d,(35,277+idx*27),line,22,'#D2E4F3')
     d.rectangle((31,330,1249,336),fill='#1886C9')
 
     # UPPER: honest studio photo and a dark product-purpose panel.
@@ -786,13 +785,13 @@ def create_posters(p,blob,application_blob=None):
     if not blob:raise ValueError('A verified manufacturer product image is required.')
     return {
        'Hero':render_hero(p,blob,application_blob),
-       'Technical':render_technical(p,blob),
+       'Technical':render_technical(p,blob,application_blob),
        'Price':render_price(p,blob),
     }
 
-def create_fact_sheet_pdf(p,blob):
+def create_fact_sheet_pdf(p,blob,application_blob=None):
     # Export the exact technical poster into A4; PNG and PDF cannot contradict.
-    poster=Image.open(io.BytesIO(render_technical(p,blob))).convert('RGB')
+    poster=Image.open(io.BytesIO(render_technical(p,blob,application_blob))).convert('RGB')
     output=io.BytesIO()
     c=canvas.Canvas(output,pagesize=(595.28,841.89))
     c.drawImage(ImageReader(poster),0,0,width=595.28,height=841.89)
