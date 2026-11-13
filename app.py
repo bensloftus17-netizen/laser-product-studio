@@ -331,10 +331,42 @@ def parse_pis_pdf(pdfbytes,part,url):
     return result,chosen
 
 def valid_image(blob):
+    """Reject blank/broken crops as well as undersized manufacturer photos.
+
+    A previous catalogue thumbnail was almost entirely a thin black horizontal
+    ribbon on white, yet its canvas passed our dimensions-only validation.
+    We detect that failure without rejecting long, vertical tools such as lamps.
+    """
     try:
         im=Image.open(io.BytesIO(blob));im.load()
-        return min(im.size)>=80 and max(im.size)>=300 and im.width*im.height>=50000 and im.width*im.height<=30_000_000
+        if not (min(im.size)>=80 and max(im.size)>=300 and 50000<=im.width*im.height<=30_000_000):return False
+        im=ImageOps.exif_transpose(im).convert('RGB')
+        im.thumbnail((350,350),Image.Resampling.LANCZOS)
+        w,h=im.size
+        colors=[im.getpixel((x,y)) for x,y in ((0,0),(w-1,0),(0,h-1),(w-1,h-1))]
+        # Photo with a near-white studio background: measure actual content.
+        light=sum(1 for rgb in colors if min(rgb)>228 and max(rgb)-min(rgb)<24)
+        if light>=3:
+            from PIL import ImageChops
+            mask=ImageChops.difference(im,Image.new('RGB',(w,h),'white')).convert('L')
+            mask=mask.point(lambda v:255 if v>45 else 0)
+            box=mask.getbbox()
+            if not box:return False
+            contentw=(box[2]-box[0])/w
+            contenth=(box[3]-box[1])/h
+            if contentw>.65 and contenth<.16:return False
+            if contentw*contenth<.025:return False
+        return True
     except Exception:return False
+
+def preferred_manufacturer_photos(part):
+    """Exact part-number JPEGs, not the first SEO/OG image on a product page."""
+    return [
+        f'https://www.lasertools.co.uk/items/large/{part}.jpg',
+        f'https://lasertools.toolconnection.co.uk/items/large/{part}.jpg',
+        f'https://www.lasertools.co.uk/items/XLarge/{part}.jpg',
+        f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
+    ]
 
 def lookup(part,session=requests,force=False,uk_url=None):
     part=sku_clean(part)
@@ -429,19 +461,36 @@ def lookup(part,session=requests,force=False,uk_url=None):
     elif product.get('price') and not product.get('price_source'):
         product['price_source']=product.get('source')
         product['price_status']='Live official UK product page'
-    if image_bytes is None:
-        candidates=product.get('image_candidates',[])+[
-            f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
-            f'https://www.lasertools.co.uk/items/XLarge/{part}.jpg']
-        for url in dict.fromkeys(candidates):
-            try:
-                r=official_get(url,session)
-                if valid_image(r.content):image_bytes=r.content;break
-            except Exception:pass
+    # Always use a verified product-specific manufacturer photo as first choice.
+    # Social-media OG thumbnails and extracted PDF masks can appear as black strips.
+    # Preserve the PDF photo as a fallback, but replace it with the genuine JPEG
+    # whenever one is obtainable.
+    pdf_photo=image_bytes if image_bytes and valid_image(image_bytes) else None
+    image_bytes=None
+    preferred=preferred_manufacturer_photos(part)
+    fallback_candidates=[
+        u for u in product.get('image_candidates',[])
+        if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(u).path,re.I)
+    ]
+    product['photo_source']=None
+    for image_url in dict.fromkeys(preferred+fallback_candidates):
+        try:
+            r=official_get(image_url,session)
+            if valid_image(r.content):
+                image_bytes=r.content
+                product['photo_source']=r.url
+                break
+        except Exception:pass
+    if image_bytes is None and pdf_photo:
+        image_bytes=pdf_photo
+        product['photo_source']='Embedded in official product information sheet'
     if image_bytes is None:
         try:
             r=official_get(f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',session,content_types=['pdf'])
-            _,image_bytes=parse_pis_pdf(r.content,part,r.url)
+            _,photo=parse_pis_pdf(r.content,part,r.url)
+            if photo and valid_image(photo):
+                image_bytes=photo
+                product['photo_source']=r.url
         except Exception:pass
     product['photo_verified']=bool(image_bytes)
     product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
