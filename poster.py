@@ -598,19 +598,19 @@ def render_hero(p,blob,application_blob=None):
         txt(d,(83,benefit_y+idx*(bsz+9)),row,bsz,'#11151C','italic')
 
     # Oversized right price wedge in the artwork (not a normal UI box).
-    d.polygon([(779,1360),(1200,1360),(1200,1570),(675,1570)],fill='#0059B1')
-    d.polygon([(779,1360),(1200,1360),(1200,1373),(775,1373)],fill='#17A3E5')
+    d.polygon([(779,1295),(1200,1295),(1200,1570),(675,1570)],fill='#0059B1')
+    d.polygon([(779,1295),(1200,1295),(1200,1308),(775,1308)],fill='#17A3E5')
     price=prepared_price(p)
     if price:
         ex=price['secondary'].split(' EX VAT')[0]
         inc=price['primary']
-        txt(d,(786,1385),'RRP',48,WHITE,'italic')
+        txt(d,(807,1323),'RRP',54,WHITE,'italic')
         amount_size=119
         while amount_size>40 and text_width(d,ex,amount_size,'italic')>455:
             amount_size-=5
-        txt(d,(757,1426),ex,amount_size,WHITE,'italic')
-        txt(d,(850,1522),'+ VAT',34,WHITE,'italic')
-        txt(d,(1117,1537),inc+' INC VAT',16,'#D3EDFE','bold',anchor='rm')
+        txt(d,(772,1382),ex,amount_size,WHITE,'italic')
+        txt(d,(850,1516),'+ VAT',36,WHITE,'italic')
+        txt(d,(1184,1546),inc+' INC VAT',17,'#D3EDFE','bold',anchor='ra')
     else:
         txt(d,(815,1385),'UK RRP',43,WHITE,'italic')
         txt(d,(785,1461),'VERIFY PRICE',40,WHITE,'italic')
