@@ -241,6 +241,10 @@ def key_fact(p):
 def choose_headline(p):
     source=(product_name(p)+' '+(p.get('description') or '')).lower()
     feat=' '.join(facts(p)).lower();alltext=source+' '+feat
+    if any(w in source for w in ('brake bleeder','brake bleeding','bleeding kit')):
+        return ('ONE-PERSON','BRAKE BLEEDING.')
+    if any(w in source for w in ('workshop press','hydraulic press')):
+        return ('PRESS WITH','CONFIDENCE.')
     if any(w in source for w in ('work lamp','work light','inspection light','under bonnet light')):
         return ('PUT THE JOB','IN THE SPOTLIGHT.')
     if any(w in source for w in ('bearing','hub puller')):
@@ -257,6 +261,8 @@ def choose_headline(p):
         return ('MAKE THE CUT.','KEEP MOVING.')
     if 'torque' in source:
         return ('PRECISION','AT WORK.')
+    if 'under bonnet' in source or 'bonnet' in source:
+        return ('LIGHT THE WAY','TO A BETTER JOB.')
     return ('BUILT FOR','THE JOB IN HAND.')
 
 def short_features(p,n=3):
