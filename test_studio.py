@@ -4,8 +4,9 @@ import unittest
 from PIL import Image, ImageDraw
 from app import (manufacturer_price_from_html, english_only_features, with_reviewed_price,
                  manufacturer_gallery_urls, pdf_render_photo, valid_image, is_french,
-                 OFFICIAL_UK_PRODUCTS, VERIFIED_UK_RRP, VERIFIED_UK_FACTS, parse_html)
-from poster import render_hero, render_technical, render_price, prepared_price
+                 OFFICIAL_UK_PRODUCTS, VERIFIED_UK_RRP, VERIFIED_UK_FACTS, parse_html,
+                 is_non_english, normalise_product_language)
+from poster import render_hero, render_technical, render_price, prepared_price, create_fact_sheet_pdf, create_posters
 
 class MarketingStudioSmokeTests(unittest.TestCase):
     def sample(self):
@@ -94,6 +95,68 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         product=parse_html(page,'8899',OFFICIAL_UK_PRODUCTS['8899'])
         self.assertEqual(product['price'],'£144.16 excluding VAT')
         self.assertEqual(product['features'],['Scissor type joint separator for Land Rover Discovery V vehicles.'])
+
+    def test_9024_english_record_and_rrp(self):
+        self.assertIn('9024',OFFICIAL_UK_PRODUCTS)
+        self.assertEqual(VERIFIED_UK_RRP['9024'][0],'£510.35 excluding VAT')
+        self.assertEqual(prepared_price({'price':VERIFIED_UK_RRP['9024'][0]})['primary'],'£612.42')
+        record=VERIFIED_UK_FACTS['9024']
+        self.assertTrue(record['features'])
+        self.assertFalse(any(is_non_english(v) for v in record['features']))
+
+    def test_dutch_and_mixed_language_is_rejected_without_invented_facts(self):
+        sentences=[
+            '1" slagmoersleutel met buitenmantel in composiet, met verlengde as.',
+            'Maximumkoppel van 2170 Nm, met een vernieuwde aandrijving.',
+            'Geluidsniveau 98.5 dB. Luchtverbruik 7 cfm.',
+            'En acier au carbone 45 traité thermiquement.',
+            'Geeignet für Fahrzeuge und Werkzeuge.',
+        ]
+        for phrase in sentences:
+            with self.subTest(phrase=phrase):
+                self.assertTrue(is_non_english(phrase),phrase)
+        english=[
+            'For HGV wheel replacement and workshop maintenance.',
+            'Maximum torque 2170Nm, with a 1-inch drive.',
+            'Land Rover Discovery V vehicles and BMW models.',
+            '10W COB rechargeable lamp with magnetic ends.',
+        ]
+        for phrase in english:
+            with self.subTest(phrase=phrase):
+                self.assertFalse(is_non_english(phrase),phrase)
+        cleaned=normalise_product_language({
+            'title':'Air Impact Wrench 1"D with 6" Anvil',
+            'description':'A composite-bodied impact wrench for recessed wheel nuts. 1" slagmoersleutel met een verlengde as.',
+            'features':[sentences[0],english[0],sentences[1]],
+            'specs':{'Werkdruk':'met een nieuw gereedschap','Drive':'1-inch'},
+        })
+        self.assertNotIn('slagmoersleutel',cleaned['description'])
+        self.assertEqual(cleaned['features'],[english[0]])
+        self.assertIn('Drive',cleaned['specs'])
+        self.assertNotIn('Werkdruk',cleaned['specs'])
+
+    def test_9395_style_technical_png_pdf_and_secondary_photo(self):
+        p,blob=self.sample()
+        application=Image.new('RGB',(800,600),'#8295A8')
+        d=ImageDraw.Draw(application)
+        d.rectangle((120,130,730,510),fill='#384A5C')
+        with io.BytesIO() as fh:
+            application.save(fh,'PNG')
+            scene=fh.getvalue()
+        for photo in (None,scene):
+            with self.subTest(in_use=bool(photo)):
+                technical=render_technical(p,blob,photo)
+                with Image.open(io.BytesIO(technical)) as image:
+                    self.assertEqual(image.size,(1280,1590))
+                    # A technical design must be overwhelmingly blue, unlike
+                    # the previous white catalogue layout.
+                    r,g,b=image.convert('RGB').getpixel((16,580))
+                    self.assertGreater(b,r)
+                    self.assertGreater(b,g)
+                pdf=create_fact_sheet_pdf(p,blob,photo)
+                self.assertTrue(pdf.startswith(b'%PDF'))
+        assets=create_posters(p,blob,scene)
+        self.assertEqual(set(assets),{'Hero','Technical','Price'})
 
     def test_photo_validation_rejects_broken_banner(self):
         from app import valid_image
