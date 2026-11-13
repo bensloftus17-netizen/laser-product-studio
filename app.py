@@ -36,7 +36,7 @@ V7_HOME_PAGE = r'''
 .posteritem .posterthumb .loaderror{color:#9c3720;font-size:13px}
 @media(max-width:640px){.previews{grid-template-columns:1fr}.previews .posteritem:first-child{grid-column:auto}.previews .posterthumb,.previews .posteritem:first-child .posterthumb{height:360px}}
 </style></head><body>
-<header class="topbar"><div class="wrap nav"><div class="logo">LASER <small>TOOLS</small></div><div class="navright">PRODUCT STUDIO <span class="tag">INTERNAL PILOT</span></div></div></header>
+<header class="topbar"><div class="wrap nav"><div class="logo">LASER <small>TOOLS</small></div><div class="navright">PRODUCT STUDIO <span class="tag">DEMO · DRAFTS</span></div></div></header>
 <main class="wrap">
 <section class="intro"><div class="kicker">LASER TOOLS · AUTOMATED CONTENT STUDIO</div><h1>One part number.<br><span>Three posters. Three different purposes.</span></h1><p>Enter a published Laser Tools part number. We retrieve the official product details and an authentic product image, then generate branded draft marketing materials.</p></section>
 <section class="searchpanel"><form id="searchForm"><label for="part">ENTER A LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9197" placeholder="e.g. 9197" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create previews <b>→</b></button></div></form><details style="margin-top:13px;color:#30536f;font-size:13px"><summary style="cursor:pointer;font-weight:700">RRP missing? Paste the official UK product link</summary><input style="margin-top:9px;width:100%;padding:11px 12px;border:1px solid #bed0df;border-radius:7px" id="officialUrl" type="url" placeholder="https://www.toolconnection.co.uk/products/..." aria-label="Official UK Tool Connection product link"></details><details style="margin-top:11px;color:#30536f;font-size:13px"><summary style="cursor:pointer;font-weight:700">Missing RRP? Enter a staff-reviewed UK price</summary><div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:9px"><label for="staffRrp">UK RRP (£)</label><input id="staffRrp" type="number" min="0.01" max="500000" step="0.01" placeholder="e.g. 114.70" style="width:150px;padding:9px;border:1px solid #a9bbce;border-radius:6px"><select id="staffRrpBasis" aria-label="VAT status of entered RRP" style="padding:9px;border:1px solid #a9bbce;border-radius:6px"><option value="ex">Ex VAT</option><option value="inc">Inc VAT</option></select><label style="display:flex;align-items:center;gap:5px"><input id="staffReview" type="checkbox"> I have checked this price</label><button type="button" class="linkchip" id="applyRrp">Update poster prices</button></div><p style="margin-top:7px">Entered prices are draft figures and require company approval before publication.</p></details><div class="examples">Try <button class="linkchip" data-part="9197">9197</button><button class="linkchip" data-part="9395">9395</button><button class="linkchip" data-part="9345">9345</button><button class="linkchip" data-part="9139">9139</button></div><p id="status" class="status" role="status">Ready. Searches use live manufacturer pages, with an official PDF fallback.</p></section>
@@ -245,6 +245,29 @@ FOREIGN_FUNCTION_WORDS=re.compile(
     r'para|con|los|las|una|del)\b',re.I)
 
 
+
+# Additional Dutch vocabulary in actual supplier records (including 4554).
+DUTCH_PRODUCTS = re.compile(
+    r'\b(?:snijbekken|taphouders?|verstelbare|tappen|snijplaten|'
+    r'snijgereedschap|tapsleutel|geleverd|gemonteerde|gemaakt|'
+    r'gelegeerd|staal|kunststof|behuizing|opbergen|stevige|'
+    r'veilig|verschillende|maten|elk|ieder|dubbele|snijder|'
+    r'bewaardoos|meegeleverd|draadreparatie|schroefdraad|'
+    r'werkstuk|bestaat|inclusief|bereik|om\s+te)\b', re.I
+)
+DUTCH_PATTERNS = re.compile(
+    r'\b(?:van\s+elk|geleverd\s+in|gemaakt\s+van|'
+    r'voor\s+het|om\s+te|met\s+een|in\s+een|'
+    r'elk\s+en|en\s+snijbekken)\b', re.I
+)
+ENGLISH_SAFETY_WORDS = re.compile(
+    r'\b(?:for|with|includes?|supplied|designed|suitable|'
+    r'manufactured|allows?|provides?|features?|professional|'
+    r'removal|installation|workshop|capacity|adjustable|'
+    r'rechargeable|applications?|vehicles?|steel|tool|'
+    r'repairs?|press|bearing|joint|set|wrench|drive)\b', re.I
+)
+
 def is_non_english(text):
     """Conservatively reject non-English marketing copy, never translate specs.
 
@@ -257,16 +280,24 @@ def is_non_english(text):
         or DUTCH_TECH.search(phrase) or GERMAN_TECH.search(phrase)
         or SPANISH_TECH.search(phrase)):
         return True
-    if len(DUTCH_WORDS.findall(phrase))>=3:return True
+    if DUTCH_PATTERNS.search(phrase):return True
+    dutch_hits=len(DUTCH_PRODUCTS.findall(phrase))+len(DUTCH_WORDS.findall(phrase))
+    if len(DUTCH_PRODUCTS.findall(phrase))>=1 and dutch_hits>=2:return True
+    if dutch_hits>=3:return True
     french_words=FOREIGN_MARKERS.findall(phrase)
     if len(french_words)>=2:return True
     if len(french_words)>=1 and re.search(r'[àâçéèêëîïôùûüÿœæ]',phrase,re.I):return True
     alphabet=re.findall(r'[A-Za-zÀ-ÿ]+',phrase)
-    if len(alphabet)<8:return False
+    if len(alphabet)<5:return False
     try:
         likely=detect_langs(phrase)
-        if likely and likely[0].lang in ('nl','fr','de','es','it','pt','pl') and likely[0].prob>.90:
-            return bool(FOREIGN_FUNCTION_WORDS.search(phrase)) or len(DUTCH_WORDS.findall(phrase))>=2
+        if likely and likely[0].lang in ('nl','fr','de','es','it','pt','pl'):
+            threshold=.76 if len(alphabet)>=8 else .88
+            if likely[0].prob>=threshold and (
+                FOREIGN_FUNCTION_WORDS.search(phrase)
+                or dutch_hits>=1
+                or not ENGLISH_SAFETY_WORDS.search(phrase)
+            ):return True
     except LangDetectException:
         pass
     return False
@@ -311,6 +342,9 @@ def normalise_product_language(product):
     result=dict(product)
     if is_non_english(result.get('title','')):
         raise LookupErrorPublic('Official English product name unavailable for this part number.')
+    # Keep source audit text while filtering customer-facing facts.
+    if 'source_raw_features' not in result:
+        result['source_raw_features']=[str(v) for v in result.get('features',[])]
     result['features']=english_only_features(result.get('features',[]))
     result['specs']=english_only_specs(result.get('specs',{}))
     result['description']=english_description(result.get('description',''))
@@ -812,7 +846,7 @@ def generate(part):
         body=request.get_json(silent=True) or {}
         if not body.get('confirmed'):
             return jsonify(error='Please confirm you reviewed the official product facts before generating external marketing drafts.'),400
-        product=safe_override(product,body.get('edits') or {})
+        product=normalise_product_language(safe_override(product,body.get('edits') or {}))
         product=with_reviewed_price(product,body.get('staff_rrp_ex'),body.get('staff_rrp_reviewed') is True,body.get('staff_rrp_basis','ex'))
         if not img:return jsonify(error='No verified official product photograph available; marketing posters will not be generated with a fabricated photo.'),422
         assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part))
