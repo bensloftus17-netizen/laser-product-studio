@@ -439,100 +439,113 @@ def render_technical(p,blob):
     return png(im)
 
 def render_hero(p,blob):
-    """Reference 2: high-impact bright sales advert, huge product with price badge."""
+    """Dark, campaign-led portrait advert. Real product pixels, no invented workshop scene."""
     W,H=1240,1510
-    im=Image.new('RGB',(W,H),WHITE)
-    gradient_box(im,(0,0,W,172),'#086FB8','#074987',vertical=False)
+    im=Image.new('RGB',(W,H),'#071A31')
+    gradient_box(im,(0,0,W,570),'#061C34','#075593',vertical=False)
     d=ImageDraw.Draw(im)
-    logo(d,55,12,76)
-    d.rectangle((970,41,974,133),fill=WHITE)
-    txt(d,(1000,38),str(p.get('part','')),79,WHITE,'italic')
+    d.polygon([(1050,0),(1240,0),(1094,570),(912,570)],fill='#0674B8')
+    d.polygon([(1144,0),(1240,0),(1189,360),(1080,360)],fill='#0D94D0')
+    logo(d,54,28,75)
+    line(d,(760,75),(760,151),'#6FADD9',3)
+    txt(d,(790,68),str(p.get('part','')),91,WHITE,'italic')
+    line(d,(54,182),(1185,182),'#6F9CC0',2)
+    first,second=choose_headline(p)
+    for idx,(head,colour) in enumerate([(first,WHITE),(second,'#36BDFC')]):
+        sz=71
+        if text_width(d,head,sz,'italic')>1130:sz=62
+        txt(d,(54,220+idx*91),head,sz,colour,'italic')
     name=clean_name_for_poster(p)
-    sz,namerows=fit_title(d,name,1138,(76,69,63,57,52,47,42),max_lines=3)
-    title_y=204
-    for i,t in enumerate(namerows):txt(d,(52,title_y+i*(sz+10)),t,sz,'#090F18','bold')
-    # One explicit product-use claim is better than multiple generic invented promises.
-    byline_y=title_y+len(namerows)*(sz+10)+20
-    byline=callout_feature(p,0,148)
-    d.rectangle((56,byline_y+4,64,byline_y+91),fill=BLUE)
-    ending=text_rows(d,byline,90,byline_y,1080,31,3,fill='#111E2D',leading=1.16)
-    # Large real product photograph is the star.
-    photo_top=max(500,ending+28)
-    photo_bottom=1137
-    d.rectangle((20,photo_top,1220,photo_bottom),fill='#FCFDFE')
-    photo=manufacturer_photo(blob)
-    # Keep image dominant and allow a secondary cropped usage in the distinct other posters.
-    photo_safe(im,photo,(50,photo_top+15,1172,photo_bottom-14),cutout=True)
+    title_size,rows=fit_title(d,name,1100,(48,44,40,36,33),max_lines=2)
+    for i,row in enumerate(rows):
+        txt(d,(58,418+i*(title_size+9)),row,title_size,WHITE,'bold')
+    # Split the stage into a graphic sales column and an oversized official photo.
+    d.rectangle((35,570,1205,1234),fill='#ECF3F8')
+    d.rectangle((52,588,450,1217),fill='#0A3459')
+    d.rectangle((470,588,1190,1217),fill=WHITE)
     d=ImageDraw.Draw(im)
-    # Reference price badge overlaps photo only, very different from technical sheet.
+    txt(d,(78,615),'WHY IT WORKS',30,'#54C7FB','bold')
+    points=short_features(p,3)
+    if not points:
+        points=[short_purpose(p)]
+    y=687
+    for i,claim in enumerate(points[:3]):
+        if y>1150:break
+        d.rectangle((78,y+8,91,y+22),fill=CYAN)
+        y=text_rows(d,claim,108,y,314,25,4,'bold',WHITE,1.2)+37
+    # Keep the manufacturer photo completely accurate. The backdrop is graphic,
+    # not a fabricated photo of the tool being used.
+    photo=manufacturer_photo(blob)
+    photo_safe(im,photo,(476,596,1184,1210),cutout=False)
+    d=ImageDraw.Draw(im)
+    d.rectangle((0,1234,W,1457),fill='#0569B8')
+    d.polygon([(0,1234),(786,1234),(690,1457),(0,1457)],fill='#094675')
+    txt(d,(49,1269),'PROFESSIONAL WORKSHOP',27,'#ABDFFA','bold')
+    txt(d,(47,1309),'LASER TOOLS',48,WHITE,'italic')
+    txt(d,(48,1376),'ENGINEERED FOR THE JOB.',26,WHITE,'bold')
     price=prepared_price(p)
     if price:
-        badge=(761,932,1220,1137)
-        d.polygon([(badge[0]+32,badge[1]),(badge[2],badge[1]),(badge[2],badge[3]),(badge[0],badge[3])],fill='#085BA6')
-        txt(d,(824,956),'RRP',43,WHITE,'bold')
-        v=price['primary']
-        fs=79 if len(v)<10 else 65
-        txt(d,(812,1005),v,fs,WHITE,'bold')
-        txt(d,(1193,1084),price['basis'],21,WHITE,'bold',anchor='ra')
-        txt(d,(1186,1113),price['secondary'],17,'#DFEFFF',anchor='ra')
+        txt(d,(835,1255),'UK RRP',31,'#D8F1FF','bold')
+        amount=price['primary']
+        size=68 if len(amount)<=10 else 55
+        txt(d,(825,1300),amount,size,WHITE,'bold')
+        txt(d,(825,1386),price['basis'],21,WHITE,'bold')
     else:
-        # Missing price must never trigger a fabricated price or misleading RRP badge.
-        d.polygon([(877,1010),(1220,1010),(1220,1137),(842,1137)],fill=BLUE)
-        txt(d,(913,1029),'LASER',34,WHITE,'italic')
-        txt(d,(906,1072),f'PART NO. {p.get("part","")}',26,WHITE,'bold')
-    # Two readable benefit panels from different genuine feature claims.
-    line(d,(35,1165),(1205,1165),BLUE,3)
-    feat=feature_text(p,3)
-    for i in range(2):
-        x=45+i*595
-        if i>0: d.rectangle((616,1191,620,1365),fill=BLUE)
-        d.rectangle((x,1190,x+554,1362),fill='#F5F8FB')
-        txt(d,(x+20,1208),f'{i+1:02}  KEY BENEFIT',23,BLUE,'bold')
-        text_rows(d,feat[i+1] if i+1<len(feat) else (feat[i] if i<len(feat) else short_purpose(p)),x+20,1250,514,25,4,'bold',INK,1.12)
-    d.rectangle((0,1425,W,H),fill=NAVY)
-    txt(d,(40,1448),'LASER TOOLS',32,WHITE,'italic')
-    txt(d,(1200,1453),'lasertools.co.uk',25,WHITE,'bold',anchor='ra')
-    txt(d,(41,1487),'PRODUCT MARKETING DRAFT • SOURCE CLAIMS MUST BE APPROVED',14,'#C8DDEE')
+        txt(d,(810,1300),'SEE PRODUCT',42,WHITE,'bold')
+        txt(d,(811,1353),'DETAILS',42,WHITE,'bold')
+    d.rectangle((0,1457,W,H),fill='#061A2E')
+    txt(d,(49,1472),'lasertools.co.uk',25,WHITE,'bold')
+    txt(d,(1186,1478),'DRAFT · VERIFY CLAIMS AND RRP',17,'#A9CBE1','bold',anchor='ra')
     return png(im)
 
+
 def render_price(p,blob):
-    """Third style: a landscape price-first retailer POS graphic, distinct from both references."""
+    """Bright retailer price card — landscape, intentionally unlike the dark hero."""
     W,H=1600,1000
-    im=Image.new('RGB',(W,H),WHITE)
-    gradient_box(im,(0,0,705,H),'#102F52','#041A32')
+    im=Image.new('RGB',(W,H),'#FAFCFE')
     d=ImageDraw.Draw(im)
-    logo(d,45,32,69)
-    line(d,(53,169),(621,169),'#477EA7',2)
-    txt(d,(54,198),'LASER PART NUMBER',29,'#B3DAF6','bold')
-    txt(d,(52,240),str(p.get('part','')),107,WHITE,'italic')
-    d.rectangle((54,384,625,389),fill=CYAN)
-    txt(d,(54,415),'MANUFACTURER',25,'#B9E2F8','bold')
-    txt(d,(54,448),'RECOMMENDED RETAIL PRICE',25,'#B9E2F8','bold')
-    pr=prepared_price(p)
-    if pr:
-        size=97 if len(pr['primary'])<=10 else 78
-        txt(d,(48,516),pr['primary'],size,WHITE,'bold')
-        txt(d,(57,637),pr['basis'],25,'#9FE2FE','bold')
-        txt(d,(57,676),pr['secondary'],24,'#E0F2FC')
-    else:
-        txt(d,(52,523),'PRICE',86,WHITE,'bold')
-        txt(d,(52,612),'ON REQUEST',49,'#ABDBFC','bold')
-        txt(d,(56,684),'No verified RRP supplied',23,'#D4E9F7')
-    d.rectangle((55,765,625,892),fill='#0A5B95')
-    txt(d,(73,786),'TRADE PRODUCT SPOTLIGHT',24,WHITE,'bold')
-    text_rows(d,callout_feature(p,0,76),73,824,521,20,2,fill=WHITE,leading=1.16)
-    # Photo panel with a clipped photo from the genuine supplied official image.
-    d.rectangle((711,0,W,885),fill='#EDF2F6')
+    gradient_box(im,(0,0,W,142),'#066EB8','#003D76',vertical=False)
+    d=ImageDraw.Draw(im)
+    logo(d,48,13,64)
+    d.rectangle((1272,25,1277,118),fill='#66C4F7')
+    txt(d,(1302,35),str(p.get('part','')),75,WHITE,'italic')
+    d.rectangle((0,142,1600,156),fill=CYAN)
+    title=clean_name_for_poster(p)
+    size,rows=fit_title(d,title,1470,(60,53,47,42,38,34),max_lines=2)
+    for i,row in enumerate(rows):
+        txt(d,(58,183+i*(size+6)),row,size,NAVY,'bold')
+    top=max(340,183+len(rows)*(size+6)+26)
+    # Full-sized genuine product photography on clean neutral white.
+    d.rectangle((49,top,847,838),fill='#EEF4F8')
+    d.polygon([(49,top),(307,top),(49,top+246)],fill='#DDECF7')
     photo=manufacturer_photo(blob)
-    photo_safe(im,photo,(732,80,1569,856),cutout=True)
+    photo_safe(im,photo,(70,top+10,825,820),cutout=False)
     d=ImageDraw.Draw(im)
-    d.rectangle((700,0,W,33),fill=BLUE)
-    d.rectangle((705,862,W,1000),fill=WHITE)
-    name=clean_name_for_poster(p)
-    size,names=fit_title(d,name,820,(40,37,33,29,25),max_lines=2)
-    for i,row in enumerate(names):txt(d,(740,881+i*size*1.1),row,size,NAVY,'bold')
-    d.rectangle((0,940,700,1000),fill=BLUE)
-    txt(d,(52,957),'PROMOTIONAL PRICE CARD  •  REVIEW BEFORE PUBLISHING',18,WHITE,'bold')
+    # Price is the primary graphic, not a small badge.
+    d.rectangle((879,top,1555,837),fill='#005BA6')
+    d.rectangle((879,top,1555,top+14),fill=CYAN)
+    txt(d,(916,top+40),'MANUFACTURER UK RRP',31,'#DDF5FF','bold')
+    d.rectangle((912,top+95,1523,top+97),fill='#4CB2EF')
+    data=prepared_price(p)
+    if data:
+        amount=data['primary']
+        amount_size=111 if len(amount)<=9 else 88
+        if text_width(d,amount,amount_size,'bold')>610:amount_size=75
+        txt(d,(910,top+128),amount,amount_size,WHITE,'bold')
+        txt(d,(917,top+265),data['basis'],31,WHITE,'bold')
+        txt(d,(917,top+310),data['secondary'],27,'#D5F1FF')
+    else:
+        txt(d,(913,top+130),'RRP',82,WHITE,'bold')
+        txt(d,(917,top+238),'NOT VERIFIED',49,WHITE,'bold')
+        txt(d,(918,top+313),'DO NOT PUBLISH AS PRICED',22,'#FFF1D0','bold')
+    txt(d,(915,top+390),'CHECK CURRENT RRP BEFORE USE',21,'#EAF8FF','bold')
+    # Thin benefit strip rather than another technical summary.
+    d.rectangle((0,857,W,1000),fill='#0B2B4A')
+    firsts=short_features(p,2)
+    for i in range(2):
+        x=55+i*780
+        d.rectangle((x,884,x+6,953),fill=CYAN)
+        text_rows(d,firsts[i] if i<len(firsts) else short_purpose(p),x+25,882,720,25,3,'bold',WHITE,1.2)
     return png(im)
 
 
