@@ -446,8 +446,8 @@ def render_technical(p,blob,application_blob=None):
     # This line becomes fitment info when a valid vehicle application is present;
     # otherwise it is a short use-case summary, not an invented compatible model.
     application=application_from_record(p)
-    if 'Refer to the official' in application:
-        application=short_purpose(p)
+    if 'Refer to the official' in application or len(application)>133:
+        application='See official manufacturer information for confirmed product applications.'
     app_rows=lines(d,application,1200,22,'regular',max_lines=2)
     for idx,line in enumerate(app_rows):
         txt(d,(35,277+idx*27),line,22,'#D2E4F3')
@@ -462,25 +462,25 @@ def render_technical(p,blob,application_blob=None):
     d=ImageDraw.Draw(im)
     technical_section(d,797,354,452,'PRODUCT PURPOSE')
     purpose=short_purpose(p)
-    purpose_rows=lines(d,purpose,407,27,'regular',max_lines=10)
-    for i,row in enumerate(purpose_rows[:10]):
-        txt(d,(817,424+i*34),row,27,WHITE)
+    purpose_rows=lines(d,purpose,405,25,'regular',max_lines=7)
+    for i,row in enumerate(purpose_rows[:7]):
+        txt(d,(821,426+i*36),row,25,WHITE)
 
     # MIDDLE: technical features to left; real application photo to right.
     technical_card(im,(31,795,489,1250),background='#072443')
     d=ImageDraw.Draw(im)
     technical_section(d,31,795,458,'KEY FEATURES')
-    features=feature_text(p,6)
+    features=feature_text(p,5)
     if not features:
         features=['See official manufacturer technical information for this product.']
     vertical=858
-    for i,feature in enumerate(features[:6]):
-        rows=lines(d,feature,385,22,'regular',max_lines=3)
-        if vertical+len(rows)*27+19>1237:break
+    for i,feature in enumerate(features[:5]):
+        rows=lines(d,feature,384,22,'regular',max_lines=2)
+        if vertical+len(rows)*29+24>1224:break
         d.ellipse((47,vertical+8,59,vertical+20),fill='#2BA7E5')
         for n,row in enumerate(rows):
-            txt(d,(69,vertical+n*27),row,22,WHITE)
-        vertical+=len(rows)*27+18
+            txt(d,(69,vertical+n*29),row,22,WHITE)
+        vertical+=len(rows)*29+26
 
     # Right lower panel: optionally a genuine in-use photo, else verified specs.
     technical_card(im,(512,795,1249,1250),background='#092A4B')
@@ -514,26 +514,30 @@ def render_technical(p,blob,application_blob=None):
     technical_card(im,(638,1271,1249,1492),background='#092B4E')
     d=ImageDraw.Draw(im)
     specs=best_specs(p,6)
-    if specs:
+    if application_blob and specs:
         technical_section(d,31,1271,585,'TECHNICAL SPECIFICATIONS')
-        y=1332
+        y=1343
         for k,v in specs[:3]:
-            if y+43>1479:break
-            text_rows(d,str(k).upper(),48,y,234,20,1,'bold','#73C7F3',1.1)
-            text_rows(d,str(v),284,y-1,312,20,2,'regular',WHITE,1.1)
-            y+=48
+            if y+42>1479:break
+            text_rows(d,str(k).upper(),48,y,235,20,1,'bold','#73C7F3',1.1)
+            text_rows(d,str(v),289,y,295,21,2,'regular',WHITE,1.1)
+            y+=47
     else:
-        technical_section(d,31,1271,585,'APPLICATION / COMPATIBILITY')
-        text_rows(d,application,53,1350,535,23,5,'regular',WHITE,1.2)
+        technical_section(d,31,1271,585,'APPLICATION / PRODUCT DETAILS')
+        # Do not repeat the same specification table in two separate panels.
+        detail=application if 'See official' not in application else (
+            customer_features(p,1,110)[0] if customer_features(p,1,110)
+            else 'Refer to the official product listing for further details.')
+        text_rows(d,detail,53,1345,518,23,4,'regular',WHITE,1.24)
 
     technical_section(d,638,1271,611,'WORKSHOP NOTE')
     # A safety reminder rather than unverified procedural instructions.
-    note='Refer to the official manufacturer instructions and confirm vehicle compatibility before use.'
+    note='Follow the official product instructions and check specifications before use.'
     for i,line in enumerate(lines(d,note,557,25,'regular',max_lines=4)):
         txt(d,(661,1349+i*34),line,25,WHITE)
     d.rectangle((31,1515,1249,1557),fill='#0F4778',outline='#2B87C2',width=2)
     txt(d,(48,1526),'toolconnection.co.uk',24,WHITE,'bold')
-    txt(d,(1220,1529),'LASER TOOLS · INTERNAL MARKETING DRAFT',15,'#D8EAF7','bold',anchor='ra')
+    txt(d,(1220,1529),'LASER TOOLS · REVIEW BEFORE PUBLICATION',15,'#D8EAF7','bold',anchor='ra')
     return png(im)
 
 
