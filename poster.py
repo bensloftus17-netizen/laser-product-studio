@@ -415,7 +415,8 @@ def render_technical(p,blob):
     text_rows(d,short_purpose(p),868,624,372,22,9,fill=INK,leading=1.28)
     # Horizontal separation aligns with the user's source sheet.
     line(d,(20,909),(1260,909),'#9FAEBB',2)
-    labelled_section(d,20,932,610,'KEY FEATURES & FUNCTION')
+    section_name='KIT CONTENTS & FUNCTION' if any(k in name.lower() for k in ('tool kit','tool set','service kit','bearing kit','bush set')) else 'KEY FEATURES & FUNCTION'
+    labelled_section(d,20,932,610,section_name)
     labelled_section(d,650,932,610,'VERIFIED TECHNICAL DATA')
     # Left: a feature table with strong hierarchy and alternating rows.
     f=feature_text(p,5)
@@ -463,6 +464,10 @@ def campaign_benefit(p):
         return 'Remove & fit bushes and bearings with confidence'
     if 'press' in title and ('50 tonne' in title or '50 ton' in title):
         return '50-tonne capacity for professional workshop work'
+    if 'ball joint separator' in title and 'scissor' in corpus:
+        return 'Controlled separation of vehicle ball joints'
+    if 'ball joint separator' in title:
+        return 'Separate ball joints with confidence'
     if facts(p):
         fact=short_features(p,1)[0]
         return fact[:106].rstrip(' ,.;') if len(fact)>106 else fact
@@ -479,6 +484,10 @@ def campaign_quick_facts(p):
         if 'double' in known:output.append('DOUBLE-ENDED DESIGN')
         if re.search(r'\b10\s*mm\b',known):output.append('10MM HEX DRIVE')
         if re.search(r'\b15\s*mm\b',known):output.append('15MM MAX OPENING')
+    if 'ball joint separator' in title:
+        if 'scissor' in known:output.append('SCISSOR-TYPE DESIGN')
+        if re.search(r'\b31\s*mm\b',known):output.append('31MM INNER OPENING')
+        if re.search(r'\b52\s*mm\b',known):output.append('52MM OUTER OPENING')
     if 'work lamp' in title or 'under bonnet' in title:
         if 'magnet' in known:output.append('MAGNETIC MOUNTING')
         if re.search(r'\b10\s*w(?:att)?\b',known):output.append('10W COB LIGHT')
@@ -661,10 +670,20 @@ def render_price(p,blob):
     d.ellipse((-240,252,1095,1260),fill='#E4EEF6')
     d.ellipse((-160,356,995,1200),outline='#CBDDEB',width=3)
     photo=manufacturer_photo(blob)
-    place_cutout(im,photo,(28,267,935,835))
+    place_cutout(im,photo,(28,250,935,751))
     d=ImageDraw.Draw(im)
-    txt(d,(52,870),'LASER TOOLS · PRODUCT SPOTLIGHT',33,BLUE,'italic')
-    txt(d,(52,927),'lasertools.co.uk',26,NAVY,'bold')
+    # Two fast, useful buyer benefits in a white strip under the genuine photo.
+    d.rectangle((38,773,938,913),fill=WHITE)
+    d.rectangle((38,773,938,779),fill=BLUE)
+    sales_points=short_features(p,2)
+    if not sales_points:sales_points=[short_purpose(p)]
+    for i,claim in enumerate(sales_points[:2]):
+        xpos=56+i*441
+        if i:d.rectangle((480,793,483,887),fill='#D6E4EF')
+        d.rectangle((xpos,805,xpos+12,821),fill=BLUE)
+        paragraph(d,claim,xpos+27,796,391,23,INK,'bold',limit=3,leading=1.2)
+    txt(d,(45,931),'LASER TOOLS  ·  PRODUCT SPOTLIGHT',25,BLUE,'italic')
+    txt(d,(651,937),'lasertools.co.uk',19,NAVY,'bold')
     # Right = almost full-height price wall, so the price is immediately legible.
     gradient_box(im,(956,0,W,H),'#004D99','#063560',vertical=False)
     d=ImageDraw.Draw(im)
