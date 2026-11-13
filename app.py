@@ -361,13 +361,354 @@ def valid_image(blob):
     except Exception:return False
 
 def preferred_manufacturer_photos(part):
-    """Exact part-number JPEGs, not the first SEO/OG image on a product page."""
+    """Manufacturer's SKU-specific gallery master, not generic open-graph images."""
     return [
         f'https://www.lasertools.co.uk/items/large/{part}.jpg',
         f'https://lasertools.toolconnection.co.uk/items/large/{part}.jpg',
-        f'https://www.lasertools.co.uk/items/XLarge/{part}.jpg',
-        f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
+        f'https://www.lasertools.co.uk/items/xlarge/{part}.jpg',
+        f'https://lasertools.toolconnection.co.uk/items/xlarge/{part}.jpg',
     ]
+
+def manufacturer_gallery_urls(part,session=requests):
+    """Find real photos in the manufacturer's own SKU gallery.
+
+    Works across all published SKU numbers without hardcoding a handful of
+    product image names; captures variations like 9197_Insitu_1 and 4832_InSitu.
+    """
+    found=[]
+    product_pages=[
+        f'https://www.lasertools.co.uk/Product/{part}',
+        f'https://lasertools.toolconnection.co.uk/Product/{part}'
+    ]
+    for page_url in product_pages:
+        try:
+            response=official_get(page_url,session)
+            soup=BeautifulSoup(response.content,'html.parser')
+            for node in soup.find_all(['a','img','source']):
+                for att in ('href','src','data-src','data-large','data-original','data-zoom-image','srcset'):
+                    item=(node.get(att) or '').split(',')[0].strip().split(' ')[0]
+                    if not item:continue
+                    image_url=urljoin(response.url,html.unescape(item))
+                    if not authorized_url(image_url):continue
+                    filename=urlparse(image_url).path.rsplit('/',1)[-1]
+                    if not re.match(re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp)
+
+def lookup(part,session=requests,force=False,uk_url=None):
+    part=sku_clean(part)
+    if uk_url:
+        uk_url=uk_url.strip()
+        if not (authorized_url(uk_url) and urlparse(uk_url).hostname in ('www.toolconnection.co.uk','toolconnection.co.uk')
+                and re.search(r'/products/.*/'+re.escape(part)+r'(?:-|$)',urlparse(uk_url).path,re.I)):
+            raise LookupErrorPublic('Please paste the official UK Tool Connection product page URL for this exact part number.')
+    now=time.time()
+    if not force and not uk_url and part in CACHE and now-CACHE[part][0]<3600:
+        return CACHE[part][1],CACHE[part][2]
+    errors=[]; product=None; image_bytes=None
+    # Official UK pages are best for English product wording and genuine GBP RRP.
+    uk_candidates=[]
+    if uk_url:uk_candidates.append(uk_url)
+    if part in OFFICIAL_UK_PRODUCTS:uk_candidates.append(OFFICIAL_UK_PRODUCTS[part])
+    else:
+        discovered=search_official_uk_product(part,session)
+        if discovered:uk_candidates.append(discovered)
+    for url in dict.fromkeys(uk_candidates):
+        try:
+            r=official_get(url,session)
+            candidate=parse_html(r.content,part,r.url)
+            # Prefer English UK descriptions; never display a foreign-language product record.
+            if is_french(candidate['title']+' '+candidate['description']):
+                errors.append('UK page returned translated copy');continue
+            product=candidate
+            break
+        except Exception as e:errors.append(str(e)[:180])
+    # If no UK listing was found, use Laser's official page, filtering non-English text.
+    if product is None:
+        for url in [f'https://www.lasertools.co.uk/product/{part}',f'https://lasertools.toolconnection.co.uk/product/{part}']:
+            try:
+                r=official_get(url,session)
+                if 'pdf' in r.headers.get('Content-Type','').lower() or r.content.startswith(b'%PDF'):
+                    candidate,image_bytes=parse_pis_pdf(r.content,part,r.url)
+                else:candidate=parse_html(r.content,part,r.url)
+                if is_french(candidate['title']+' '+candidate['description']):
+                    errors.append('Manufacturer page not in English');continue
+                product=candidate
+                break
+            except Exception as e:errors.append(str(e)[:180])
+    # English product sheets are a safe fallback when the browser receives French text.
+    # If the UK page is present, keep it as the authoritative RRP source.
+    if product is None or not product.get('features'):
+        for url in [f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',f'https://lasertools.co.uk/pis/{part}_PIS.pdf']:
+            try:
+                r=official_get(url,session,content_types=['pdf'])
+                sheet,photo=parse_pis_pdf(r.content,part,r.url)
+                if is_french(sheet['title']+' '+sheet['description']):continue
+                sheet['features']=english_only_features(sheet.get('features',[]))
+                if not product:product=sheet
+                else:
+                    product['features']=product['features'] or sheet['features']
+                    product['specs']={**sheet.get('specs',{}),**product.get('specs',{})}
+                if image_bytes is None:image_bytes=photo
+                break
+            except Exception as e:errors.append(str(e)[:180])
+    if not product:
+        raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
+    product['features']=english_only_features(product.get('features',[]))
+    product['specs']=english_only_specs(product.get('specs',{}))
+    # Restore manufacturer-confirmed UK facts if the available product sheet was
+    # non-English or returned incomplete technical text.
+    if part in VERIFIED_UK_FACTS:
+        reference=VERIFIED_UK_FACTS[part]
+        if not product['features']:
+            product['features']=reference['features'][:]
+            product['features_status']='Official UK facts checked '+reference['verified_on']
+        if not product['specs']:
+            product['specs']=dict(reference['specs'])
+            product['specs_status']='Official UK facts checked '+reference['verified_on']
+    # A product sheet often has no commercial data. Check the official UK listing
+    # separately, even if the primary English product record came from a PDF.
+    if not product.get('price'):
+        for candidate_url in dict.fromkeys(uk_candidates):
+            try:
+                response=official_get(candidate_url,session)
+                verified=manufacturer_price_from_html(response.content)
+                if verified:
+                    product['price']=verified
+                    product['price_source']=response.url
+                    product['price_status']='Live UK manufacturer RRP'
+                    break
+            except Exception:
+                pass
+    # Exact-SKU manufacturer RRPs checked against official UK product pages.
+    # These are labelled cached and MUST be reviewed before external publication.
+    if not product.get('price') and part in VERIFIED_UK_RRP:
+        product['price'], product['price_source']=VERIFIED_UK_RRP[part]
+        product['price_status']='Official UK RRP independently checked on 13 Nov 2026; recheck before publication'
+    elif product.get('price') and not product.get('price_source'):
+        product['price_source']=product.get('source')
+        product['price_status']='Live official UK product page'
+    # Manufacturer's gallery master is more reliable than PDF embedded masks.
+    # Gallery names may contain InSitu variations; do not guess their spelling.
+    pdf_photo=image_bytes if image_bytes and valid_image(image_bytes) else None
+    image_bytes=None
+    product['photo_source']=None
+    gallery=manufacturer_gallery_urls(part,session)
+    studio_gallery=[u for u in gallery if not re.search(r'in.?situ',u,re.I)]
+    candidates=preferred_manufacturer_photos(part)+studio_gallery
+    # Keep exact-SKU open-graph links only as last-resort sources.
+    candidates += [
+        u for u in product.get('image_candidates',[])
+        if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(u).path,re.I)
+    ]
+    for image_url in dict.fromkeys(candidates):
+        try:
+            response=official_get(image_url,session)
+            if valid_image(response.content):
+                image_bytes=response.content
+                product['photo_source']=response.url
+                break
+        except Exception:pass
+    # Fallback: re-render the *visible* PDF photo, never just an embedded mask.
+    if image_bytes is None:
+        for pdf_url in (f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
+                        f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
+            try:
+                pdf_response=official_get(pdf_url,session,content_types=['pdf'])
+                rendered=pdf_render_photo(pdf_response.content,part)
+                if rendered:
+                    image_bytes=rendered
+                    product['photo_source']=pdf_url+' (PDF-rendered product image)'
+                    break
+            except Exception:pass
+    if image_bytes is None and pdf_photo:
+        image_bytes=pdf_photo
+        product['photo_source']='Extracted from official product information sheet'
+    # Genuine in-use manufacturer gallery imagery for hero designs only.
+    APPLICATION_IMAGE_CACHE.pop(part,None)
+    product['application_photo_source']=None
+    in_use=[u for u in gallery if re.search(r'in.?situ',u,re.I)]
+    if not in_use:
+        in_use=[
+            f'https://www.lasertools.co.uk/items/large/{part}_InSitu.jpg',
+            f'https://www.lasertools.co.uk/items/large/{part}_Insitu_1.jpg',
+            f'https://www.lasertools.co.uk/items/large/{part}_InSitu_A.jpg',
+        ]
+    for image_url in in_use[:5]:
+        try:
+            response=official_get(image_url,session)
+            if valid_image(response.content):
+                APPLICATION_IMAGE_CACHE[part]=response.content
+                product['application_photo_source']=response.url
+                break
+        except Exception:pass
+    product['photo_verified']=bool(image_bytes)
+    product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
+    product['lookup_status']='Live official UK/English manufacturer source'
+    product['warnings']=[]
+    if not image_bytes:product['warnings'].append('No verified manufacturer photo available.')
+    if product.get('price_status','').startswith('Official UK RRP independently checked'):
+        product['warnings'].append('RRP was checked on 13 Nov 2026; confirm it is still current before publishing.')
+    if not product.get('price'):
+        product['warnings'].append('UK RRP not verified. Paste the exact official Tool Connection URL, or have staff confirm the price before publication.')
+    if not product['features']:
+        product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
+    CACHE[part]=(now,product,image_bytes)
+    return product,image_bytes
+
+def with_reviewed_price(product,raw,approved=False):
+    """Set a staff-reviewed draft RRP. Never label it as live manufacturer data."""
+    if raw is None or str(raw).strip()=='':return product
+    if not approved:
+        raise LookupErrorPublic('Tick the staff price review box before using an entered RRP.')
+    try:
+        amount=Decimal(str(raw).strip()).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP)
+    except (InvalidOperation,ValueError):
+        raise LookupErrorPublic('Enter a valid UK RRP excluding VAT.')
+    if not amount.is_finite() or amount<=0 or amount>Decimal('500000'):
+        raise LookupErrorPublic('Enter a positive ex-VAT price (maximum £500,000).')
+    result={**product}
+    result['price']=f'£{amount:,.2f} excluding VAT'
+    result['price_status']='Staff-entered draft price — independently approve before publication'
+    result['price_source']='Staff entry, not an automatically confirmed manufacturer RRP'
+    result['warnings']=[v for v in product.get('warnings',[]) if 'rrp' not in v.lower() and 'price' not in v.lower()]
+    result['warnings'].append('Price was entered by staff. Company approval is required before publishing.')
+    return result
+
+
+def safe_override(original,updates):
+    out={**original}
+    for key in ('title','description'):
+        if isinstance(updates.get(key),str):out[key]=updates[key].strip()[:1300]
+    for key in ('features',):
+        if isinstance(updates.get(key),list):out[key]=[str(x).strip()[:350] for x in updates[key] if str(x).strip()][:9]
+    if isinstance(updates.get('specs'),dict):out['specs']={str(k)[:55]:str(v)[:110] for k,v in list(updates['specs'].items())[:15]}
+    return out
+
+@app.get('/')
+def home():
+    return render_template_string(V7_HOME_PAGE)
+
+@app.after_request
+def no_cache_for_drafts(response):
+    if request.path=='/' or request.path.startswith('/api/poster/') or request.path.startswith('/api/photo/'):
+        response.headers['Cache-Control']='no-store, max-age=0'
+    return response
+
+@app.get('/api/health')
+def health():return jsonify(ok=True,service='Laser Product Studio',design='v9-manufacturer-photo-variants',lookup='official page + PDF fallback')
+
+@app.get('/api/lookup/<part>')
+def product_lookup(part):
+    try:
+        product,image=lookup(part,uk_url=request.args.get('uk_url') or None)
+        return jsonify(product=product,photo_url=f'/api/photo/{part}?design=v9' if image else None)
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+    except requests.RequestException:return jsonify(error='Official Laser website could not be reached. Please retry.'),502
+    except Exception:
+        app.logger.exception('Unexpected lookup error')
+        return jsonify(error='Product lookup failed unexpectedly.'),500
+
+@app.get('/api/photo/<part>')
+def photo(part):
+    try:
+        _,image=lookup(part)
+        if not image:return jsonify(error='No verified image found'),404
+        im=Image.open(io.BytesIO(image));out=io.BytesIO();im.convert('RGB').save(out,'PNG');out.seek(0)
+        return send_file(out,mimetype='image/png',download_name=f'LASER_{part}.png')
+    except LookupErrorPublic:return jsonify(error='Photo unavailable'),404
+
+@app.post('/api/generate/<part>')
+def generate(part):
+    try:
+        product,img=lookup(part)
+        body=request.get_json(silent=True) or {}
+        if not body.get('confirmed'):
+            return jsonify(error='Please confirm you reviewed the official product facts before generating external marketing drafts.'),400
+        product=safe_override(product,body.get('edits') or {})
+        product=with_reviewed_price(product,body.get('staff_rrp_ex'),body.get('staff_rrp_reviewed') is True)
+        if not img:return jsonify(error='No verified official product photograph available; marketing posters will not be generated with a fabricated photo.'),422
+        assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part))
+        tech=create_fact_sheet_pdf(product,img)
+        txt=create_marketing_copy(product)
+        with io.BytesIO() as zbuf:
+            with zipfile.ZipFile(zbuf,'w',zipfile.ZIP_DEFLATED) as z:
+                for name,png in assets.items():z.writestr(f'LASER_{part}_{name}.png',png)
+                z.writestr(f'LASER_{part}_Technical_Sheet.pdf',tech)
+                z.writestr(f'LASER_{part}_Marketing_Copy.txt',txt)
+                z.writestr(f'LASER_{part}_Source_Record.json',json.dumps(product,indent=2))
+            zbuf.seek(0)
+            return send_file(io.BytesIO(zbuf.getvalue()),mimetype='application/zip',download_name=f'LASER_{part}_Marketing_Pack.zip',as_attachment=True)
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+    except Exception:
+        app.logger.exception('generation error')
+        return jsonify(error='Unable to generate the marketing pack.'),500
+
+@app.get('/api/poster/<part>/<style>')
+def preview(part,style):
+    if style not in ('Hero','Technical','Price'):return jsonify(error='Poster format not found'),404
+    try:
+        p,img=lookup(part)
+        p=with_reviewed_price(p,request.args.get('staff_rrp_ex'),request.args.get('staff_rrp_reviewed')=='1')
+        if not img:return jsonify(error='Verified product image missing'),422
+        renderer={'Hero':render_hero,'Technical':render_technical,'Price':render_price}[style]
+        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part)) if style=='Hero' else renderer(p,img)
+        return send_file(io.BytesIO(artwork),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+
+if __name__=='__main__':
+    app.run(debug=True,host='127.0.0.1',port=5000)
+,filename,re.I):continue
+                    found.append(image_url)
+            if found:break
+        except Exception:pass
+    return list(dict.fromkeys(found))
+
+def image_quality_report(blob):
+    """Diagnostic with actual source-image content bounds, no invented images."""
+    try:
+        photo=Image.open(io.BytesIO(blob));photo.load()
+        return {'size':[photo.width,photo.height],'accepted':valid_image(blob)}
+    except Exception:return {'accepted':False}
+
+def pdf_render_photo(pdfbytes,part):
+    """Rasterise PDF's visible product imagery instead of extracting an alpha mask.
+
+    Some PIS PDFs encode the photo as a base layer plus a monochrome stencil.
+    Their largest embedded xref alone may render as a black stripe. Rendering
+    the visible page image rectangle composites both layers correctly.
+    """
+    doc=fitz.open(stream=pdfbytes,filetype='pdf')
+    try:
+        if doc.page_count<1:return None
+        page=doc[0]
+        potential=[]
+        for block in page.get_text('dict').get('blocks',[]):
+            if block.get('type')!=1:continue
+            rect=fitz.Rect(block['bbox'])
+            if rect.is_empty or rect.width<65 or rect.height<65:continue
+            if rect.y0>page.rect.height*.77:continue
+            potential.append(rect)
+        for entry in page.get_images(full=True):
+            try:
+                for rect in page.get_image_rects(entry[0]):
+                    if rect.width>=65 and rect.height>=65 and rect.y0<page.rect.height*.77:
+                        potential.append(rect)
+            except Exception:pass
+        # Larger placement rectangles are more likely the main product photo.
+        potential.sort(key=lambda rect:rect.width*rect.height,reverse=True)
+        seen=set()
+        for rect in potential[:12]:
+            key=tuple(round(v/10) for v in (rect.x0,rect.y0,rect.x1,rect.y1))
+            if key in seen:continue
+            seen.add(key)
+            # Keep crop within photo region with a small white margin.
+            clip=fitz.Rect(max(0,rect.x0-12),max(0,rect.y0-12),
+                           min(page.rect.width,rect.x1+12),
+                           min(page.rect.height,rect.y1+12))
+            pix=page.get_pixmap(matrix=fitz.Matrix(2.3,2.3),clip=clip,alpha=False)
+            data=pix.tobytes('png')
+            if valid_image(data):return data
+        return None
+    finally:doc.close()
 
 def lookup(part,session=requests,force=False,uk_url=None):
     part=sku_clean(part)
