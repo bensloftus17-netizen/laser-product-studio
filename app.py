@@ -99,6 +99,17 @@ OFFICIAL_UK_PRODUCTS = {
     '9197':'https://www.toolconnection.co.uk/products/workshop/inspection-lighting/workshop-lamps/9197-under-bonnet-compact-work-lamp-10w-cob-infrared',
 }
 
+
+# Manufacturer RRPs independently checked against the official UK product pages
+# on 13 November 2026. These are LAST-KNOWN values, not invented live quotations.
+# A newer verified live RRP always takes precedence. Review prices before publishing.
+VERIFIED_UK_RRP = {
+    '9197': ('£48.78 excluding VAT', OFFICIAL_UK_PRODUCTS['9197']),
+    '9372': ('£2,617.62 including VAT', OFFICIAL_UK_PRODUCTS['9372']),
+    '9395': ('£630.79 including VAT', OFFICIAL_UK_PRODUCTS['9395']),
+    '8324': ('£41.67 excluding VAT', OFFICIAL_UK_PRODUCTS['8324']),
+}
+
 FOREIGN_MARKERS = re.compile(r"\b(?:les|des|une|pour|avec|sans|afin|lors|sur|roulement|véhicules|comprend|comprennent|utilisation|également|assurer|remarque|utiliser|atelier|montage|pression|permettre|adapté|nécessaire|pièces|dépose|repose|cette|conçu|références|nettoyer|veiller|éviter|outil|lesquels|auxquels|cette|ceci|du|le|la|et)\b", re.I)
 
 def is_french(text):
@@ -337,6 +348,28 @@ def lookup(part,session=requests,force=False,uk_url=None):
         raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
     product['features']=english_only_features(product.get('features',[]))
     product['specs']=english_only_specs(product.get('specs',{}))
+    # A product sheet often has no commercial data. Check the official UK listing
+    # separately, even if the primary English product record came from a PDF.
+    if not product.get('price'):
+        for candidate_url in dict.fromkeys(uk_candidates):
+            try:
+                response=official_get(candidate_url,session)
+                verified=manufacturer_price_from_html(response.content)
+                if verified:
+                    product['price']=verified
+                    product['price_source']=response.url
+                    product['price_status']='Live UK manufacturer RRP'
+                    break
+            except Exception:
+                pass
+    # Exact-SKU manufacturer RRPs checked against official UK product pages.
+    # These are labelled cached and MUST be reviewed before external publication.
+    if not product.get('price') and part in VERIFIED_UK_RRP:
+        product['price'], product['price_source']=VERIFIED_UK_RRP[part]
+        product['price_status']='Official UK RRP independently checked on 13 Nov 2026; recheck before publication'
+    elif product.get('price') and not product.get('price_source'):
+        product['price_source']=product.get('source')
+        product['price_status']='Live official UK product page'
     if image_bytes is None:
         candidates=product.get('image_candidates',[])+[
             f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
@@ -356,8 +389,10 @@ def lookup(part,session=requests,force=False,uk_url=None):
     product['lookup_status']='Live official UK/English manufacturer source'
     product['warnings']=[]
     if not image_bytes:product['warnings'].append('No verified manufacturer photo available.')
+    if product.get('price_status','').startswith('Official UK RRP independently checked'):
+        product['warnings'].append('RRP was checked on 13 Nov 2026; confirm it is still current before publishing.')
     if not product.get('price'):
-        product['warnings'].append('No verified UK RRP found. Paste the exact Tool Connection product URL above to check price; otherwise price is omitted.')
+        product['warnings'].append('UK RRP not verified. Paste the exact official Tool Connection URL, or have staff confirm the price before publication.')
     if not product['features']:
         product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
     CACHE[part]=(now,product,image_bytes)
