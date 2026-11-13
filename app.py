@@ -93,9 +93,9 @@ def authorized_url(url):
     p=urlparse(url)
     return p.scheme=='https' and p.hostname in ALLOWED and p.port is None
 
-def official_get(url,session=requests, content_types=None):
+def official_get(url,session=requests, content_types=None, timeout=12):
     if not authorized_url(url): raise LookupErrorPublic('Source URL is not on an approved Laser/Tool Connection domain.')
-    r=session.get(url,headers=HEADERS,timeout=12,allow_redirects=True)
+    r=session.get(url,headers=HEADERS,timeout=timeout,allow_redirects=True)
     if not authorized_url(r.url):raise LookupErrorPublic('Official source redirected outside the approved domains.')
     if not r.ok:raise LookupErrorPublic(f'Official source returned HTTP {r.status_code}')
     if len(r.content)>12*1024*1024:raise LookupErrorPublic('Official source exceeded size limit.')
@@ -375,7 +375,7 @@ def manufacturer_gallery_urls(part,session=requests):
     for page in [f'https://www.lasertools.co.uk/Product/{part}',
                  f'https://lasertools.toolconnection.co.uk/Product/{part}']:
         try:
-            response=official_get(page,session)
+            response=official_get(page,session,timeout=6)
             soup=BeautifulSoup(response.content,'html.parser')
             for node in soup.find_all(['a','img','source']):
                 for key in ('href','src','data-src','data-large','data-original','data-zoom-image','srcset'):
@@ -430,8 +430,9 @@ def lookup(part,session=requests,force=False,uk_url=None):
                 and re.search(r'/products/.*/'+re.escape(part)+r'(?:-|$)',urlparse(uk_url).path,re.I)):
             raise LookupErrorPublic('Please paste the official UK Tool Connection product page URL for this exact part number.')
     now=time.time()
-    if not force and not uk_url and part in CACHE and now-CACHE[part][0]<3600:
-        return CACHE[part][1],CACHE[part][2]
+    if not force and not uk_url and part in CACHE:
+        age_limit=3600 if CACHE[part][2] else 60
+        if now-CACHE[part][0]<age_limit:return CACHE[part][1],CACHE[part][2]
     errors=[]; product=None; image_bytes=None
     # Official UK pages are best for English product wording and genuine GBP RRP.
     uk_candidates=[]
@@ -528,7 +529,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
     product['photo_source']=None
     for photo_url in dict.fromkeys(candidates):
         try:
-            response=official_get(photo_url,session)
+            response=official_get(photo_url,session,timeout=6)
             if valid_image(response.content):
                 image_bytes=response.content
                 product['photo_source']=response.url
@@ -540,7 +541,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
         for pdf_url in (f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
                         f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
             try:
-                pdf_response=official_get(pdf_url,session,content_types=['pdf'])
+                pdf_response=official_get(pdf_url,session,content_types=['pdf'],timeout=8)
                 composite=pdf_render_photo(pdf_response.content)
                 if composite:
                     image_bytes=composite
@@ -560,9 +561,9 @@ def lookup(part,session=requests,force=False,uk_url=None):
             f'https://www.lasertools.co.uk/items/large/{part}_Insitu_1.jpg',
             f'https://www.lasertools.co.uk/items/large/{part}_InSitu_A.jpg',
         ]
-    for photo_url in in_use[:5]:
+    for photo_url in in_use[:3]:
         try:
-            response=official_get(photo_url,session)
+            response=official_get(photo_url,session,timeout=6)
             if valid_image(response.content):
                 APPLICATION_IMAGE_CACHE[part]=response.content
                 product['application_photo_source']=response.url
