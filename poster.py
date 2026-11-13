@@ -450,72 +450,143 @@ def render_technical(p,blob):
     return png(im)
 
 def render_hero(p,blob,application_blob=None):
-    """Wide, visual campaign advert: genuine in-situ photograph where supplied.
+    """Portrait Laser-inspired campaign poster using *only* real product photos.
 
-    Not a datasheet and not a second price panel. Compared with the technical
-    portrait, typography sits over a solid navy wing next to a full-bleed image.
+    Layout: diagonal blue identity, oversized slanted product-title ribbon,
+    SKU number wedge, dramatic photographic stage, white benefit call-out,
+    ex-VAT RRP banner, three quick facts, and full-width blue footer.
+
+    The composition is product-aware for all retrieved Laser SKUs. No
+    imaginary photo-realistic tools, applications, drawings or prices.
     """
-    W,H=1600,920
-    im=Image.new('RGB',(W,H),'#08243F')
-    gradient_box(im,(0,0,W,H),'#041C34','#0A4774',vertical=False)
-    d=ImageDraw.Draw(im)
-    # Right-hand photograph uses actual Laser manufacturer imagery only.
-    x0,y0,x1,y1=665,0,1600,800
+    W,H=1200,1700
+    im=Image.new('RGB',(W,H),'#E9EEF2')
+    # Genuine manufacturer use-shot makes the workshop background when provided.
+    # Otherwise create a clearly graphical brushed-metal background, rather
+    # than fabricating a workshop or a tool application with generative AI.
     if application_blob:
         try:
             scene=manufacturer_photo(application_blob).convert('RGB')
-            scene=ImageOps.fit(scene,(x1-x0,y1-y0),Image.Resampling.LANCZOS,centering=(.5,.52))
-            im.paste(scene,(x0,y0))
+            scene=ImageOps.fit(scene,(W,1110),Image.Resampling.LANCZOS,centering=(.5,.5))
+            scene=scene.filter(ImageFilter.GaussianBlur(5))
+            scene=Image.blend(scene,Image.new('RGB',scene.size,'#263341'),.32)
+            im.paste(scene,(0,185))
         except Exception:
             application_blob=None
     if not application_blob:
-        d.rectangle((x0,0,x1,800),fill='#E4EDF5')
-        # Make the official isolated product photograph dominant, without
-        # inventing an application scene or cropping out the actual tool.
-        place_cutout(im,manufacturer_photo(blob),(710,54,1562,768))
+        gradient_box(im,(0,180,W,1300),'#89939D','#3B444F')
+        d=ImageDraw.Draw(im)
+        # Deliberately graphic strokes; never impersonates a product in use.
+        for i in range(0,1200,23):
+            shade='#7A8792' if i%2 else '#677682'
+            d.line((i,200,i-380,1260),fill=shade,width=1)
+        d.polygon([(0,1130),(1200,1050),(1200,1299),(0,1299)],fill='#616D79')
+        for j in range(14):
+            y=1140+j*11
+            d.line((0,y,1200,y-50),fill='#73818E',width=1)
+    # Product itself is always the *real manufacturer product photo* (no AI redraw).
+    # This isolated foreground tool is what stays accurate for every part number.
+    place_cutout(im,manufacturer_photo(blob),(45,590,1160,1260))
     d=ImageDraw.Draw(im)
-    # Thick angled brand panel is separate from the image; cleaner than a white
-    # photograph in another blue-framed card.
-    d.polygon([(0,0),(805,0),(673,800),(0,800)],fill='#062748')
-    d.polygon([(775,0),(825,0),(695,800),(648,800)],fill='#0C8ACA')
-    d.rectangle((0,0,W,12),fill=CYAN)
-    logo(d,58,35,71)
-    d.rectangle((72,192,570,196),fill='#1CA4D8')
-    line1,line2=choose_headline(p)
-    for idx,(row,fill) in enumerate(((line1,WHITE),(line2,'#2DCBFF'))):
-        size=70
-        while size>43 and text_width(d,row,size,'italic')>580:size-=4
-        txt(d,(64,242+idx*101),row,size,fill,'italic')
-    name=clean_name_for_poster(p)
-    sz,rows=fit_title(d,name,565,(39,36,33,30),max_lines=3)
-    for i,row in enumerate(rows[:3]):
-        txt(d,(69,471+i*(sz+9)),row,sz,WHITE,'bold')
-    d.rectangle((68,689,300,695),fill=CYAN)
-    txt(d,(70,721),'MADE FOR THE WORKSHOP',22,'#BBD8EA','bold')
-    # Part number on its own solid panel so it reads against any source image.
-    d.polygon([(1283,22),(1570,22),(1540,130),(1270,130)],fill='#075A9D')
-    txt(d,(1322,36),str(p.get('part','')),76,WHITE,'italic')
-    # A discreet approved-price badge on the advert; the separate sales graphic
-    # remains the only poster where RRP is the primary focal point.
-    uk_price=prepared_price(p)
-    if uk_price:
-        d.rounded_rectangle((1132,651,1575,792),radius=7,fill='#065EAA')
-        d.rectangle((1132,651,1575,659),fill=CYAN)
-        txt(d,(1154,669),'UK RRP INC VAT',24,WHITE,'bold')
-        point_size=68
-        while point_size>39 and text_width(d,uk_price['primary'],point_size,'bold')>408:point_size-=4
-        txt(d,(1152,704),uk_price['primary'],point_size,WHITE,'bold')
-    # An off-white benefits strip, not repeated spec blocks.
-    d.rectangle((0,800,W,920),fill='#F2F7FB')
-    points=short_features(p,3)
-    if not points:points=[short_purpose(p)]
-    for i,claim in enumerate(points[:3]):
-        x=42+i*523
-        if i:d.rectangle((x-18,822,x-15,883),fill='#C7DDE9')
-        d.rectangle((x,822,x+35,856),fill=BLUE)
-        txt(d,(x+11,825),str(i+1),23,WHITE,'bold')
-        text_rows(d,claim,x+48,817,452,23,3,'bold',NAVY,1.17)
-    txt(d,(1543,894),'LASER TOOLS  ·  MARKETING DRAFT',14,MUTED,'bold',anchor='ra')
+    # Distinctive large diagonal blue LASER identity.
+    d.polygon([(0,0),(768,0),(650,230),(0,256)],fill='#0358A5')
+    d.polygon([(717,0),(768,0),(650,230),(618,230)],fill=WHITE)
+    d.rectangle((0,0,580,9),fill='#1C96D6')
+    logo(d,65,40,111)
+    # Reference-style white oblique title ribbon; actual product name, not a
+    # category-agnostic "BUILT FOR THE JOB" slogan.
+    d.polygon([(0,249),(1143,206),(1062,530),(0,568)],fill=WHITE)
+    name=clean_name_for_poster(p).upper()
+    title_rows=[]
+    title_size=75
+    for candidate in (75,70,65,61,57,53,49,46,43):
+        rows=lines(d,name,1000,candidate,'italic',max_lines=3)
+        if rows and not rows[-1].endswith('…'):
+            title_rows=rows;title_size=candidate;break
+    if not title_rows:
+        title_size=43
+        title_rows=lines(d,name,1000,title_size,'italic',max_lines=3)
+    title_y=275+(3-len(title_rows))*19
+    step=title_size+16
+    for i,row in enumerate(title_rows):
+        txt(d,(55,title_y+i*step),row,title_size,'#11151A' if i==0 else '#0058AB','italic')
+    # The part number is its own strong diagonal blue tab.
+    d.polygon([(0,558),(470,540),(394,665),(0,680)],fill='#005AAE')
+    part=str(p.get('part','')).upper()
+    sku_size=105
+    while sku_size>58 and text_width(d,part,sku_size,'italic')>345:sku_size-=5
+    txt(d,(52,561),part,sku_size,WHITE,'italic')
+    # White benefit call-out over the lower edge of the photograph.
+    d.polygon([(0,1260),(783,1237),(702,1505),(0,1505)],fill=WHITE)
+    d.line((48,1306,22,1436),fill='#0063B9',width=8)
+    benefits=short_features(p,1)
+    benefit=benefits[0] if benefits else short_purpose(p)
+    benefit=' '.join(benefit.split()).strip(' .')
+    if len(benefit)<18:
+        benefit=short_purpose(p)
+    benefit_size=49
+    benefit_rows=[]
+    for candidate in (49,46,43,40,37,34,31):
+        rows=lines(d,benefit,577,candidate,'italic',max_lines=3)
+        if rows and not rows[-1].endswith('…'):
+            benefit_size=candidate;benefit_rows=rows;break
+    if not benefit_rows:
+        benefit_size=31
+        benefit_rows=lines(d,benefit,577,31,'italic',max_lines=3)
+    benefit_y=1317+(3-len(benefit_rows))*17
+    for i,row in enumerate(benefit_rows):
+        txt(d,(75,benefit_y+i*(benefit_size+9)),row,benefit_size,'#11161A','italic')
+    # Foreground blue RRP wedge. Ex VAT takes the headline position as in the
+    # supplied poster, and the calculated inc VAT is clearly labelled below.
+    d.polygon([(765,1237),(1200,1237),(1200,1505),(675,1505)],fill='#0057A9')
+    d.polygon([(765,1237),(1200,1237),(1200,1250),(759,1250)],fill='#168ED1')
+    amount=prepared_price(p)
+    if amount:
+        ex_vat=amount['secondary'].split(' EX VAT')[0]
+        inc_vat=amount['primary']
+        txt(d,(797,1267),'UK RRP',47,WHITE,'italic')
+        size=113
+        while size>64 and text_width(d,ex_vat,size,'italic')>430:size-=5
+        txt(d,(775,1318),ex_vat,size,WHITE,'italic')
+        txt(d,(791,1445),'EX VAT',29,WHITE,'bold')
+        txt(d,(993,1450),inc_vat+' INC VAT',19,'#D9EDFF','bold',anchor='ma')
+    else:
+        txt(d,(795,1284),'UK RRP',48,WHITE,'italic')
+        txt(d,(779,1350),'NOT VERIFIED',49,WHITE,'italic')
+        txt(d,(790,1448),'CONFIRM BEFORE RELEASE',19,WHITE,'bold')
+    # A black strip with three *verified* condensed facts.
+    d.rectangle((0,1505,W,1587),fill='#111317')
+    points=[]
+    for key,val in best_specs(p,4):
+        point=(str(key)+' '+str(val)).strip().upper()
+        if point and len(point)<=49 and point not in points:points.append(point)
+        if len(points)>=3:break
+    if len(points)<3:
+        for feature in short_features(p,5):
+            point=feature.upper().strip(' .')
+            if len(point)>45:
+                point=point[:42].rsplit(' ',1)[0]+'…'
+            if point and point not in points:points.append(point)
+            if len(points)>=3:break
+    if not points:points=['SEE VERIFIED PRODUCT DETAILS']
+    cell_w=400
+    for i,point in enumerate(points[:3]):
+        x=i*cell_w
+        if i>0:d.polygon([(x-10,1522),(x-3,1522),(x-22,1573),(x-29,1573)],fill='#0876C9')
+        row_size=28
+        while row_size>18 and len(lines(d,point,342,row_size,'italic',max_lines=2))>1:
+            row_size-=2
+        rows=lines(d,point,340,row_size,'italic',max_lines=2)
+        for j,line in enumerate(rows):
+            width=text_width(d,line,row_size,'italic')
+            txt(d,(x+(cell_w-width)//2,1523+j*(row_size+5)),line,row_size,WHITE,'italic')
+    # Footer keeps the poster visually connected to Laser Tools house branding.
+    gradient_box(im,(0,1605,W,H),'#004A91','#0868B8',vertical=False)
+    d=ImageDraw.Draw(im)
+    logo(d,43,1610,67)
+    d.line((686,1620,665,1676),fill=WHITE,width=5)
+    txt(d,(715,1630),'lasertools.co.uk',43,WHITE,'italic')
+    txt(d,(1180,1684),'MARKETING DRAFT · VERIFY FACTS, PRICE & BRAND',12,'#D9EAF6','bold',anchor='ra')
     return png(im)
 
 
