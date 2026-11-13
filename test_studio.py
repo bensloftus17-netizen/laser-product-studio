@@ -1,0 +1,66 @@
+"""Local/CI smoke tests for verified prices, English copy and three distinct PNG formats."""
+import io
+import unittest
+from PIL import Image, ImageDraw
+from app import manufacturer_price_from_html, english_only_features, with_reviewed_price
+from poster import render_hero, render_technical, render_price, prepared_price
+
+class MarketingStudioSmokeTests(unittest.TestCase):
+    def sample(self):
+        im=Image.new('RGB',(360,470),'white')
+        draw=ImageDraw.Draw(im)
+        draw.rounded_rectangle((130,48,230,340),radius=16,fill='#092746')
+        draw.rectangle((157,72,205,287),fill='#1d84cd')
+        with io.BytesIO() as buf:
+            im.save(buf,'PNG')
+            photo=buf.getvalue()
+        product={
+          'part':'9197','title':'9197 Under Bonnet Compact Work Lamp',
+          'description':'Magnetic work lamp for hands-free inspection.',
+          'features':['Magnetic ends allow hands-free use.',
+                      '10W LED output with adjustable settings.',
+                      'USB-C rechargeable battery.'],
+          'specs':{'Power':'10W','Length':'500mm','Battery':'4400mAh'},
+          'price':'£48.78 excluding VAT','source':'Official UK manufacturer listing'
+        }
+        return product,photo
+
+    def test_price_parsing(self):
+        self.assertEqual(
+            manufacturer_price_from_html('<h1>Product</h1><p>RRP£114.70plus VAT</p>'),
+            '£114.70 excluding VAT'
+        )
+        self.assertEqual(
+            manufacturer_price_from_html('<h1>Product</h1><p>RRP£2,617.62inc VAT £2,181.35exc VAT</p>'),
+            '£2,617.62 including VAT'
+        )
+        self.assertIsNone(manufacturer_price_from_html('<p>Special offer £23.99</p>'))
+
+    def test_vat(self):
+        p,_=self.sample()
+        amount=prepared_price(p)
+        self.assertEqual(amount['primary'],'£58.54')
+        self.assertEqual(amount['secondary'],'£48.78 EX VAT')
+        inc=prepared_price({'price':'£630.79 including VAT'})
+        self.assertEqual(inc['secondary'],'£525.66 EX VAT')
+
+    def test_language_and_manual_price(self):
+        facts=english_only_features(['Méthode de syphonage unidirectionnelle','2 litre capacity tank.'])
+        self.assertEqual(facts,['2 litre capacity tank.'])
+        p,_=self.sample()
+        reviewed=with_reviewed_price(p,'114.70',True)
+        self.assertEqual(prepared_price(reviewed)['primary'],'£137.64')
+        self.assertIn('Staff-entered',reviewed['price_status'])
+
+    def test_three_poster_formats(self):
+        p,image=self.sample()
+        formats=[(render_hero,(1600,920)),(render_technical,(1280,1590)),(render_price,(1200,1200))]
+        for renderer,dimensions in formats:
+            with self.subTest(format=renderer.__name__):
+                result=renderer(p,image)
+                self.assertGreater(len(result),4000)
+                with Image.open(io.BytesIO(result)) as graphic:
+                    self.assertEqual(graphic.size,dimensions)
+
+if __name__=='__main__':
+    unittest.main()
