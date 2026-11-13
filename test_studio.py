@@ -94,7 +94,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
 
     def test_three_poster_formats(self):
         p,image=self.sample()
-        formats=[(render_hero,(1600,920)),(render_technical,(1280,1590)),(render_price,(1200,1200))]
+        formats=[(render_hero,(1200,1700)),(render_technical,(1280,1590)),(render_price,(1200,1200))]
         for renderer,dimensions in formats:
             with self.subTest(format=renderer.__name__):
                 result=renderer(p,image)
@@ -110,7 +110,24 @@ class MarketingStudioSmokeTests(unittest.TestCase):
             alternate=render_hero(p,image,data.getvalue())
             self.assertGreater(len(alternate),4000)
             with Image.open(io.BytesIO(alternate)) as graphic:
-                self.assertEqual(graphic.size,(1600,920))
+                self.assertEqual(graphic.size,(1200,1700))
+
+
+    def test_reference_promo_for_different_skus_and_prices(self):
+        p,photo=self.sample()
+        names=[
+            ('8324','Suspension Split Hub Knuckle Spreader','£41.67 excluding VAT'),
+            ('9531','Universal Bearing & Bush Tool Set - 50th Anniversary','£498.00 excluding VAT'),
+            ('9372','Air-Hydraulic Workshop Press 50 Tonne','£2,617.62 including VAT'),
+            ('9197','Under Bonnet Compact Work Lamp 10W COB Infrared',None),
+        ]
+        for part,title,rrp in names:
+            with self.subTest(part=part):
+                custom={**p,'part':part,'title':title,'price':rrp}
+                content=render_hero(custom,photo)
+                self.assertGreater(len(content),5000)
+                with Image.open(io.BytesIO(content)) as image:
+                    self.assertEqual(image.size,(1200,1700))
 
 if __name__=='__main__':
     unittest.main()
