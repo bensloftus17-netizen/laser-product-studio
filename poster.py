@@ -546,7 +546,7 @@ def render_hero(p,blob,application_blob=None):
         inc_vat=amount['primary']
         txt(d,(797,1267),'UK RRP',47,WHITE,'italic')
         size=113
-        while size>64 and text_width(d,ex_vat,size,'italic')>430:size-=5
+        while size>42 and text_width(d,ex_vat,size,'italic')>430:size-=5
         txt(d,(775,1318),ex_vat,size,WHITE,'italic')
         txt(d,(791,1445),'EX VAT',29,WHITE,'bold')
         txt(d,(993,1450),inc_vat+' INC VAT',19,'#D9EDFF','bold',anchor='ma')
@@ -583,7 +583,7 @@ def render_hero(p,blob,application_blob=None):
     # Footer keeps the poster visually connected to Laser Tools house branding.
     gradient_box(im,(0,1605,W,H),'#004A91','#0868B8',vertical=False)
     d=ImageDraw.Draw(im)
-    logo(d,43,1610,67)
+    logo(d,43,1603,64)
     d.line((686,1620,665,1676),fill=WHITE,width=5)
     txt(d,(715,1630),'lasertools.co.uk',43,WHITE,'italic')
     txt(d,(1180,1684),'MARKETING DRAFT · VERIFY FACTS, PRICE & BRAND',12,'#D9EAF6','bold',anchor='ra')
