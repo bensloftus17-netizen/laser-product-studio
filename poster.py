@@ -382,73 +382,136 @@ def photo_safe(im,photo,box,cutout=False):
     else:
         contain_photo(im,photo,box,padding=14,background=WHITE)
 
-def render_technical(p,blob):
-    """Reference 1: real Laser-style technical catalogue sheet with information hierarchy."""
+def technical_section(d,x,y,w,label,height=51):
+    """Cobalt header with white lettering for the 9395-style engineering panels."""
+    gradient_box(d._image if hasattr(d,'_image') else None,(0,0,0,0),'#06467A','#0A70B7') if False else None
+    d.rectangle((x,y,x+w,y+height),fill='#0868AB')
+    d.rectangle((x,y,x+8,y+height),fill='#2A99D7')
+    txt(d,(x+19,y+10),label.upper(),26,WHITE,'bold')
+
+
+def technical_card(im,box,background='#082748',border='#2075AC'):
+    d=ImageDraw.Draw(im)
+    x0,y0,x1,y1=box
+    d.rectangle((x0,y0,x1,y1),fill=background,outline=border,width=3)
+    return d
+
+
+def render_technical(p,blob,application_blob=None):
+    """Dark blue technical information sheet matching the supplied LASER 9395 reference.
+
+    Genuine product photo and optional manufacturer in-situ photo; no fabricated
+    workshop scene, measurements, hardware, drawing or application.
+    """
     W,H=1280,1590
-    im=Image.new('RGB',(W,H),WHITE)
-    # Subtle catalogue paper rather than sci-fi effects.
+    im=Image.new('RGB',(W,H),'#031C35')
+    gradient_box(im,(0,0,W,H),'#071F3D','#031528',vertical=True)
     d=ImageDraw.Draw(im)
-    gradient_box(im,(0,0,W,176),'#07355D','#092646',vertical=False)
+    # Metallic-blue LASER masthead.
+    gradient_box(im,(15,15,1265,139),'#035EAA','#062C52',vertical=False)
     d=ImageDraw.Draw(im)
-    d.polygon([(1190,0),(1280,0),(1220,176),(1124,176)],fill='#1166A0')
-    logo(d,46,17,72)
-    line(d,(421,23),(400,149),WHITE,4)
-    txt(d,(464,12),'ENGINEERED',70,WHITE,'italic')
-    txt(d,(464,88),'FOR THE JOB.',70,WHITE,'italic')
-    d.rectangle((0,176,W,310),fill='#E9EEF3')
-    d.polygon([(15,189),(260,189),(232,295),(15,295)],fill=BLUE)
-    part=str(p.get('part',''))
-    txt(d,(33,202),part,78,WHITE,'italic')
+    d.rectangle((15,15,1265,22),fill='#2799DC')
+    logo(d,47,20,88)
+    txt(d,(1034,37),str(p.get('part','')),77,WHITE,'italic')
+    d.line((1007,31,1007,119),fill='#40A7DE',width=3)
+    # Keep full product title readable at normal poster size.
     name=clean_name_for_poster(p).upper()
-    title_size,title_rows=fit_title(d,name,980,(52,48,43,39,36,32,28),max_lines=2)
-    title_y=193 if len(title_rows)>1 else 220
-    for i,row in enumerate(title_rows):txt(d,(283,title_y+i*(title_size+8)),row,title_size,NAVY,'italic')
-    # Hero photo and right-side application + purpose panels.
-    d.rectangle((20,327,830,887),outline='#B4C4D3',width=2,fill=WHITE)
+    name_size,name_rows=fit_title(d,name,1212,(62,58,54,50,46,42,39),max_lines=2)
+    for idx,line in enumerate(name_rows[:2]):
+        txt(d,(34,154+idx*(name_size+7)),line,name_size,WHITE,'bold')
+    # This line becomes fitment info when a valid vehicle application is present;
+    # otherwise it is a short use-case summary, not an invented compatible model.
+    application=application_from_record(p)
+    if 'Refer to the official' in application:
+        application=short_purpose(p)
+    app_rows=lines(d,application,1200,24,'regular',max_lines=2)
+    for idx,line in enumerate(app_rows):
+        txt(d,(35,260+idx*31),line,24,'#D2E4F3')
+    d.rectangle((31,330,1249,336),fill='#1886C9')
+
+    # UPPER: honest studio photo and a dark product-purpose panel.
+    technical_card(im,(31,354,777,775),background='#E9F2F8',border='#1176B8')
     photo=manufacturer_photo(blob)
-    photo_safe(im,photo,(26,332,824,882),cutout=False)
+    contain_photo(im,photo,(39,360,769,768),padding=19,background=WHITE)
     d=ImageDraw.Draw(im)
-    labelled_section(d,851,327,410,'APPLICATION')
-    text_rows(d,application_from_record(p),868,389,376,24,6,fill=INK,leading=1.25)
-    d.rectangle((851,561,1261,887),fill='#F0F4F8')
-    labelled_section(d,851,561,410,'PURPOSE')
-    text_rows(d,short_purpose(p),868,624,372,22,9,fill=INK,leading=1.28)
-    # Horizontal separation aligns with the user's source sheet.
-    line(d,(20,909),(1260,909),'#9FAEBB',2)
-    section_name='KIT CONTENTS & FUNCTION' if any(k in name.lower() for k in ('tool kit','tool set','service kit','bearing kit','bush set')) else 'KEY FEATURES & FUNCTION'
-    labelled_section(d,20,932,610,section_name)
-    labelled_section(d,650,932,610,'VERIFIED TECHNICAL DATA')
-    # Left: a feature table with strong hierarchy and alternating rows.
-    f=feature_text(p,5)
-    left_y=993
-    max_left=1453
-    if not f:f=['Refer to the manufacturer product information sheet for technical features.']
-    hrow=min(100,max(81,(max_left-left_y)//len(f)))
-    for i,s in enumerate(f):
-        if left_y+hrow>1470:break
-        d.rectangle((20,left_y,630,left_y+hrow),fill=WHITE if i%2 else '#F1F5F9',outline='#C8D4E0',width=1)
-        d.rectangle((35,left_y+19,88,left_y+68),fill='#E3EEF6')
-        txt(d,(44,left_y+26),f'{i+1:02}',24,BLUE,'bold')
-        text_rows(d,s,103,left_y+16,500,19,3,fill=INK,leading=1.19)
-        left_y+=hrow
-    # Right: genuine product properties in a labelled table. No invented dimensions/diagrams.
-    spec=best_specs(p,8)
-    if not spec:
-        spec=[('Details','Refer to official manufacturer product information sheet.')]
-    right_y=993
-    maxrows=min(8,len(spec));rh=min(78,(1454-right_y)//maxrows)
-    for i,(k,v) in enumerate(spec[:maxrows]):
-        if right_y+rh>1471:break
-        d.rectangle((650,right_y,1260,right_y+rh),fill='#F1F5F9' if i%2==0 else WHITE,outline='#C8D4E0',width=1)
-        text_rows(d,k,665,right_y+15,208,18,2,'bold',NAVY,1.15)
-        text_rows(d,v,880,right_y+13,355,20,2,'regular',INK,1.13)
-        right_y+=rh
-    d.rectangle((20,1473,1260,1539),fill='#EAF1F8')
-    txt(d,(35,1493),'SOURCE: OFFICIAL LASER TOOLS / TOOL CONNECTION PRODUCT INFORMATION',18,BLUE,'bold')
-    txt(d,(35,1517),'Technical accuracy and use of imagery require approval before external release.',15,MUTED)
-    d.rectangle((0,1547,W,H),fill=NAVY)
-    txt(d,(30,1559),f'LASER TOOLS    |    {part}    |    PRODUCT TECHNICAL INFORMATION',19,WHITE,'bold')
+    technical_card(im,(797,354,1249,775),background='#082748')
+    d=ImageDraw.Draw(im)
+    technical_section(d,797,354,452,'PRODUCT PURPOSE')
+    purpose=short_purpose(p)
+    purpose_rows=lines(d,purpose,407,27,'regular',max_lines=10)
+    for i,row in enumerate(purpose_rows[:10]):
+        txt(d,(817,424+i*34),row,27,WHITE)
+
+    # MIDDLE: technical features to left; real application photo to right.
+    technical_card(im,(31,795,489,1250),background='#072443')
+    d=ImageDraw.Draw(im)
+    technical_section(d,31,795,458,'KEY FEATURES')
+    features=feature_text(p,6)
+    if not features:
+        features=['See official manufacturer technical information for this product.']
+    vertical=858
+    for i,feature in enumerate(features[:6]):
+        rows=lines(d,feature,385,22,'regular',max_lines=3)
+        if vertical+len(rows)*27+19>1237:break
+        d.ellipse((47,vertical+8,59,vertical+20),fill='#2BA7E5')
+        for n,row in enumerate(rows):
+            txt(d,(69,vertical+n*27),row,22,WHITE)
+        vertical+=len(rows)*27+18
+
+    # Right lower panel: optionally a genuine in-use photo, else verified specs.
+    technical_card(im,(512,795,1249,1250),background='#092A4B')
+    d=ImageDraw.Draw(im)
+    if application_blob:
+        try:
+            scene=manufacturer_photo(application_blob).convert('RGB')
+            scene=ImageOps.fit(scene,(719,380),Image.Resampling.LANCZOS,centering=(.5,.5))
+            im.paste(scene,(522,857))
+            d=ImageDraw.Draw(im)
+            technical_section(d,512,795,737,'IN THE WORKSHOP')
+        except Exception:
+            application_blob=None
+    if not application_blob:
+        technical_section(d,512,795,737,'VERIFIED TECHNICAL DATA')
+        specs=best_specs(p,7)
+        if specs:
+            v=861
+            for index,(key,value) in enumerate(specs):
+                if v+49>1238:break
+                if index%2==0:d.rectangle((526,v-5,1234,v+44),fill='#103959')
+                text_rows(d,str(key),543,v+2,230,22,1,'bold','#7FD1FF',1.05)
+                text_rows(d,str(value),786,v,426,23,2,'regular',WHITE,1.12)
+                v+=53
+        else:
+            text_rows(d,'Technical dimensions are not published in the retrieved manufacturer record.',
+                      539,889,674,26,4,'regular',WHITE,1.24)
+
+    # BOTTOM: clear fact panels echo the supplied 9395 technical artwork.
+    technical_card(im,(31,1271,616,1492),background='#092B4E')
+    technical_card(im,(638,1271,1249,1492),background='#092B4E')
+    d=ImageDraw.Draw(im)
+    specs=best_specs(p,6)
+    if specs:
+        technical_section(d,31,1271,585,'TECHNICAL SPECIFICATIONS')
+        y=1332
+        for k,v in specs[:3]:
+            if y+43>1479:break
+            text_rows(d,str(k).upper(),48,y,234,20,1,'bold','#73C7F3',1.1)
+            text_rows(d,str(v),284,y-1,312,20,2,'regular',WHITE,1.1)
+            y+=48
+    else:
+        technical_section(d,31,1271,585,'APPLICATION / COMPATIBILITY')
+        text_rows(d,application,53,1350,535,23,5,'regular',WHITE,1.2)
+
+    technical_section(d,638,1271,611,'WORKSHOP NOTE')
+    # A safety reminder rather than unverified procedural instructions.
+    note='Refer to the official manufacturer instructions and confirm vehicle compatibility before use.'
+    for i,line in enumerate(lines(d,note,557,25,'regular',max_lines=4)):
+        txt(d,(661,1349+i*34),line,25,WHITE)
+    d.rectangle((31,1515,1249,1557),fill='#0F4778',outline='#2B87C2',width=2)
+    txt(d,(48,1526),'toolconnection.co.uk',24,WHITE,'bold')
+    txt(d,(1220,1529),'LASER TOOLS · INTERNAL MARKETING DRAFT',15,'#D8EAF7','bold',anchor='ra')
     return png(im)
+
 
 def campaign_benefit(p):
     """Compact, defensible sales benefit from official product facts."""
