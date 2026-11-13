@@ -449,52 +449,63 @@ def render_technical(p,blob):
     txt(d,(30,1559),f'LASER TOOLS    |    {part}    |    PRODUCT TECHNICAL INFORMATION',19,WHITE,'bold')
     return png(im)
 
-def render_hero(p,blob):
-    """Campaign advert: cinematic landscape, bold benefit headline, dominant authentic product."""
+def render_hero(p,blob,application_blob=None):
+    """Wide, visual campaign advert: genuine in-situ photograph where supplied.
+
+    Not a datasheet and not a second price panel. Compared with the technical
+    portrait, typography sits over a solid navy wing next to a full-bleed image.
+    """
     W,H=1600,920
-    im=Image.new('RGB',(W,H),'#071B31')
-    gradient_box(im,(0,0,W,H),'#071C34','#0F4575',vertical=False)
+    im=Image.new('RGB',(W,H),'#08243F')
+    gradient_box(im,(0,0,W,H),'#041C34','#0A4774',vertical=False)
     d=ImageDraw.Draw(im)
-    # Strong asymmetrical Laser-blue accents, not an invented workshop photograph.
-    d.polygon([(1175,0),(1600,0),(1600,420),(1388,700),(1053,700)],fill='#075994')
-    d.polygon([(1490,0),(1600,0),(1600,468),(1430,468)],fill='#17A0E3')
-    d.rectangle((0,0,W,13),fill=CYAN)
-    logo(d,63,30,73)
-    d.rectangle((1120,58,1125,144),fill=CYAN)
-    txt(d,(1160,52),str(p.get('part','')),91,WHITE,'italic')
-    d.rectangle((63,188,1532,191),fill='#3E86B7')
-    a,b=choose_headline(p)
-    headline1=75 if text_width(d,a,75,'italic')<=810 else 63
-    headline2=75 if text_width(d,b,75,'italic')<=810 else 63
-    txt(d,(67,234),a,headline1,WHITE,'italic')
-    txt(d,(67,333),b,headline2,'#32C7FC','italic')
+    # Right-hand photograph uses actual Laser manufacturer imagery only.
+    x0,y0,x1,y1=665,0,1600,800
+    if application_blob:
+        try:
+            scene=manufacturer_photo(application_blob).convert('RGB')
+            scene=ImageOps.fit(scene,(x1-x0,y1-y0),Image.Resampling.LANCZOS,centering=(.5,.52))
+            im.paste(scene,(x0,y0))
+        except Exception:
+            application_blob=None
+    if not application_blob:
+        d.rectangle((x0,0,x1,800),fill='#E4EDF5')
+        # Make the official isolated product photograph dominant, without
+        # inventing an application scene or cropping out the actual tool.
+        place_cutout(im,manufacturer_photo(blob),(710,54,1562,768))
+    d=ImageDraw.Draw(im)
+    # Thick angled brand panel is separate from the image; cleaner than a white
+    # photograph in another blue-framed card.
+    d.polygon([(0,0),(805,0),(673,800),(0,800)],fill='#062748')
+    d.polygon([(775,0),(825,0),(695,800),(648,800)],fill='#0C8ACA')
+    d.rectangle((0,0,W,12),fill=CYAN)
+    logo(d,58,35,71)
+    d.rectangle((72,192,570,196),fill='#1CA4D8')
+    line1,line2=choose_headline(p)
+    for idx,(row,fill) in enumerate(((line1,WHITE),(line2,'#2DCBFF'))):
+        size=70
+        while size>43 and text_width(d,row,size,'italic')>580:size-=4
+        txt(d,(64,242+idx*101),row,size,fill,'italic')
     name=clean_name_for_poster(p)
-    nsize,nrows=fit_title(d,name,758,(43,40,37,34,31),max_lines=3)
-    for idx,row in enumerate(nrows[:3]):
-        txt(d,(70,464+idx*(nsize+9)),row,nsize,'#E7F3FD','bold')
-    d.rectangle((73,644,462,650),fill=CYAN)
-    txt(d,(74,679),'LASER PROFESSIONAL',27,WHITE,'bold')
-    txt(d,(74,717),'WORKSHOP TOOLS',27,WHITE,'bold')
-    # Oversized official photo, placed against clean light photographic panel.
-    # Cutting out is only attempted on nearly white studio shots.
-    d.polygon([(870,198),(1530,198),(1530,756),(814,756)],fill='#DCEAF4')
-    d.rectangle((899,228,1510,730),fill=WHITE)
-    photo=manufacturer_photo(blob)
-    place_cutout(im,photo,(910,228,1490,725))
-    d=ImageDraw.Draw(im)
-    d.rectangle((884,747,1529,755),fill=CYAN)
-    d.rectangle((0,787,W,H),fill='#F7FAFC')
-    d.rectangle((0,787,W,800),fill=BLUE)
+    sz,rows=fit_title(d,name,565,(39,36,33,30),max_lines=3)
+    for i,row in enumerate(rows[:3]):
+        txt(d,(69,471+i*(sz+9)),row,sz,WHITE,'bold')
+    d.rectangle((68,689,300,695),fill=CYAN)
+    txt(d,(70,721),'MADE FOR THE WORKSHOP',22,'#BBD8EA','bold')
+    # Part number on its own solid panel so it reads against any source image.
+    d.polygon([(1283,22),(1570,22),(1540,130),(1270,130)],fill='#075A9D')
+    txt(d,(1322,36),str(p.get('part','')),76,WHITE,'italic')
+    # An off-white benefits strip, not repeated spec blocks.
+    d.rectangle((0,800,W,920),fill='#F2F7FB')
     points=short_features(p,3)
     if not points:points=[short_purpose(p)]
-    for i in range(3):
-        x=53+518*i
-        if i>0:d.rectangle((x-24,820,x-21,888),fill='#B4CEDF')
-        d.rectangle((x,818,x+38,854),fill=BLUE)
-        txt(d,(x+9,821),str(i+1),23,WHITE,'bold')
-        claim=points[i] if i<len(points) else (points[0] if i==0 else '')
-        if claim:text_rows(d,claim,x+52,814,440,24,3,'bold',INK,1.16)
-    txt(d,(1535,894),'lasertools.co.uk  •  MARKETING DRAFT',15,MUTED,anchor='ra')
+    for i,claim in enumerate(points[:3]):
+        x=42+i*523
+        if i:d.rectangle((x-18,822,x-15,883),fill='#C7DDE9')
+        d.rectangle((x,822,x+35,856),fill=BLUE)
+        txt(d,(x+11,825),str(i+1),23,WHITE,'bold')
+        text_rows(d,claim,x+48,817,452,23,3,'bold',NAVY,1.17)
+    txt(d,(1543,894),'LASER TOOLS  ·  MARKETING DRAFT',14,MUTED,'bold',anchor='ra')
     return png(im)
 
 
@@ -538,10 +549,10 @@ def render_price(p,blob):
     return png(im)
 
 
-def create_posters(p,blob):
+def create_posters(p,blob,application_blob=None):
     if not blob:raise ValueError('A verified manufacturer product image is required.')
     return {
-       'Hero':render_hero(p,blob),
+       'Hero':render_hero(p,blob,application_blob),
        'Technical':render_technical(p,blob),
        'Price':render_price(p,blob),
     }
