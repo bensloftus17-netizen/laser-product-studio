@@ -52,6 +52,17 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         self.assertEqual(prepared_price(reviewed)['primary'],'£137.64')
         self.assertIn('Staff-entered',reviewed['price_status'])
 
+    def test_photo_validation_rejects_broken_banner(self):
+        from app import valid_image
+        bad=Image.new('RGB',(960,680),'white')
+        d=ImageDraw.Draw(bad)
+        d.rectangle((0,335,959,388),fill='black')
+        with io.BytesIO() as buf:
+            bad.save(buf,'PNG')
+            self.assertFalse(valid_image(buf.getvalue()))
+        p,photo=self.sample()
+        self.assertTrue(valid_image(photo))
+
     def test_three_poster_formats(self):
         p,image=self.sample()
         formats=[(render_hero,(1600,920)),(render_technical,(1280,1590)),(render_price,(1200,1200))]
@@ -61,6 +72,16 @@ class MarketingStudioSmokeTests(unittest.TestCase):
                 self.assertGreater(len(result),4000)
                 with Image.open(io.BytesIO(result)) as graphic:
                     self.assertEqual(graphic.size,dimensions)
+        # Manufacturer application photo changes only the campaign graphic.
+        in_use=Image.new('RGB',(800,620),'#9BA9B5')
+        d=ImageDraw.Draw(in_use)
+        d.ellipse((230,150,590,510),fill='#1D2B38')
+        with io.BytesIO() as data:
+            in_use.save(data,'PNG')
+            alternate=render_hero(p,image,data.getvalue())
+            self.assertGreater(len(alternate),4000)
+            with Image.open(io.BytesIO(alternate)) as graphic:
+                self.assertEqual(graphic.size,(1600,920))
 
 if __name__=='__main__':
     unittest.main()
