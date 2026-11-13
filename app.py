@@ -115,6 +115,7 @@ OFFICIAL_UK_PRODUCTS = {
     '9372':'https://www.toolconnection.co.uk/products/workshop/equipment/hydraulic-press/9372-air-hydraulic-workshop-press-50-tonne',
     '9197':'https://www.toolconnection.co.uk/products/workshop/inspection-lighting/workshop-lamps/9197-under-bonnet-compact-work-lamp-10w-cob-infrared',
     '4832':'https://www.toolconnection.co.uk/products/cars-vans/brakes/brake-bleeding/brake-bleeders-manual/4832-manual-pressure-brake-bleeder-2l',
+    '8899':'https://www.toolconnection.co.uk/products/cars-vans/steering-suspension/general-ball-joints/scissor/8899-ball-joint-separator-for-jlr',
 }
 
 
@@ -127,6 +128,7 @@ VERIFIED_UK_RRP = {
     '9395': ('£630.79 including VAT', OFFICIAL_UK_PRODUCTS['9395']),
     '8324': ('£41.67 excluding VAT', OFFICIAL_UK_PRODUCTS['8324']),
     '4832': ('£114.70 excluding VAT', OFFICIAL_UK_PRODUCTS['4832']),
+    '8899': ('£144.16 excluding VAT', OFFICIAL_UK_PRODUCTS['8899']),
 }
 
 # Official UK reference text, used only when live extraction yields no English details.
@@ -150,24 +152,66 @@ VERIFIED_UK_FACTS = {
         'source': OFFICIAL_UK_PRODUCTS['4832'],
         'verified_on': '13 Nov 2026',
     },
+    '8899': {
+        'features': [
+            'Heavy-duty scissor-type ball joint separator for listed Land Rover and Jaguar applications.',
+            'Suitable for Land Rover Discovery V (L462), Range Rover IV (L405) and Range Rover Sport II (L494).',
+            'Inner opening 31mm; outer opening 52mm; upper jaw 215mm; lower jaw 220mm.',
+            'Manufactured from heat-treated 45 carbon steel.',
+            'Equivalent to JLR OEM 204-793A; follow the manufacturer instructions and grease guidance.',
+        ],
+        'specs': {
+            'Type': 'Scissor',
+            'Material': 'Heat-treated carbon steel',
+            'Jaw width': '31mm',
+            'Depth': '52mm',
+            'Length': '220mm',
+            'Equivalent OEM': 'JLR 204-793A',
+            'Vehicle manufacturer': 'Land Rover, Range Rover',
+        },
+        'source': OFFICIAL_UK_PRODUCTS['8899'],
+        'verified_on': '13 Nov 2026',
+    },
 }
 
+# High-confidence French technical phrases which a simple stop-word count misses,
+# e.g. "En acier au carbone 45 traité thermiquement" from the 8899 PDF.
+FRENCH_STRONG = re.compile(
+    r'\b(?:en\s+acier|acier\s+au\s+carbone|trait[ée]s?\s+thermiquement|'
+    r'm[âa]choire|[ée]cartement|[ée]crou|[ée]carter|[ée]cart[ée]|'
+    r's[ée]parateur\s+de|rotule|[ée]quivalent\s+[àa]|conform[ée]ment|'
+    r'toujours\s+lubrifier|les\s+applications|utilis[ée]\s+pour|'
+    r'de\s+mani[èe]re|mise\s+en\s+place|ressort|d[ée]montage|'
+    r'avec\s+un|pour\s+une|sur\s+les|pour\s+le|l[’\\x27]utilisation|'
+    r'les\s+v[ée]hicules|outil\s+de)\b',
+    re.I
+)
 FRENCH_TECH_TERMS = re.compile(r'\b(?:méthode|syphonage|siphonnage|unidirectionnelle|réservoir|système|purge|purger|pressurisation|pression|dépose|repose|moyeu|lorsque|pourra|destiné|vissage|suffisante|particulier|nécessitant|remplissage|permettant)\b',re.I)
 
 FOREIGN_MARKERS = re.compile(r"\b(?:les|des|une|pour|avec|sans|afin|lors|sur|roulement|véhicules|comprend|comprennent|utilisation|également|assurer|remarque|utiliser|atelier|montage|pression|permettre|adapté|nécessaire|pièces|dépose|repose|cette|conçu|références|nettoyer|veiller|éviter|outil|lesquels|auxquels|cette|ceci|du|le|la|et)\b", re.I)
 
 def is_french(text):
     text=normalize(text)
-    if FRENCH_TECH_TERMS.search(text):return True
+    if FRENCH_STRONG.search(text) or FRENCH_TECH_TERMS.search(text):return True
     words=FOREIGN_MARKERS.findall(text)
-    # Avoid rejecting English 'insertion', 'outil' appearing as model names.
     return len(words)>=2 or (len(words)>=1 and bool(re.search(r'[àâçéèêëîïôùûüÿœæ]',text,re.I)))
 
 def english_only_features(features):
-    return [x for x in features if not is_french(x) and not re.search(r'\b(?:N\.B\.|REMARQUE)\s*:',x,re.I)]
+    """Only unique, actual English facts reach the record or artwork."""
+    output=[]
+    seen=set()
+    for feature in features or []:
+        phrase=normalize(feature)
+        key=phrase.casefold().strip(' .')
+        if (not phrase or key in seen or is_french(phrase)
+                or re.search(r'\b(?:N\.B\.|REMARQUE)\s*:',phrase,re.I)):
+            continue
+        seen.add(key)
+        output.append(phrase)
+    return output
 
 def english_only_specs(specs):
-    return {k:v for k,v in specs.items() if not is_french(k+' '+str(v))}
+    return {k:v for k,v in (specs or {}).items() if not is_french(str(k)+' '+str(v))}
 
 def search_official_uk_product(part,session=requests):
     """Discover the genuine product URL; third-party search snippets are NEVER used for facts/prices."""
@@ -247,7 +291,7 @@ def parse_html(content,part,url):
     features=english_only_features(select_bullets(soup))
     # Find product description: longest useful paragraph before spec table, not SEO navigation.
     paras=[normalize(x.get_text(' ',strip=True)) for x in soup.find_all('p')]
-    paras=[x for x in paras if 80<len(x)<1100 and not re.search(r'(cookies|privacy policy|terms and conditions)',x,re.I)]
+    paras=[x for x in paras if 80<len(x)<1100 and not is_french(x) and not re.search(r'(cookies|privacy policy|terms and conditions)',x,re.I)]
     desc=paras[0] if paras else (features[0] if features else '')
     specs={}
     for tr in soup.find_all('tr'):
@@ -484,6 +528,12 @@ def lookup(part,session=requests,force=False,uk_url=None):
         raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
     product['features']=english_only_features(product.get('features',[]))
     product['specs']=english_only_specs(product.get('specs',{}))
+    # Never surface any residual French in the product title/description either.
+    if is_french(product.get('title','')):
+        raise LookupErrorPublic('English product title not found; paste the official UK product link.')
+    if is_french(product.get('description','')):
+        english=product['features']
+        product['description']=english[0] if english else 'Refer to the official English manufacturer product information.'
     # Restore manufacturer-confirmed UK facts if the available product sheet was
     # non-English or returned incomplete technical text.
     if part in VERIFIED_UK_FACTS:
