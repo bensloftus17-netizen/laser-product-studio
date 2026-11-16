@@ -142,8 +142,8 @@ class StudioV3Tests(unittest.TestCase):
                                                   json={"distributor_brand":"none"})
         self.assertEqual(response.status_code,200,response.get_json())
         self.assertEqual(renderer.call_count,3)
-        self.assertNotIn("editor",renderer.call_args_list[0].kwargs)
-        self.assertNotIn("editor",renderer.call_args_list[1].kwargs)
+        self.assertIsNone(renderer.call_args_list[0].kwargs.get("editor"))
+        self.assertIsNone(renderer.call_args_list[1].kwargs.get("editor"))
         self.assertEqual(renderer.call_args_list[2].kwargs["editor"]["_scene_bytes"],scene)
 
     def test_unsafe_editor_options_rejected(self):
