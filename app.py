@@ -20,11 +20,12 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
-from ai_concepts import propose as propose_ai_concepts, render_concept as render_ai_concept
+from ai_concepts import propose as propose_ai_concepts
+from ai_promo_renderer import render_promo as render_ai_promo
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v22">
+<link rel="stylesheet" href="/static/styles.css?design=v23">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -58,7 +59,7 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Explore new poster ideas</h3><p>Three different advertising directions, art-directed for the actual tool. Original manufacturer photography, not invented AI products.</p><label class="ai-prompt-label" for="creativeBrief">Creative direction <span>(optional)</span></label><input id="creativeBrief" class="ai-brief" type="text" maxlength="180" autocomplete="off" placeholder="E.g. premium launch, trade counter impact, bold and minimal"></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Explore new poster ideas</h3><p>One click creates three different sales posters: bold retail, premium product and trade-counter promo. Each includes genuine product photography and UK RRP (when verified). No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
 <div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
 <section id="how" class="how"><div class="how-intro"><div class="sectioncap">MADE FOR REPS &amp; DISTRIBUTORS</div><h2>Simple from start to finish</h2><p>A faster way to prepare product marketing drafts using genuine manufacturer information.</p></div><div class="how-grid"><div><span class="how-icon">01</span><b>Find</b><p>Retrieve a genuine Laser Tools product image and official details.</p></div><div><span class="how-icon">02</span><b>Review</b><p>Check specifications, applications and UK pricing.</p></div><div><span class="how-icon">03</span><b>Download</b><p>Save promotional, technical and sales poster drafts.</p></div></div></section>
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
@@ -76,7 +77,7 @@ function updateDistributorPreview(){
  target.setAttribute('aria-label',id==='none'?'No customer branding':(labels[id]||'Selected customer logo'));
  if(active){
    $('reviewed').checked=false;$('download').disabled=true;
-   setProgress(2);showPreviews(active,activePhoto);
+   setProgress(2);showPreviews(active,activePhoto);$('aiIdeas').innerHTML='';
    setState(id==='none'?'Laser Tools-only posters selected. Review the previews.':
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
@@ -100,21 +101,22 @@ $('applyRrp').addEventListener('click',()=>{
     active.price_source='Staff entry';
     $('record').innerHTML=productCard(active,activePhoto);
     showPreviews(active,activePhoto);
+    $('aiIdeas').innerHTML='';
     $('reviewed').checked=false;$('download').disabled=true;
     setState('Draft price applied. Review all posters before exporting.','success');
 });
 $('generateAI').addEventListener('click',async()=>{
  if(!active||!activePhoto)return;
  const button=$('generateAI'),productPart=active.part;
- button.disabled=true;button.textContent='AI developing concepts…';
- $('aiIdeas').innerHTML='<p class="ai-loading">Analysing the product and creating three different marketing directions…</p>';
+ button.disabled=true;button.textContent='Creating 3 promotional designs…';
+ $('aiIdeas').innerHTML='<p class="ai-loading">Generating three different price-led marketing posters automatically…</p>';
  try{
-   const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor(),creative_brief:$('creativeBrief').value.trim()})});
+   const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});
    const data=await res.json();
    if(!res.ok)throw Error(data.error||'AI recommendations unavailable');
    if(!active||active.part!==productPart)return;
    $('aiIdeas').innerHTML=data.concepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI CONCEPT '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(c.name)+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><a href="'+c.preview+'" download="LASER_'+esc(productPart)+'_AI_Concept_'+(i+1)+'.png">Download this poster ↓</a></div></article>').join('');
-   setState('AI generated three poster concepts. Review all marketing claims before using them.','success');
+   setState('Three AI promotional posters generated. Check the verified RRP and copy before sharing.','success');
  }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
  finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
@@ -956,10 +958,11 @@ def ai_recommendations(part):
             return jsonify(error='A verified product photograph is required for AI poster recommendations.'),422
         ai_body=request.get_json(silent=True) or {}
         distributor=selected_distributor(ai_body.get('distributor_brand','none'))
+        product=with_reviewed_price(product,ai_body.get('staff_rrp_ex'),ai_body.get('staff_rrp_reviewed') is True,ai_body.get('staff_rrp_basis','ex'))
         product['marketing_direction']=strategy_for(product)
-        concepts=propose_ai_concepts(product,creative_brief=str(ai_body.get('creative_brief') or '')[:180])
+        concepts=propose_ai_concepts(product)
         for concept in concepts:
-            poster=render_ai_concept(concept,image,distributor)
+            poster=render_ai_promo(concept,image,product,distributor)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
