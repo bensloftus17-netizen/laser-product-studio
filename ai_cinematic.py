@@ -42,7 +42,10 @@ def _fit(d,text,rect,sizes=(62,55,48,40),fill=WHITE,kind="bold",lines=3,align="l
 
 def _brand(d,primary,part,reverse=False):
     from ai_promo_renderer import _laser
-    d.polygon([(0,0),(565,0),(493,169),(0,169)],fill="#04223E")
+    # Family colours subtly change the full masthead, including its corners.
+    rgb=tuple(int(primary[i:i+2],16) for i in (1,3,5))
+    masthead=tuple(min(255,int(a+b*.15)) for a,b in zip((4,18,31),rgb))
+    d.polygon([(0,0),(565,0),(493,169),(0,169)],fill=masthead)
     d.polygon([(526,0),(578,0),(505,169),(475,169)],fill=primary)
     _laser(d,55,30,dark=False)
     d.rounded_rectangle((57,191,308,254),radius=3,fill=primary)
