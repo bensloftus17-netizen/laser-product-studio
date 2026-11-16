@@ -85,7 +85,7 @@ def propose(product, creative_brief=""):
                 selected.append(features[x])
             if len(selected)>=2:break
         def safe(field,maxlen):
-            return re.sub(r"[\\r\\n\\t]+"," ",str(c.get(field,""))).strip()[:maxlen]
+            return " ".join(str(c.get(field,"")).split())[:maxlen]
         chosen=safe("visual_style",25).lower()
         if chosen not in STYLE_GROUPS[i]:
             # Gemini has creative freedom within each dramatically different
