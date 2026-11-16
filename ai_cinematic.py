@@ -146,13 +146,16 @@ def _rrp(d,price,box,style,accent,ink="#071F37"):
         if vat:_fit(d,vat,(x0+20,y0+233,x1-20,y0+276),(22,18),ink,"bold",1,"center")
         return
     if style=="plaque":
+        # A plaque always has white paper; text stays navy regardless of the
+        # custom accent (which may itself be dark enough to need white text).
+        plaque_ink="#061F38"
         d.polygon([(x0+28,y0),(x1,y0),(x1-25,y1),(x0,y1)],fill=WHITE)
         d.line([(x0+28,y0),(x1,y0),(x1-25,y1),(x0,y1),(x0+28,y0)],
                fill=accent,width=6,joint="curve")
-        _fit(d,label,(x0+49,y0+22,x1-45,y0+72),(26,22),ink,"bold",1)
+        _fit(d,label,(x0+49,y0+22,x1-45,y0+72),(26,22),plaque_ink,"bold",1)
         _fit(d,amount,(x0+42,y0+79,x1-46,y1-23),
-             (76,64,53,43,34),ink,"bold",2)
-        if vat:_fit(d,vat,(x0+45,y1-41,x1-46,y1-12),(20,17),ink,"bold",1,"right")
+             (76,64,53,43,34),plaque_ink,"bold",2)
+        if vat:_fit(d,vat,(x0+45,y1-41,x1-46,y1-12),(20,17),plaque_ink,"bold",1,"right")
         return
     # Strong split-colour banner/corner tag treatment
     if style=="tag":
