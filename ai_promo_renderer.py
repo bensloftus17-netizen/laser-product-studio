@@ -253,7 +253,20 @@ def _render_price(d, price, bounds, style, accent, dark_ink=NAVY, panel_bg=WHITE
         side=min(width,height)-12
         left=x0+(width-side)//2
         top=y0+(height-side)//2
-        _price_circle(d,price,(left,top,left+side,top+side),accent,fg)
+        if side>=310:
+            _price_circle(d,price,(left,top,left+side,top+side),accent,fg)
+        else:
+            # Compact badge for trade strips; avoid the large standard
+            # badge's vertical positioning crossing the poster footer.
+            d.ellipse((left,top,left+side,top+side),fill=accent)
+            d.ellipse((left+5,top+5,left+side-5,top+side-5),outline=WHITE,width=3)
+            _fit(d,label,(left+12,top+25,left+side-12,top+65),
+                 (20,17,14),fg,"bold",1,"center")
+            _fit(d,value,(left+9,top+80,left+side-9,top+145),
+                 (42,36,29,25,21),fg,"bold",2,"center")
+            if price["amount"]:
+                _fit(d,price["vat"],(left+13,top+154,left+side-13,top+185),
+                     (17,15),fg,"bold",1,"center")
         return
     if style=="tag":
         d.polygon([(x0+30,y0),(x1,y0),(x1,y1),(x0,y1),(x0,y0+28)],fill=accent)
@@ -309,20 +322,29 @@ def _customize_palette(p,editor,family):
     return p
 
 
-def _background_art(d, mode, region, colour, dark):
-    """Optional, brand-safe visual texture; decorative shapes never cover the photo."""
+def _background_art(d, mode, region, colour, dark, intensity=2):
+    """Optional brand-safe graphic motifs; strength 0-3 is user controlled."""
+    intensity=max(0,min(3,int(intensity)))
+    if intensity==0:return
     x0,y0,x1,y1=region
     stroke=("#315D81" if dark else "#D8E5EF")
+    width=max(1,2*intensity)
     if mode=="grid":
-        for x in range(x0+28,x1,104):
-            d.line((x,y0,x,y1),fill=stroke,width=2)
-        for y in range(y0+28,y1,104):
-            d.line((x0,y,x1,y),fill=stroke,width=2)
+        stride=max(66,144-18*intensity)
+        for x in range(x0+28,x1,stride):
+            d.line((x,y0,x,y1),fill=stroke,width=width)
+        for y in range(y0+28,y1,stride):
+            d.line((x0,y,x1,y),fill=stroke,width=width)
     elif mode=="rings":
         cx,cy=x1-65,(y0+y1)//2
         for r in (125,220,315,420):
-            d.ellipse((cx-r,cy-r,cx+r,cy+r),outline=stroke,width=5)
+            d.ellipse((cx-r,cy-r,cx+r,cy+r),outline=stroke,width=width+2)
         d.ellipse((cx-14,cy-14,cx+14,cy+14),fill=colour)
+    elif mode in ("clean","context","workshop","bench","engine") and intensity==3:
+        # A restrained accent motif on the decorative side, not over headline.
+        for j in range(3):
+            offset=j*41
+            d.line((x1-160+offset,y0+25,x1-30+offset,y0+95),fill=stroke,width=6)
 
 
 def _retail(concept, photo, product, price, variation, editor=None):
@@ -336,7 +358,7 @@ def _retail(concept, photo, product, price, variation, editor=None):
     d.polygon([(0, 1167), (1200, 1082), (1200, 1500), (0, 1500)], fill=p["navy"])
     d.polygon([(0, 1170), (1200, 1083), (1200, 1112), (0, 1200)], fill=p["accent"])
     editor=editor or {}
-    _background_art(d,editor.get("background","clean"),(0,38,1200,499),p["accent"],True)
+    _background_art(d,editor.get("background","clean"),(0,38,1200,499),p["accent"],True,editor.get("shape_intensity",2))
     _laser(d)
     _fit(d, "PRODUCT PROMOTION  /  PART " + str(product.get("part", "")),
          (60, 214, 865, 255), (25, 22), "#6ED4FF", "bold", 1)
@@ -370,7 +392,7 @@ def _premium(concept, photo, product, price, variation, editor=None):
     d.polygon([(0, 1032), (1200, 960), (1200, 1500), (0, 1500)], fill=p["panel"])
     d.rectangle((59, 231, 1140, 237), fill=p["accent"])
     editor=editor or {}
-    _background_art(d,editor.get("background","clean"),(25,250,1170,564),p["accent"],False)
+    _background_art(d,editor.get("background","clean"),(25,250,1170,564),p["accent"],False,editor.get("shape_intensity",2))
     _laser(d, dark=True)
     _fit(d, "LASER PRODUCT PROMOTION", (59, 194, 890, 233),
          (23, 20), p["accent"], "bold", 1)
@@ -409,7 +431,7 @@ def _trade(concept, photo, product, price, variation, editor=None):
     d.polygon([(0, 1159), (1200, 1055), (1200, 1112), (0, 1218)], fill=p["accent"])
     d.rectangle((0, 1210, W, H), fill="#081C31")
     editor=editor or {}
-    _background_art(d,editor.get("background","clean"),(15,250,1200,1155),p["accent"],True)
+    _background_art(d,editor.get("background","clean"),(15,250,1200,1155),p["accent"],True,editor.get("shape_intensity",2))
     _laser(d)
     _fit(d, "TRADE PROMOTION   •   PART " + str(product.get("part", "")),
          (58, 199, 885, 250), (24, 21), p["accent"], "bold", 1)
