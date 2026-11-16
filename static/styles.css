@@ -293,3 +293,14 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .ai-idea:nth-child(2){border-top:5px solid #b58a3e}
 .ai-idea:nth-child(3){border-top:5px solid #173450}
 .ai-explore-top .primary{min-width:190px}
+
+/* High-impact one-click Laser AI poster preview and full-resolution inspection. */
+.ai-zoom{display:block;margin-top:12px;padding:8px 0;border:0;background:transparent;color:#0b5f9c;font:inherit;font-size:13px;font-weight:800;cursor:pointer;text-align:left}
+.ai-zoom:hover,.ai-zoom:focus-visible{color:#073956;text-decoration:underline}
+.ai-idea img{display:block;width:100%;aspect-ratio:4/5;object-fit:contain;background:#edf3f7}
+.ai-lightbox{border:0;border-radius:18px;padding:0;background:#f6f9fc;color:#14334f;max-width:min(1100px,95vw);max-height:94vh;box-shadow:0 25px 80px rgba(7,27,48,.35)}
+.ai-lightbox::backdrop{background:rgba(5,19,34,.82)}
+.ai-lightbox-top{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;gap:22px;background:#fff;border-bottom:1px solid #dce8f0}
+.ai-lightbox-top strong{font-size:15px;line-height:1.4}
+.ai-lightbox-top button{background:#0a67ad;color:#fff;border:none;border-radius:8px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer}
+.ai-lightbox img{display:block;max-width:90vw;max-height:calc(94vh - 90px);width:auto;height:auto;object-fit:contain;margin:0 auto}
