@@ -226,6 +226,12 @@ def compose_product(base: Image.Image, blob: bytes, box: tuple[int,int,int,int],
         glow=Image.new("RGBA",(w,h),colour+(0,))
         glow.putalpha(shadow)
         layer.alpha_composite(glow)
-    layer.alpha_composite(cutout,(cx,cy))
+    # When the editor zooms beyond 100%, preserve the real tool pixels
+    # inside the selected hero region without causing negative-offset PIL errors.
+    left=max(0,cx);top=max(0,cy)
+    right=min(w,cx+cutout.width);bottom=min(h,cy+cutout.height)
+    if right>left and bottom>top:
+        crop=cutout.crop((left-cx,top-cy,right-cx,bottom-cy))
+        layer.alpha_composite(crop,(left,top))
     base.alpha_composite(layer,(x0,y0))
     return isolated
