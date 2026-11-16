@@ -27,8 +27,34 @@ def propose(product):
         response=requests.post("https://api.openai.com/v1/chat/completions",headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"},json=payload,timeout=38)
         response.raise_for_status()
         raw=json.loads(response.json()["choices"][0]["message"]["content"])
+    except requests.HTTPError as exc:
+        status=exc.response.status_code if exc.response is not None else 0
+        error_code=""
+        if exc.response is not None:
+            try:
+                info=exc.response.json().get("error",{})
+                error_code=str(info.get("code") or info.get("type") or "")[:80]
+            except (ValueError, AttributeError, TypeError):
+                pass
+        if status==401:
+            message="OpenAI rejected the API key. Check OPENAI_API_KEY in Render's Environment settings."
+        elif status==429 and error_code=="insufficient_quota":
+            message="OpenAI API billing or credits are unavailable. Open platform.openai.com/settings/organization/billing/overview to add API billing."
+        elif status==429:
+            message="OpenAI API rate limit reached. Please retry shortly or check your API limits."
+        elif status==404:
+            message="The configured OpenAI model was not found or is unavailable to this account. Check OPENAI_MODEL in Render."
+        elif status==403:
+            message="OpenAI API access was denied. Check your API project permissions and model access."
+        elif status>=500:
+            message="The OpenAI service is temporarily unavailable. Retry shortly."
+        else:
+            message="OpenAI API request failed (HTTP "+str(status)+", code: "+(error_code or "unspecified")+"). Check API configuration."
+        raise RuntimeError(message) from exc
+    except requests.Timeout as exc:
+        raise RuntimeError("The OpenAI API request timed out. Please retry.") from exc
     except (requests.RequestException, KeyError, ValueError, TypeError) as exc:
-        raise RuntimeError("The generative AI service could not create recommendations. Check API access and retry.") from exc
+        raise RuntimeError("Could not connect to or read the OpenAI API response. Retry or check Render network access.") from exc
     concepts=raw.get("concepts",[])
     if not isinstance(concepts,list) or len(concepts)!=3:raise RuntimeError("AI returned an invalid set of concepts. Please retry.")
     cleaned=[]
