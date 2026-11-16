@@ -131,20 +131,31 @@ class StudioV3Tests(unittest.TestCase):
         d.rectangle((50,45,420,280),fill="#627C89")
         buf=io.BytesIO();source_photo.save(buf,format="PNG")
         scene=buf.getvalue()
-        product={**self.product,"application_photo_source":"https://www.lasertools.co.uk/items/9385_InSitu.jpg",
-                 "photo_source":"https://www.lasertools.co.uk/items/9385.jpg"}
+        licensed=b"licensed_context"
+        product={**self.product,
+            "application_photo_source":"https://www.lasertools.co.uk/items/9385_InSitu.jpg",
+            "photo_source":"https://www.lasertools.co.uk/items/9385.jpg"}
         data=[{**self.concept,"id":i,"family":f} for i,f in enumerate(FAMILIES)]
+        def choose(product,variation=0,official_photo=None,prefer_official=False,**kwargs):
+            selected=official_photo if prefer_official else licensed
+            return selected,{"category":"engine","source":"Official manufacturer application photo"
+                        if prefer_official else "Pexels free commercial-use photo",
+                             "page_url":"https://www.pexels.com/photo/8985517/",
+                             "description":"Engine service","license_url":None}
         with patch.object(studio,"lookup",return_value=(product,self.photo)), \
              patch.dict(studio.APPLICATION_IMAGE_CACHE,{"9385":scene},clear=False), \
+             patch.object(studio,"find_scene",side_effect=choose) as find, \
              patch.object(studio,"propose_ai_concepts",return_value=data), \
              patch.object(studio,"render_ai_promo",return_value=b"sample") as renderer:
             response=studio.app.test_client().post("/api/ai/concepts/9385",
                                                   json={"distributor_brand":"none"})
         self.assertEqual(response.status_code,200,response.get_json())
         self.assertEqual(renderer.call_count,3)
-        self.assertIsNone(renderer.call_args_list[0].kwargs.get("editor"))
-        self.assertIsNone(renderer.call_args_list[1].kwargs.get("editor"))
+        self.assertEqual(renderer.call_args_list[0].kwargs["editor"]["_scene_bytes"],licensed)
+        self.assertEqual(renderer.call_args_list[1].kwargs["editor"]["_scene_bytes"],licensed)
         self.assertEqual(renderer.call_args_list[2].kwargs["editor"]["_scene_bytes"],scene)
+        self.assertEqual(response.get_json()["concepts"][2]["scene"]["source"],
+                         "Official manufacturer application photo")
 
     def test_unsafe_editor_options_rejected(self):
         for changes in [
