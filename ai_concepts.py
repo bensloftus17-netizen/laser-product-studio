@@ -1,5 +1,5 @@
 """Optional live generative-AI creative concepts, with source-grounded poster artwork."""
-import os, json, re, secrets
+import os, json, re, secrets, time
 import requests
 from ai_promo_renderer import FAMILIES
 
@@ -40,8 +40,15 @@ def propose(product, creative_brief=""):
                             "maxOutputTokens":2200}
     }
     try:
-        response=requests.post(url,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload,timeout=45)
-        response.raise_for_status()
+        # Retry only brief Gemini server failures (500/502/503/504).
+        # Do not retry quota (429), authentication or missing model errors.
+        for attempt in range(3):
+            response=requests.post(url,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload,timeout=24)
+            if getattr(response,"status_code",200) in (500,502,503,504) and attempt<2:
+                time.sleep(1.5*(attempt+1))
+                continue
+            response.raise_for_status()
+            break
         body=response.json()
         candidates=body.get("candidates") or []
         if not candidates:
