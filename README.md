@@ -19,3 +19,5 @@ The strategy is **transparent rule-based art direction**, not an actual image-ge
 
 See [MARKETING_ART_DIRECTION.md](MARKETING_ART_DIRECTION.md) for the full category framework and [marketing_intelligence.py](marketing_intelligence.py) for the implementation. The 26 regression tests in [test_studio.py](test_studio.py) include category classification, evidence-based selling points, adaptive technical layouts and co-branded marketing exports.
 
+
+<!-- V19b regression check: category-specific poster marketing and verified feature ranking. -->
