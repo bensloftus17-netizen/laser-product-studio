@@ -285,10 +285,11 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .ai-error{color:#a12626}
 @media(max-width:760px){.ai-ideas{grid-template-columns:1fr}.ai-explore{padding:16px}.ai-explore-top .primary{width:100%}}
 
-/* User-directed generative art direction: compact and optional. */
-.ai-prompt-label{display:block;font-weight:800;letter-spacing:.01em;font-size:13px;color:#0b3756;margin-top:16px;margin-bottom:6px}
-.ai-prompt-label span{font-weight:500;color:#5b7185}
-.ai-brief{display:block;width:100%;max-width:540px;background:#fff;border:1px solid #bdcfe0;border-radius:8px;padding:12px 13px;font:inherit;font-size:14px;color:#17344e;outline:none}
-.ai-brief:focus{border-color:#0874bd;box-shadow:0 0 0 3px rgba(8,116,189,.13)}
-.ai-idea img{aspect-ratio:4/5;object-fit:contain;background:#dfeaf3}
-.ai-explore-top{align-items:flex-start}
+/* One-click AI promo gallery: three deliberately distinct sales campaigns. */
+.ai-explore-top{align-items:center}
+.ai-ideas .ai-idea img{aspect-ratio:4/5;object-fit:contain;background:#e5eef6}
+.ai-idea .ai-copy{background:#fff}
+.ai-idea:nth-child(1){border-top:5px solid #046cc2}
+.ai-idea:nth-child(2){border-top:5px solid #b58a3e}
+.ai-idea:nth-child(3){border-top:5px solid #173450}
+.ai-explore-top .primary{min-width:190px}
