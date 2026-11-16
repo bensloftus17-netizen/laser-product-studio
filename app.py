@@ -26,7 +26,7 @@ from promo_scene_library import find_scene, classify_product
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v28">
+<link rel="stylesheet" href="/static/styles.css?design=v29">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -71,9 +71,9 @@ V7_HOME_PAGE = r'''
  <label for="aiEditPalette">Colour palette</label><select id="aiEditPalette"><option value="0">Style A</option><option value="1">Style B</option><option value="2">Style C</option></select>
  <div class="ai-colour-row"><div><label for="aiEditAccent">Accent colour</label><input id="aiEditAccent" type="color" value="#FFC82E"></div><div><label for="aiEditBgColour">Background colour</label><input id="aiEditBgColour" type="color" value="#056DB9"></div></div>
  <small class="ai-hint">Background tones are adjusted for readable Laser Tools branding.</small>
- <label for="aiEditBackground">Background / context</label><select id="aiEditBackground"><option value="clean">Clean brand background</option><option value="grid">Technical grid</option><option value="rings">Circular graphics</option><option value="context">Auto context — official in-use photo if available</option><option value="workshop">Illustrative garage environment</option><option value="bench">Illustrative toolbench</option><option value="engine">Illustrative engine bay</option></select>
+ <label for="aiEditBackground">Background / context</label><select id="aiEditBackground"><option value="clean">Clean brand background</option><option value="grid">Technical grid</option><option value="rings">Circular graphics</option><option value="context">Automatic real photo for this tool</option><option value="workshop">Real vehicle workshop photo</option><option value="bench">Real toolbench photo</option><option value="engine">Real engine-service photo</option></select>
  <div class="ai-two-cols"><div><label for="aiEditIntensity">Background strength <output id="aiEditIntensityValue">50</output>%</label><input type="range" id="aiEditIntensity" min="0" max="100" value="50"></div><div><label for="aiEditShapes">Graphic shapes</label><select id="aiEditShapes"><option value="0">None</option><option value="1">Subtle</option><option value="2" selected>Balanced</option><option value="3">Bold</option></select></div></div>
- <label for="aiEditSceneFile">Optional genuine workshop background photo</label><input type="file" id="aiEditSceneFile" accept="image/png,image/jpeg,image/webp"><button type="button" id="aiSceneRemove" class="ai-text-button">Remove uploaded background</button><small id="aiSceneNote" class="ai-hint">Use a photo you own or have permission to use. The built-in scenes are illustrations, not verified tool demonstrations. Max 2 MB.</small>
+ <label for="aiEditSceneFile">Optional genuine workshop background photo</label><input type="file" id="aiEditSceneFile" accept="image/png,image/jpeg,image/webp"><button type="button" id="aiSceneRemove" class="ai-text-button">Remove uploaded background</button><small id="aiSceneNote" class="ai-hint">Upload an approved photo (max 2 MB), or use the curated genuine workshop images. Background stock photography does not demonstrate the specific tool.</small>
  <label for="aiEditDisplay">Product photo treatment</label><select id="aiEditDisplay"><option value="shadow">Clean cutout + soft shadow</option><option value="cutout">Cutout only</option><option value="glow">Cutout + subtle glow</option><option value="panel">Framed official photo</option></select>
  <div class="ai-three-sliders"><div><label for="aiEditScale">Product scale <output id="aiEditScaleValue">100</output>%</label><input id="aiEditScale" type="range" min="70" max="160" step="5" value="100"></div><div><label for="aiEditX">Horizontal <output id="aiEditXValue">0</output></label><input id="aiEditX" type="range" min="-100" max="100" step="10" value="0"></div><div><label for="aiEditY">Vertical <output id="aiEditYValue">0</output></label><input id="aiEditY" type="range" min="-100" max="100" step="10" value="0"></div></div>
  <label for="aiEditPriceStyle">RRP badge style</label><select id="aiEditPriceStyle"><option value="bubble">Circular price bubble</option><option value="plaque">Premium outlined plaque</option><option value="banner">Bold price banner</option><option value="tag">Angled corner tag</option></select>
@@ -141,7 +141,7 @@ function clearAiDesigns(){
  $('aiEditor').hidden=true;
 }
 function renderAiGallery(){
- $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a></div></div></article>').join('');
+ $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a></div></div></article>').join('');
 }
 function setAiPaletteOptions(index){
  const selector=$('aiEditPalette');
@@ -176,7 +176,7 @@ function openAiEditor(index){
  for(const [input,label] of [['aiEditIntensity','aiEditIntensityValue'],['aiEditScale','aiEditScaleValue'],['aiEditX','aiEditXValue'],['aiEditY','aiEditYValue']])$(label).value=$(input).value;
  $('aiHeadlineChoices').innerHTML='';
  $('aiEditSceneFile').value='';
- $('aiSceneNote').textContent=aiScenePhotos[index]?'Workshop background uploaded for this design.':'Upload an approved workshop photo if you want a specific scene. Otherwise an official manufacturer application photo is used where available (or an illustrative backdrop). Max 2 MB.';
+ $('aiSceneNote').textContent=aiScenePhotos[index]?'Approved workshop photo uploaded for this design.':'Upload an approved workshop photo if you want a specific scene. Otherwise an official manufacturer application photo is used where available (or an illustrative backdrop). Max 2 MB.';
  setAiPaletteOptions(index);
  $('aiEditPalette').value=String(variant);
  refreshAiPaletteColours();
@@ -255,7 +255,7 @@ $('aiSceneRemove').addEventListener('click',()=>{
  if(currentAiEditor<0)return;
  aiScenePhotos[currentAiEditor]=null;
  $('aiEditSceneFile').value='';
- $('aiSceneNote').textContent='Workshop photo removed. Built-in contextual artwork remains available.';
+ $('aiSceneNote').textContent='Workshop photo removed. Automatic real contextual photography is available.';
 });
 $('aiHeadlineChoices').addEventListener('click',event=>{
  const btn=event.target.closest('button[data-headline]');
@@ -1332,9 +1332,12 @@ def edit_ai_promo(part):
                 product.get('application_photo_source') and
                 product.get('application_photo_source')!=product.get('photo_source')
                 else None)
+            selection={"workshop":"workshop","bench":"hand_tools",
+                       "engine":"engine"}.get(background)
             scene_bytes,scene_reference=find_scene(
                 product,variation=idx,official_photo=official,
-                prefer_official=(idx==2))
+                prefer_official=(idx==2 and background=="context" and bool(official)),
+                category_override=selection)
         render_options={**options,'_scene_bytes':scene_bytes} if scene_bytes else options
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
