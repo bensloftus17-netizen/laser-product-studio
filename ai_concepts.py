@@ -23,7 +23,13 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "Concept 1 is a colourful BOLD RETAIL PROMOTION with a standout circular price burst. "
             "Concept 2 is a CLEAN PREMIUM PRODUCT PROMOTION with elegant typography and a boxed RRP. "
             "Concept 3 is an ENERGETIC TRADE COUNTER PROMOTION with dramatic angular shapes and a wide price banner. "
-            "Write concise, credible UK trade headlines that name the actual tool action, application, workshop task or verified vehicle fitment. "
+            "Write concise, natural UK trade headlines with the TOOL TYPE as the main subject: "
+            "e.g. 'Ball Joint Separator for JLR' rather than 'JLR Ball Joint Separation', "
+            "'Glow Plug Removal Kit' rather than 'Conquer Sheared Glow Plugs'. "
+            "Prefer the manufacturer's own tool noun (puller, separator, charger, "
+            "socket set, bleeder, tester) and a verified application when useful. "
+            "Keep each headline 2-7 useful words, ideally under 42 characters. "
+            "Use direct factual language, without exclamation marks or invented benefits. "
             "Examples of style only: 'Ford EcoBlue Crankshaft Pulley Removal', '72-Tooth Ratchet Set', "
             "'Brake Bleeding for Workshop Service'. Only use those examples if they apply to this product. "
             "NEVER use cheesy slogans or empty excitement, including conquer, upgrade your, unlock, elevate, "
@@ -47,7 +53,9 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
                 "Use a "+tone+" writing tone. Never use exaggerated slogans such as conquer, "
                 "unlock, elevate, ultimate, upgrade your, precision engineering for, "
                 "game changer, revolutionise, unleash, dominate or master your. "
-                "Make the tool's actual job or verified fitment obvious. "
+                "Lead with the actual tool noun (e.g. separator, puller, charger), "
+            "then its verified workshop application. Keep headlines to 2-7 words. "
+            "No generic brand slogans, no exclamation marks. "
                 "Write a fresh, specific headline of no more than 48 characters that differs "
                 "from the existing product name, a subline no more than 82 characters, "
                 "an angle no more than 120 characters and select 1-3 real product features. "
@@ -148,15 +156,30 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
     return cleaned
 
 
-_CHEESY=re.compile(r"\b(conquer|unlock|elevate|unleash|revolutionis[ez]|dominate|ultimate|game[\s-]?chang(?:er|ing)|master\s+your|upgrade\s+your|precision\s+engineering\s+for|take\s+control|power\s+through)\b",re.I)
+_CHEESY=re.compile(r"\b(conquer|unlock|elevate|unleash|revolutionis[ez]|dominate|ultimate|game[\s-]?chang(?:er|ing)|master\s+your|upgrade\s+your|precision\s+engineering\s+for|take\s+control|power\s+through|discover\s+the|next\s+level|built\s+to\s+dominate)\b",re.I)
+_TOOL_NOUNS=("separator","puller","extractor","charger","bleeder","ratchet",
+             "socket","wrench","spanner","tester","scanner","press","inductor",
+             "adapter","adaptor","removal","tool","kit","set","pliers","cutter")
 
 
 def professional_headline(raw, product, features=()):
-    """Reject generic agency-style hype, fall back to exact manufacturer wording."""
+    """Reject hype and misleading noun-free headlines; use verified product title."""
     title=" ".join(str(product.get("title") or "Laser Tools Product").split())
-    candidate=" ".join(str(raw or "").split())[:48]
+    # Omit redundant manufacturer label, not product facts.
+    clean_title=re.sub(r"^(?:Laser\s+Tools?\s+)", "", title, flags=re.I).strip()
+    candidate=" ".join(str(raw or "").replace("!","").split())[:48].rstrip(" -,")
     if not candidate or _CHEESY.search(candidate):
-        candidate=title[:48].rstrip(" -,")
+        return clean_title[:48].rstrip(" -,")
+    title_lower=clean_title.lower()
+    text=candidate.lower()
+    # A specific tool name beats a vaguely phrased vehicle list or action.
+    # Only require nouns that appear in the actual manufacturer title.
+    strong_nouns=[w for w in _TOOL_NOUNS if re.search(r"\b"+re.escape(w)+r"s?\b",title_lower)]
+    if strong_nouns and not any(re.search(r"\b"+re.escape(w)+r"s?\b",text)
+                                for w in strong_nouns):
+        return clean_title[:48].rstrip(" -,")
+    if len(candidate.split())>9:
+        return clean_title[:48].rstrip(" -,")
     return candidate
 
 
@@ -175,6 +198,8 @@ def suggest_headlines(product, family, tone="trade", count=3):
              "description":str(product.get("description",""))[:700],"features":features,
              "family":family,"tone":tone}
     system=("Write exactly THREE distinct factual UK automotive trade poster headlines. "
+            "Name the real tool type explicitly; do not make vehicle names the entire title. "
+            "Keep each title under about 7 words and use a practical workshop tone. "
             "Return JSON as {\"headlines\":[\"...\",\"...\",\"...\"]}, no other fields. "
             "Each max 48 chars. Tone: "+tone+". Prefer a verified tool action, feature, "
             "application or vehicle fitment. The three must use different wording. "
