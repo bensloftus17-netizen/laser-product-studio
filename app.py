@@ -20,7 +20,7 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
-from ai_concepts import propose as propose_ai_concepts
+from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 
 V7_HOME_PAGE = r'''
@@ -1088,6 +1088,30 @@ def ai_recommendations(part):
         app.logger.exception('AI concept generation failed')
         return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
 
+@app.post('/api/ai/headlines/<part>')
+def ai_headline_options(part):
+    """Generate three copy-only factual headline options for one selected promo."""
+    try:
+        body=request.get_json(silent=True) or {}
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid request.'),400
+        idx=body.get('index')
+        tone=body.get('tone','trade')
+        if type(idx) is not int or idx not in (0,1,2) or tone not in ('trade','technical','premium','sales'):
+            return jsonify(error='Choose a valid design and writing tone.'),400
+        product,image=lookup(part)
+        if not image:return jsonify(error='Official product image unavailable.'),422
+        product['marketing_direction']=strategy_for(product)
+        options=suggest_ai_headlines(product,AI_PROMO_FAMILIES[idx],tone=tone)
+        return jsonify(headlines=options,review_required=True)
+    except RuntimeError as exc:return jsonify(error=str(exc)),503
+    except LookupErrorPublic as exc:return jsonify(error=str(exc)),404
+    except ValueError as exc:return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('Headline suggestions failed')
+        return jsonify(error='Could not generate headline suggestions.'),500
+
+
 @app.post('/api/ai/edit/<part>')
 def edit_ai_promo(part):
     """Edit one generated AI poster without changing original manufacturer facts.
@@ -1130,7 +1154,8 @@ def edit_ai_promo(part):
         def phrase(value,limit):
             return ' '.join(str(value or '').split())[:limit]
         if body.get('regenerate') is True:
-            generated=propose_ai_concepts(product,only_family=family)[0]
+            generated=propose_ai_concepts(product,only_family=family,
+                                          tone=edits.get('tone','trade'))[0]
             headline=phrase(generated.get('headline'),48)
             subline=phrase(generated.get('subline'),82)
             name=phrase(generated.get('name'),30)
@@ -1140,7 +1165,7 @@ def edit_ai_promo(part):
             headline=phrase(edits.get('headline'),48)
             if not headline:
                 return jsonify(error='Enter a headline before applying your changes.'),400
-            subline=phrase(supplied.get('subline'),82)
+            subline=phrase(edits.get('subline',supplied.get('subline')),82)
             name=phrase(supplied.get('name'),30)
             angle=phrase(supplied.get('angle'),120)
         raw_palette=edits.get('palette',supplied.get('variant',0))
@@ -1148,8 +1173,45 @@ def edit_ai_promo(part):
             return jsonify(error='Select a valid colour palette.'),400
         background=edits.get('background','clean')
         position=edits.get('price_position','standard')
-        if background not in ('clean','grid','rings') or position not in ('standard','opposite'):
+        if background not in ('clean','grid','rings','context','workshop','bench','engine') or position not in ('standard','opposite'):
             return jsonify(error='Unsupported background or price position.'),400
+        display_mode=edits.get('display_mode','shadow')
+        price_style=edits.get('price_style',('bubble','plaque','banner')[idx])
+        headline_size=edits.get('headline_size','normal')
+        tone=edits.get('tone','trade')
+        if display_mode not in ('panel','cutout','shadow','glow') or price_style not in ('bubble','plaque','banner','tag'):
+            return jsonify(error='Unsupported product or price appearance.'),400
+        if headline_size not in ('small','normal','large') or tone not in ('trade','technical','premium','sales'):
+            return jsonify(error='Unsupported headline style or tone.'),400
+        transforms={}
+        for key,low,high,default in [
+                ('product_scale',70,160,100),('product_x',-100,100,0),
+                ('product_y',-100,100,0),('shape_intensity',0,3,2),
+                ('background_intensity',0,100,50)]:
+            value=edits.get(key,default)
+            if type(value) is not int or not low<=value<=high:
+                return jsonify(error='Invalid position, zoom or background intensity.'),400
+            transforms[key]=value
+        if type(edits.get('show_subline',False)) is not bool:
+            return jsonify(error='Invalid subheading setting.'),400
+        scene_bytes=None
+        scene_data=edits.get('scene_data','')
+        if scene_data:
+            if not isinstance(scene_data,str) or len(scene_data)>2_900_000:
+                return jsonify(error='Workshop image is too large (maximum 2 MB).'),400
+            match=re.fullmatch(r'data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)',scene_data)
+            if not match:
+                return jsonify(error='Upload a valid PNG, JPEG or WebP workshop photo.'),400
+            try:
+                scene_bytes=base64.b64decode(match.group(2),validate=True)
+                if len(scene_bytes)>2_000_000:
+                    return jsonify(error='Workshop image is too large (maximum 2 MB).'),400
+                sample=Image.open(io.BytesIO(scene_bytes))
+                if sample.format not in ('JPEG','PNG','WEBP') or sample.width*sample.height>12_000_000:
+                    return jsonify(error='The workshop image must be under 12 megapixels.'),400
+                sample.verify()
+            except (ValueError,OSError,base64.binascii.Error):
+                return jsonify(error='Workshop photo could not be read.'),400
         accent=edits.get('accent','')
         bg_colour=edits.get('background_colour','')
         if not isinstance(accent,str) or not isinstance(bg_colour,str):
@@ -1158,14 +1220,18 @@ def edit_ai_promo(part):
             if value and not re.fullmatch(r'#[0-9a-fA-F]{6}',value):
                 return jsonify(error='Choose valid colours.'),400
         options={'background':background,'price_position':position,
-                 'accent':accent,'background_colour':bg_colour}
+                 'accent':accent,'background_colour':bg_colour,
+                 'display_mode':display_mode,'price_style':price_style,
+                 'headline_size':headline_size,'show_subline':edits.get('show_subline',False),
+                 'tone':tone,**transforms}
+        render_options={**options,'_scene_bytes':scene_bytes} if scene_bytes else options
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
                  'name':name or ('Promotional Option '+str(idx+1)),
                  'headline':headline or str(product.get('title','Laser Tools'))[:48],
                  'subline':subline,'angle':angle,'features':selected,
                  'variant':raw_palette,'editor':{**options,'palette':raw_palette}}
-        rendered=render_ai_promo(concept,image,product,brand,editor=options)
+        rendered=render_ai_promo(concept,image,product,brand,editor=render_options)
         concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
         return jsonify(concept=concept,review_required=True)
     except RuntimeError as exc:
