@@ -31,7 +31,7 @@ product-aware advertising concepts, with authentic manufacturer imagery and down
 
 1. Open https://aistudio.google.com/apikey and create a Gemini API key using a project eligible for the free tier.
 2. In Render > laser-product-studio > Environment add `GEMINI_API_KEY` and paste the secret API key into its value. Never add the key to GitHub.
-3. Save and deploy. Optionally configure `GEMINI_MODEL`, default `gemini-2.5-flash-lite`.
+3. Save and deploy. Optionally configure `GEMINI_MODEL`, default `gemini-3.5-flash-lite`.
 4. Load product 9395, click **Generate with AI**, and review all generated claims before publication.
 
 This implementation makes real model calls, but **does not train its own model** or learn
@@ -41,3 +41,5 @@ to improve its products. The AI call transmits only the public official manufact
 to Google, not private internal sales data. Free-tier availability is conditional on your
 project/region/model and Google's current terms. Do not enable paid billing if you want zero
 API charges. The old `OPENAI_API_KEY` is no longer used and can be deleted from Render.
+
+Note (Nov 2026): Google restricts Gemini 2.5 access for newly created API projects. New projects should use `gemini-3.5-flash-lite` (the default in this repo), provided it is available to your free-tier project. If `GEMINI_MODEL` was manually set to an older model on Render, update or remove that override.
