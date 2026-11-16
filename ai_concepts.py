@@ -175,8 +175,13 @@ def professional_headline(raw, product, features=()):
     # A specific tool name beats a vaguely phrased vehicle list or action.
     # Only require nouns that appear in the actual manufacturer title.
     strong_nouns=[w for w in _TOOL_NOUNS if re.search(r"\b"+re.escape(w)+r"s?\b",title_lower)]
-    if strong_nouns and not any(re.search(r"\b"+re.escape(w)+r"s?\b",text)
-                                for w in strong_nouns):
+    specific=[w for w in strong_nouns if w not in ("kit","set","tool","removal")]
+    must_include=specific if specific else strong_nouns
+    matched=any(re.search(r"\b"+re.escape(w)+r"s?\b",text) for w in must_include)
+    # Puller tools can truthfully be marketed by their removal application.
+    if "puller" in specific and re.search(r"\bremov(?:al|e|ing)\b",text):
+        matched=True
+    if must_include and not matched:
         return clean_title[:48].rstrip(" -,")
     if len(candidate.split())>9:
         return clean_title[:48].rstrip(" -,")
