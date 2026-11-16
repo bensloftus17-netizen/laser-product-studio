@@ -174,8 +174,18 @@ def _accent(editor,colour):
     return colour
 
 
+def _readable_ink(accent,default="#061F38"):
+    """Keep RRP legible even when the user picks a dark custom badge colour."""
+    try:
+        r,g,b=(int(accent[i:i+2],16) for i in (1,3,5))
+        luminance=.2126*r+.7152*g+.0722*b
+        return WHITE if luminance<135 else default
+    except (TypeError,ValueError):
+        return default
+
+
 def _retail(concept,photo,product,price,variation,editor,background):
-    p=COLOURS["retail"][variation%3];blue=_accent(editor,p["primary"])
+    p=COLOURS["retail"][variation%3];blue=p["primary"]
     yellow=_accent(editor,p["accent"])
     canvas=_scene_base(background,"retail",product,variation)
     d=ImageDraw.Draw(canvas,"RGBA")
@@ -199,14 +209,14 @@ def _retail(concept,photo,product,price,variation,editor,background):
     box=(822,1060,1168,1406) if editor.get("price_position")!="opposite" else (45,1070,391,1416)
     if price_style!="bubble":
         box=(190,1278,1110,1431) if editor.get("price_position")!="opposite" else (60,1278,975,1431)
-    _rrp(d,price,box,price_style,yellow,p["ink"])
+    _rrp(d,price,box,price_style,yellow,_readable_ink(yellow,p["ink"]))
     _footer(d)
     return canvas
 
 
 def _premium(concept,photo,product,price,variation,editor,background):
-    p=COLOURS["premium"][variation%3];blue=_accent(editor,p["primary"])
-    accent=_accent(editor,p["accent"])
+    p=COLOURS["premium"][variation%3];blue=p["primary"]
+    accent=_accent(editor,blue)
     canvas=_scene_base(background,"premium",product,variation)
     d=ImageDraw.Draw(canvas,"RGBA")
     # Long diagonal left column with actual photo visible behind product.
@@ -225,13 +235,13 @@ def _premium(concept,photo,product,price,variation,editor,background):
     d=ImageDraw.Draw(canvas)
     price_style=editor.get("price_style","plaque")
     box=(560,1203,1140,1417) if editor.get("price_position")!="opposite" else (65,1208,670,1417)
-    _rrp(d,price,box,price_style,accent,p["ink"])
+    _rrp(d,price,box,price_style,accent,_readable_ink(accent,p["ink"]))
     _footer(d)
     return canvas
 
 
 def _trade(concept,photo,product,price,variation,editor,background):
-    p=COLOURS["trade"][variation%3];blue=_accent(editor,p["primary"])
+    p=COLOURS["trade"][variation%3];blue=p["primary"]
     accent=_accent(editor,p["accent"])
     canvas=_scene_base(background,"trade",product,variation)
     d=ImageDraw.Draw(canvas,"RGBA")
@@ -253,7 +263,7 @@ def _trade(concept,photo,product,price,variation,editor,background):
     _features(d,concept,[(76,934,381,1097)],blue)
     price_style=editor.get("price_style","banner")
     box=(475,1228,1142,1426) if editor.get("price_position")!="opposite" else (55,1228,805,1426)
-    _rrp(d,price,box,price_style,accent,p["ink"])
+    _rrp(d,price,box,price_style,accent,_readable_ink(accent,p["ink"]))
     _footer(d)
     return canvas
 
