@@ -66,9 +66,12 @@ def _scene_base(photo_bytes,style,product,variation=0):
             # Vary crop from one composition to another, respecting portrait ads.
             cen=(.5,.48) if style=="retail" else ((.65,.47) if style=="premium" else (.4,.57))
             image=ImageOps.fit(shot,(W,H),method=Image.Resampling.LANCZOS,centering=cen)
-            image=ImageEnhance.Contrast(image).enhance(1.06)
-            image=ImageEnhance.Color(image).enhance(.79)
-            image=image.filter(ImageFilter.GaussianBlur(2.6))
+            # Background is a contextual photograph, not the primary subject:
+            # subdue colour/light and blur enough to lift the genuine product.
+            image=ImageEnhance.Contrast(image).enhance(1.08)
+            image=ImageEnhance.Color(image).enhance(.67)
+            image=ImageEnhance.Brightness(image).enhance(.74)
+            image=image.filter(ImageFilter.GaussianBlur(3.0))
             canvas.alpha_composite(image.convert("RGBA"))
         except (ValueError,OSError):
             pass
@@ -77,7 +80,7 @@ def _scene_base(photo_bytes,style,product,variation=0):
     d=ImageDraw.Draw(overlay)
     for y in range(H):
         frac=y/H
-        opacity=int(75+125*frac)
+        opacity=int(89+121*frac)
         d.line((0,y,W,y),fill=(4,18,33,opacity),width=1)
     canvas=Image.alpha_composite(canvas,overlay)
     return canvas
@@ -97,13 +100,13 @@ def _headline(d,concept,box,sizes,colour=WHITE,maxlines=4,editor=None):
 
 
 def _features(d,concept,boxes,primary=CYAN,fg=WHITE):
+    """One large verified selling point beats several unreadable paragraphs."""
     features=[str(x).strip() for x in concept.get("features",[]) if str(x).strip()]
-    for idx,rect in enumerate(boxes):
-        if idx>=len(features):break
-        x0,y0,x1,y1=rect
-        d.rounded_rectangle((x0,y0+6,x0+7,y0+56),fill=primary,radius=3)
-        _fit(d,features[idx],(x0+25,y0,x1,y1),
-             (31,28,24,21,18),fg,"regular",3)
+    if not features or not boxes:return
+    x0,y0,x1,y1=boxes[0]
+    d.rounded_rectangle((x0,y0+7,x0+9,y0+73),fill=primary,radius=4)
+    _fit(d,features[0],(x0+28,y0,x1,y1),
+         (36,33,30,27,23),fg,"regular",3)
 
 
 def _product(canvas,photo,product,box,editor=None):
@@ -112,7 +115,7 @@ def _product(canvas,photo,product,box,editor=None):
     # pixels here. Never redraw or synthesise the kit or claimed use.
     opts["background"]="clean"
     opts["_scene_bytes"]=None
-    if "product_scale" not in opts:opts["product_scale"]=115
+    if "product_scale" not in opts:opts["product_scale"]=121
     if "display_mode" not in opts:opts["display_mode"]="shadow"
     return compose_product(canvas,photo,box,opts,product)
 
@@ -182,7 +185,7 @@ def _retail(concept,photo,product,price,variation,editor,background):
     d.polygon([(0,742),(388,677),(388,1150),(0,1230)],fill=(2,30,57,185))
     d.polygon([(0,1270),(1200,1187),(1200,1500),(0,1500)],fill=(3,23,45,242))
     d.polygon([(0,1259),(1200,1176),(1200,1196),(0,1281)],fill=blue)
-    _product(canvas,photo,product,(387,490,1182,1280),editor)
+    _product(canvas,photo,product,(328,452,1190,1302),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     # Headline is drawn AFTER the cutout, so no product can conceal copy.
     d.polygon([(0,269),(705,265),(630,811),(0,856)],fill=(3,22,41,166))
@@ -190,10 +193,12 @@ def _retail(concept,photo,product,price,variation,editor,background):
     _headline(d,concept,(58,312,663,611),(81,72,63,54,46),WHITE,4,editor)
     if editor.get("show_subline"):
         _fit(d,concept.get("subline"),(62,632,629,725),(31,27,24),PALE,"regular",2)
-    _features(d,concept,[(62,885,393,990),(62,1040,393,1162)],blue)
+    _features(d,concept,[(62,945,414,1090)],blue)
     d=ImageDraw.Draw(canvas)
-    price_style=editor.get("price_style","banner")
-    box=(135,1283,1110,1431) if editor.get("price_position")!="opposite" else (47,1283,980,1431)
+    price_style=editor.get("price_style","bubble")
+    box=(822,1060,1168,1406) if editor.get("price_position")!="opposite" else (45,1070,391,1416)
+    if price_style!="bubble":
+        box=(190,1278,1110,1431) if editor.get("price_position")!="opposite" else (60,1278,975,1431)
     _rrp(d,price,box,price_style,yellow,p["ink"])
     _footer(d)
     return canvas
@@ -208,7 +213,7 @@ def _premium(concept,photo,product,price,variation,editor,background):
     d.polygon([(0,0),(807,0),(541,1470),(0,1500)],fill=(4,25,44,239))
     d.polygon([(723,0),(751,0),(492,1470),(460,1497)],fill=blue)
     d.polygon([(0,1275),(1200,1138),(1200,1500),(0,1500)],fill=(3,22,39,220))
-    _product(canvas,photo,product,(498,400,1175,1203),editor)
+    _product(canvas,photo,product,(470,355,1190,1245),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     d.polygon([(0,258),(657,245),(534,1130),(0,1193)],fill=(3,24,43,155))
     _brand(d,blue,product.get("part",""),family="premium")
@@ -216,7 +221,7 @@ def _premium(concept,photo,product,price,variation,editor,background):
     if editor.get("show_subline"):
         _fit(d,concept.get("subline"),(62,643,600,723),(32,28,24),PALE,"regular",2)
     d.rounded_rectangle((62,772,463,785),radius=4,fill=blue)
-    _features(d,concept,[(62,827,457,925),(62,984,457,1093)],blue)
+    _features(d,concept,[(62,875,477,1035)],blue)
     d=ImageDraw.Draw(canvas)
     price_style=editor.get("price_style","plaque")
     box=(560,1203,1140,1417) if editor.get("price_position")!="opposite" else (65,1208,670,1417)
@@ -235,7 +240,7 @@ def _trade(concept,photo,product,price,variation,editor,background):
     d.polygon([(1140,0),(1200,0),(805,1250),(770,1250)],fill=blue)
     d.polygon([(0,1176),(1200,1115),(1200,1500),(0,1500)],fill=(3,20,38,246))
     d.polygon([(0,1165),(1200,1105),(1200,1124),(0,1184)],fill=blue)
-    _product(canvas,photo,product,(243,516,1163,1182),editor)
+    _product(canvas,photo,product,(205,459,1185,1206),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     d.polygon([(0,252),(794,238),(727,663),(0,735)],fill=(3,22,40,160))
     _brand(d,blue,product.get("part",""),family="trade")
@@ -244,10 +249,9 @@ def _trade(concept,photo,product,price,variation,editor,background):
         _fit(d,concept.get("subline"),(62,593,761,663),(29,25,22),PALE,"regular",2)
     d=ImageDraw.Draw(canvas)
     # Grounded short feature strips; no claims fabricated by renderer.
-    d.rectangle((58,872,366,1000),fill=(5,30,49,211))
-    d.rectangle((58,1023,366,1152),fill=(5,30,49,211))
-    _features(d,concept,[(74,891,345,983),(74,1040,345,1132)],blue)
-    price_style=editor.get("price_style","tag")
+    d.rounded_rectangle((55,884,400,1128),radius=15,fill=(5,30,49,225))
+    _features(d,concept,[(76,934,381,1097)],blue)
+    price_style=editor.get("price_style","banner")
     box=(475,1228,1142,1426) if editor.get("price_position")!="opposite" else (55,1228,805,1426)
     _rrp(d,price,box,price_style,accent,p["ink"])
     _footer(d)
