@@ -2,7 +2,7 @@
 Public-site pilot. Not affiliated with the official Laser Tools website.
 """
 from __future__ import annotations
-import io, re, json, time, zipfile, hashlib, logging, html
+import io, re, json, time, zipfile, hashlib, logging, html, base64
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
@@ -20,6 +20,7 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
+from ai_concepts import propose as propose_ai_concepts, render_concept as render_ai_concept
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -57,7 +58,7 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Explore new poster ideas</h3><p>Get three original marketing concepts based on the verified product record. Your manual poster builder stays unchanged.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
 <div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
 <section id="how" class="how"><div class="how-intro"><div class="sectioncap">MADE FOR REPS &amp; DISTRIBUTORS</div><h2>Simple from start to finish</h2><p>A faster way to prepare product marketing drafts using genuine manufacturer information.</p></div><div class="how-grid"><div><span class="how-icon">01</span><b>Find</b><p>Retrieve a genuine Laser Tools product image and official details.</p></div><div><span class="how-icon">02</span><b>Review</b><p>Check specifications, applications and UK pricing.</p></div><div><span class="how-icon">03</span><b>Download</b><p>Save promotional, technical and sales poster drafts.</p></div></div></section>
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
@@ -80,12 +81,12 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('generateAI').disabled=true;$('aiIdeas').innerHTML='';setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
-try{const override=$('officialUrl').value.trim();const res=await fetch(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;activePhoto=data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
+try{const override=$('officialUrl').value.trim();const res=await fetch(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;activePhoto=data.photo_url;$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
 catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create posters <b>→</b>';inflight=false;}}
 $('applyRrp').addEventListener('click',()=>{
     if(!active){setState('Find a product first.','error');return;}
@@ -101,6 +102,21 @@ $('applyRrp').addEventListener('click',()=>{
     showPreviews(active,activePhoto);
     $('reviewed').checked=false;$('download').disabled=true;
     setState('Draft price applied. Review all posters before exporting.','success');
+});
+$('generateAI').addEventListener('click',async()=>{
+ if(!active||!activePhoto)return;
+ const button=$('generateAI'),productPart=active.part;
+ button.disabled=true;button.textContent='AI developing concepts…';
+ $('aiIdeas').innerHTML='<p class="ai-loading">Analysing the product and creating three different marketing directions…</p>';
+ try{
+   const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor()})});
+   const data=await res.json();
+   if(!res.ok)throw Error(data.error||'AI recommendations unavailable');
+   if(!active||active.part!==productPart)return;
+   $('aiIdeas').innerHTML=data.concepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI CONCEPT '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(c.name)+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><a href="'+c.preview+'" download="LASER_'+esc(productPart)+'_AI_Concept_'+(i+1)+'.png">Download this poster ↓</a></div></article>').join('');
+   setState('AI generated three poster concepts. Review all marketing claims before using them.','success');
+ }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
+ finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
@@ -930,6 +946,27 @@ def product_lookup(part):
     except Exception:
         app.logger.exception('Unexpected lookup error')
         return jsonify(error='Product lookup failed unexpectedly.'),500
+
+@app.post('/api/ai/concepts/<part>')
+def ai_recommendations(part):
+    """Genuine model generation only; never label deterministic fallback as AI."""
+    try:
+        product,image=lookup(part)
+        if not image:
+            return jsonify(error='A verified product photograph is required for AI poster recommendations.'),422
+        distributor=selected_distributor((request.get_json(silent=True) or {}).get('distributor_brand','none'))
+        product['marketing_direction']=strategy_for(product)
+        concepts=propose_ai_concepts(product)
+        for concept in concepts:
+            poster=render_ai_concept(concept,image,distributor)
+            concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
+        return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
+    except RuntimeError as e:return jsonify(error=str(e)),503
+    except ValueError as e:return jsonify(error=str(e)),400
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+    except Exception:
+        app.logger.exception('AI concept generation failed')
+        return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
 
 @app.get('/api/photo/<part>')
 def photo(part):
