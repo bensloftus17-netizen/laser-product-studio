@@ -40,11 +40,10 @@ def _fit(d,text,rect,sizes=(62,55,48,40),fill=WHITE,kind="bold",lines=3,align="l
     return original(d,text,rect,sizes,fill,kind,lines,align)
 
 
-def _brand(d,primary,part,reverse=False):
+def _brand(d,primary,part,family="retail"):
     from ai_promo_renderer import _laser
-    # Family colours subtly change the full masthead, including its corners.
-    rgb=tuple(int(primary[i:i+2],16) for i in (1,3,5))
-    masthead=tuple(min(255,int(a+b*.15)) for a,b in zip((4,18,31),rgb))
+    # Each art direction has its own masthead tone and header silhouette.
+    masthead={"retail":"#052B51","premium":"#0A395A","trade":"#061D35"}.get(family,"#052B51")
     d.polygon([(0,0),(565,0),(493,169),(0,169)],fill=masthead)
     d.polygon([(526,0),(578,0),(505,169),(475,169)],fill=primary)
     _laser(d,55,30,dark=False)
@@ -183,7 +182,7 @@ def _retail(concept,photo,product,price,variation,editor,background):
     d.polygon([(0,742),(388,677),(388,1150),(0,1230)],fill=(2,30,57,185))
     d.polygon([(0,1270),(1200,1187),(1200,1500),(0,1500)],fill=(3,23,45,242))
     d.polygon([(0,1259),(1200,1176),(1200,1196),(0,1281)],fill=blue)
-    _brand(d,blue,product.get("part",""))
+    _brand(d,blue,product.get("part",""),family="retail")
     _headline(d,concept,(58,312,663,611),(81,72,63,54,46),WHITE,4,editor)
     if editor.get("show_subline"):
         _fit(d,concept.get("subline"),(62,632,629,725),(31,27,24),PALE,"regular",2)
@@ -206,7 +205,7 @@ def _premium(concept,photo,product,price,variation,editor,background):
     d.polygon([(0,0),(807,0),(541,1470),(0,1500)],fill=(4,25,44,239))
     d.polygon([(723,0),(751,0),(492,1470),(460,1497)],fill=blue)
     d.polygon([(0,1275),(1200,1138),(1200,1500),(0,1500)],fill=(3,22,39,220))
-    _brand(d,blue,product.get("part",""))
+    _brand(d,blue,product.get("part",""),family="premium")
     _headline(d,concept,(62,312,632,616),(81,71,62,55,45),WHITE,4,editor)
     if editor.get("show_subline"):
         _fit(d,concept.get("subline"),(62,643,600,723),(32,28,24),PALE,"regular",2)
@@ -231,7 +230,7 @@ def _trade(concept,photo,product,price,variation,editor,background):
     d.polygon([(1140,0),(1200,0),(805,1250),(770,1250)],fill=blue)
     d.polygon([(0,1176),(1200,1115),(1200,1500),(0,1500)],fill=(3,20,38,246))
     d.polygon([(0,1165),(1200,1105),(1200,1124),(0,1184)],fill=blue)
-    _brand(d,blue,product.get("part",""))
+    _brand(d,blue,product.get("part",""),family="trade")
     _headline(d,concept,(59,284,780,573),(89,78,68,59,51),WHITE,4,editor)
     if editor.get("show_subline"):
         _fit(d,concept.get("subline"),(62,593,761,663),(29,25,22),PALE,"regular",2)
