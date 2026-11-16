@@ -1166,13 +1166,14 @@ def ai_recommendations(part):
                        if product.get('application_photo_source') and
                        product.get('application_photo_source')!=product.get('photo_source')
                        else None)
+        image_variation=int.from_bytes(hashlib.sha256(str(part).encode("utf-8")).digest()[:2],"big")
         for i,concept in enumerate(concepts):
             # Pick a genuine scene automatically by what this specific tool
             # does: battery charger -> battery with cables, brakes -> actual
             # brake service, diagnostics -> scanner, etc. Prefer verified
             # manufacturer in-situ imagery for the trade campaign.
             scene,reference=find_scene(
-                product,variation=i,official_photo=official_scene,
+                product,variation=i+image_variation,official_photo=official_scene,
                 prefer_official=(i==2))
             options={'background':'context','_scene_bytes':scene}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
@@ -1334,8 +1335,9 @@ def edit_ai_promo(part):
                 else None)
             selection={"workshop":"workshop","bench":"hand_tools",
                        "engine":"engine"}.get(background)
+            seed=int.from_bytes(hashlib.sha256(str(part).encode("utf-8")).digest()[:2],"big")
             scene_bytes,scene_reference=find_scene(
-                product,variation=idx,official_photo=official,
+                product,variation=idx+seed,official_photo=official,
                 prefer_official=(idx==2 and background=="context" and bool(official)),
                 category_override=selection)
         render_options={**options,'_scene_bytes':scene_bytes} if scene_bytes else options
