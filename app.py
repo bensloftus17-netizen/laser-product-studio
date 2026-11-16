@@ -25,7 +25,7 @@ from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PR
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v26">
+<link rel="stylesheet" href="/static/styles.css?design=v27">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -65,7 +65,7 @@ V7_HOME_PAGE = r'''
 <form id="aiEditorForm" class="ai-editor-controls">
  <label for="aiEditHeadline">Promotional headline</label><input id="aiEditHeadline" type="text" minlength="1" maxlength="48" required placeholder="e.g. Ford EcoBlue Crankshaft Pulley Removal">
  <div class="ai-two-cols"><div><label for="aiEditTone">Headline tone</label><select id="aiEditTone"><option value="trade">UK trade / workshop</option><option value="technical">Technical / application</option><option value="premium">Premium / understated</option><option value="sales">Product benefits</option></select></div><div><label for="aiEditHeadlineSize">Headline size</label><select id="aiEditHeadlineSize"><option value="small">Compact</option><option value="normal" selected>Balanced</option><option value="large">Large</option></select></div></div>
- <button type="button" id="aiSuggestHeadlines" class="ai-secondary">✦ Suggest 3 trade-ready headlines</button><div id="aiHeadlineChoices" class="ai-headline-choices" aria-live="polite"></div>
+ <div class="ai-headline-buttons"><button type="button" id="aiGenerateOneHeadline" class="ai-secondary">✦ New headline only</button><button type="button" id="aiSuggestHeadlines" class="ai-secondary">✦ Suggest 3 headlines</button></div><div id="aiHeadlineChoices" class="ai-headline-choices" aria-live="polite"></div>
  <label class="ai-inline-check"><input id="aiEditShowSubline" type="checkbox"> Show supporting subheading</label><label for="aiEditSubline">Supporting subheading</label><input id="aiEditSubline" type="text" maxlength="82" placeholder="Optional short supporting line">
  <label for="aiEditPalette">Colour palette</label><select id="aiEditPalette"><option value="0">Style A</option><option value="1">Style B</option><option value="2">Style C</option></select>
  <div class="ai-colour-row"><div><label for="aiEditAccent">Accent colour</label><input id="aiEditAccent" type="color" value="#FFC82E"></div><div><label for="aiEditBgColour">Background colour</label><input id="aiEditBgColour" type="color" value="#056DB9"></div></div>
@@ -260,10 +260,10 @@ $('aiHeadlineChoices').addEventListener('click',event=>{
  const btn=event.target.closest('button[data-headline]');
  if(btn){$('aiEditHeadline').value=btn.dataset.headline;$('aiEditStatus').textContent='Headline selected. Click Apply changes to update your poster.';}
 });
-$('aiSuggestHeadlines').addEventListener('click',async()=>{
+async function generateHeadlineOptions(single=false){
  const idx=currentAiEditor,part=active?.part;
  if(idx<0||!part||aiEditing)return;
- const button=$('aiSuggestHeadlines');button.disabled=true;
+ const button=$(single?'aiGenerateOneHeadline':'aiSuggestHeadlines');button.disabled=true;
  $('aiHeadlineChoices').textContent='Finding three professional headline options…';
  try{
   const res=await fetch('/api/ai/headlines/'+encodeURIComponent(part),{
@@ -272,11 +272,18 @@ $('aiSuggestHeadlines').addEventListener('click',async()=>{
   const data=await res.json();
   if(!res.ok)throw Error(data.error||'Could not suggest headlines');
   if(currentAiEditor!==idx||active?.part!==part)return;
-  $('aiHeadlineChoices').innerHTML=data.headlines.map((h,i)=>
-   '<button type="button" data-headline="'+esc(h)+'">'+(i+1)+'. '+esc(h)+'</button>').join('');
+  if(single){
+   $('aiEditHeadline').value=data.headlines[0]||'';
+   $('aiHeadlineChoices').textContent='New trade headline ready. Apply changes to use it.';
+  }else{
+   $('aiHeadlineChoices').innerHTML=data.headlines.map((h,i)=>
+    '<button type="button" data-headline="'+esc(h)+'">'+(i+1)+'. '+esc(h)+'</button>').join('');
+  }
  }catch(error){$('aiHeadlineChoices').textContent=error.message;}
  finally{button.disabled=false;}
-});
+}
+$('aiGenerateOneHeadline').addEventListener('click',()=>generateHeadlineOptions(true));
+$('aiSuggestHeadlines').addEventListener('click',()=>generateHeadlineOptions(false));
 $('aiEditPalette').addEventListener('change',refreshAiPaletteColours);
 $('aiEditorForm').addEventListener('submit',event=>{event.preventDefault();saveAiEdit(false);});
 $('aiEditRegenerate').addEventListener('click',()=>saveAiEdit(true));
