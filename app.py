@@ -25,7 +25,7 @@ from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PR
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v24">
+<link rel="stylesheet" href="/static/styles.css?design=v25">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -59,13 +59,28 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click creates three different sales posters: bold retail, premium product and trade-counter promo. Each includes genuine product photography and UK RRP (when verified). No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><dialog class="ai-lightbox" id="aiPosterPreview" aria-label="Full-size AI promotional poster"><div class="ai-lightbox-top"><strong id="aiPosterTitle">AI promotional poster</strong><button type="button" id="aiPosterClose" aria-label="Close poster preview">Close ✕</button></div><img id="aiPosterImage" alt="Full-size AI poster preview" src=""></dialog><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click creates three different sales posters: bold retail, premium product and trade-counter promo. Each includes genuine product photography and UK RRP (when verified). No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
+<div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
+<div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
+<form id="aiEditorForm" class="ai-editor-controls">
+ <label for="aiEditHeadline">Promotional headline</label><input id="aiEditHeadline" type="text" minlength="1" maxlength="48" required placeholder="A short, bold headline">
+ <label for="aiEditPalette">Colour palette</label><select id="aiEditPalette"><option value="0">Style A</option><option value="1">Style B</option><option value="2">Style C</option></select>
+ <div class="ai-colour-row"><div><label for="aiEditAccent">Accent colour</label><input id="aiEditAccent" type="color" value="#FFC82E"></div><div><label for="aiEditBgColour">Background colour</label><input id="aiEditBgColour" type="color" value="#056DB9"></div></div>
+ <small class="ai-hint">Background tones are adjusted for readable Laser Tools branding.</small>
+ <label for="aiEditBackground">Background graphics</label><select id="aiEditBackground"><option value="clean">Clean / minimal</option><option value="grid">Geometric grid</option><option value="rings">Circular graphics</option></select>
+ <label for="aiEditPricePosition">RRP placement</label><select id="aiEditPricePosition"><option value="standard">Original position</option><option value="opposite">Opposite side / alignment</option></select>
+ <div class="ai-lock"><strong>Locked for accuracy</strong><span>Official tool photo · Part number · Product title · Verified RRP and VAT · Product features</span></div>
+ <p id="aiEditStatus" class="ai-edit-status" aria-live="polite">Choose settings and apply your changes.</p>
+ <button type="submit" id="aiEditApply" class="primary">Apply changes to this poster</button>
+ <button type="button" id="aiEditRegenerate" class="ai-regenerate">✦ Regenerate this design</button>
+ <small class="ai-hint">Regenerate asks Gemini for a new headline and selling-point selection for this design only. Applying colour or layout changes does not call Gemini.</small>
+</form></div></section><dialog class="ai-lightbox" id="aiPosterPreview" aria-label="Full-size AI promotional poster"><div class="ai-lightbox-top"><strong id="aiPosterTitle">AI promotional poster</strong><button type="button" id="aiPosterClose" aria-label="Close poster preview">Close ✕</button></div><img id="aiPosterImage" alt="Full-size AI poster preview" src=""></dialog><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
 <div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
 <section id="how" class="how"><div class="how-intro"><div class="sectioncap">MADE FOR REPS &amp; DISTRIBUTORS</div><h2>Simple from start to finish</h2><p>A faster way to prepare product marketing drafts using genuine manufacturer information.</p></div><div class="how-grid"><div><span class="how-icon">01</span><b>Find</b><p>Retrieve a genuine Laser Tools product image and official details.</p></div><div><span class="how-icon">02</span><b>Review</b><p>Check specifications, applications and UK pricing.</p></div><div><span class="how-icon">03</span><b>Download</b><p>Save promotional, technical and sales poster drafts.</p></div></div></section>
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
 </div></main>
 <script>
-const $=id=>document.getElementById(id);let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;
+const $=id=>document.getElementById(id);let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;let aiConcepts=[],aiOriginals=[],currentAiEditor=-1,aiEditing=false;
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
@@ -77,12 +92,12 @@ function updateDistributorPreview(){
  target.setAttribute('aria-label',id==='none'?'No customer branding':(labels[id]||'Selected customer logo'));
  if(active){
    $('reviewed').checked=false;$('download').disabled=true;
-   setProgress(2);showPreviews(active,activePhoto);$('aiIdeas').innerHTML='';
+   setProgress(2);showPreviews(active,activePhoto);clearAiDesigns();
    setState(id==='none'?'Laser Tools-only posters selected. Review the previews.':
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('generateAI').disabled=true;$('aiIdeas').innerHTML='';setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('generateAI').disabled=true;clearAiDesigns();setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
@@ -101,7 +116,7 @@ $('applyRrp').addEventListener('click',()=>{
     active.price_source='Staff entry';
     $('record').innerHTML=productCard(active,activePhoto);
     showPreviews(active,activePhoto);
-    $('aiIdeas').innerHTML='';
+    clearAiDesigns();
     $('reviewed').checked=false;$('download').disabled=true;
     setState('Draft price applied. Review all posters before exporting.','success');
 });
@@ -109,18 +124,23 @@ $('generateAI').addEventListener('click',async()=>{
  if(!active||!activePhoto)return;
  const button=$('generateAI'),productPart=active.part;
  button.disabled=true;button.textContent='Creating 3 promotional designs…';
+ clearAiDesigns();
  $('aiIdeas').innerHTML='<p class="ai-loading">Generating three different price-led marketing posters automatically…</p>';
  try{
    const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});
    const data=await res.json();
    if(!res.ok)throw Error(data.error||'AI recommendations unavailable');
    if(!active||active.part!==productPart)return;
-   $('aiIdeas').innerHTML=data.concepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI CONCEPT '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(c.name)+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><a href="'+c.preview+'" download="LASER_'+esc(productPart)+'_AI_Concept_'+(i+1)+'.png">Download this poster ↓</a><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View large preview ⤢</button></div></article>').join('');
+   aiConcepts=data.concepts;
+   aiOriginals=data.concepts.map(c=>({...c}));
+   renderAiGallery();
    setState('Three AI promotional posters generated. Check the verified RRP and copy before sharing.','success');
  }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
  finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
 $('aiIdeas').addEventListener('click',event=>{
+ const editBtn=event.target.closest('button[data-ai-edit]');
+ if(editBtn){openAiEditor(Number(editBtn.dataset.aiEdit));return;}
  const btn=event.target.closest('button[data-ai-zoom]');
  if(!btn)return;
  const card=btn.closest('.ai-idea'),poster=card?.querySelector('img');
