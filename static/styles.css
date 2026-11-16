@@ -247,3 +247,20 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
  .distributor-controls select{min-width:0;font-size:12px;padding:12px 9px}
  .distributor-logo-preview{width:125px;height:70px;max-width:40%;padding:5px}
 }
+
+
+/* V19: explain product-aware art direction alongside manufacturer facts */
+.marketing-direction{margin:15px 0 19px;padding:17px;border:1px solid #bcddef;
+  border-radius:12px;background:linear-gradient(140deg,#eef8ff,#f8fbff)}
+.marketing-direction-title{display:flex;gap:9px;align-items:center;
+  color:#0766ae;font-size:10px;font-weight:850;letter-spacing:1.2px}
+.marketing-direction-icon{width:25px;height:25px;display:grid;place-items:center;
+  background:#086db6;border-radius:7px;color:white;font-size:15px}
+.marketing-family{display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:7px;margin:13px 0 9px}
+.marketing-family b{font-size:16px;line-height:1.22;color:#143b5f}
+.marketing-mode{background:white;border-radius:17px;border:1px solid #cfe3f2;
+  padding:5px 8px;font-size:10px;color:#17609a;text-transform:capitalize;
+  font-weight:740;word-break:break-word}
+.marketing-angle{font-size:13px;line-height:1.5;color:#294d6b;font-weight:650}
+.marketing-support{font-size:10px;color:#678399;line-height:1.5;margin-top:12px}
