@@ -175,7 +175,7 @@ function openAiEditor(index){
  for(const [input,label] of [['aiEditIntensity','aiEditIntensityValue'],['aiEditScale','aiEditScaleValue'],['aiEditX','aiEditXValue'],['aiEditY','aiEditYValue']])$(label).value=$(input).value;
  $('aiHeadlineChoices').innerHTML='';
  $('aiEditSceneFile').value='';
- $('aiSceneNote').textContent=aiScenePhotos[index]?'Workshop background uploaded for this design.':'Upload an approved workshop photo if you want a specific scene. Otherwise the tool's official application photo is used where available (or an illustrative backdrop). Max 2 MB.';
+ $('aiSceneNote').textContent=aiScenePhotos[index]?'Workshop background uploaded for this design.':'Upload an approved workshop photo if you want a specific scene. Otherwise an official manufacturer application photo is used where available (or an illustrative backdrop). Max 2 MB.';
  setAiPaletteOptions(index);
  $('aiEditPalette').value=String(variant);
  refreshAiPaletteColours();
