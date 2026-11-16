@@ -25,7 +25,7 @@ See [MARKETING_ART_DIRECTION.md](MARKETING_ART_DIRECTION.md) for the full catego
 
 The original product lookup, three default poster previews, distributor branding, price review
 and ZIP export are unchanged. **Generate with AI** uses Google's Gemini API to propose three
-product-aware advertising concepts, with authentic manufacturer imagery and downloadable PNGs. Gemini directs nine distinct design families: cinematic, retail, diagonal, industrial, editorial, minimal, feature, blueprint and data. Each generation must select one impact campaign, one editorial advert and one technical concept; the model chooses which layouts fit the product. The real product packshot may be isolated from a plain white background and enlarged, but is never AI-redrawn.
+product-aware advertising concepts, with authentic manufacturer imagery and downloadable PNGs. Gemini writes three different marketing concepts; the site renders them inside three professionally art-directed Laser Tools sales-poster families (Retail, Premium and Trade). There are three palette variations per family, so repeated generations can change the colours while keeping the brand consistent. The real product packshot may be isolated from a plain white background and enlarged, but is never AI-redrawn.
 
 ### Free setup (Google AI Studio)
 
@@ -68,3 +68,9 @@ builder and its three export formats remain unchanged. Promos are separate downl
 The generative model is the free-tier text model (not a paid image synthesis API). The
 optional creative direction field was intentionally removed to make generation truly one-click.
 Tests live in `test_ai_promos.py`.
+
+### Promotional design refresh — November 2026
+
+The three styles were rebuilt to match the new Laser-style reference concept. Retail uses a bold navy/blue angular header, large official photo frame and circular RRP bubble; Premium uses a bright editorial hierarchy, large product hero and clean outlined price plaque; Trade uses a charcoal workshop theme, diagonal shapes, side-by-side text/product framing and a prominent wide RRP ribbon. A single click still produces **exactly three different promotional designs**, with no user prompt required. Text is fitted to measured spaces and long copy safely abbreviated when necessary. The full-size **View large preview** action is available for each design before downloading. Rendered photos are placed unchanged (apart from cropping outer white whitespace and resizing) and all RRPs come from the official/staff-reviewed product record.
+
+Temporary Gemini 500/502/503/504 service errors are retried up to two more times automatically; API quota, authentication and model-access errors are not retried. This uses the existing free API tier and does not require extra infrastructure or paid image generation.
