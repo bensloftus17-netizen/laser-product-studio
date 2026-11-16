@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from io import BytesIO
+import os
 import re
 
 import requests
@@ -86,6 +87,10 @@ def scene_reference(category: str, variation=0) -> dict:
 
 @lru_cache(maxsize=24)
 def _fetch_licensed_photo(asset_id: int) -> bytes | None:
+    # Network-free CI: unit tests verify selection without relying on third
+    # party uptime. Production still loads actual licensed photographs.
+    if os.getenv("DISABLE_STOCK_PHOTOS") == "1":
+        return None
     # The domain and ID come only from curated source code constants, never
     # arbitrary URL input. Bound response size, image dimensions and timeout.
     url = f"https://images.pexels.com/photos/{asset_id}/pexels-photo-{asset_id}.jpeg"
