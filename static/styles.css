@@ -342,3 +342,26 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .ai-card-actions a{margin:0;padding:3px 0}
 @media(max-width:860px){.ai-editor-main{grid-template-columns:1fr}.ai-editor-visual{max-width:520px;margin:0 auto;width:100%}}
 @media(max-width:560px){.ai-editor{padding:15px}.ai-editor-heading{flex-direction:column}.ai-colour-row{grid-template-columns:1fr 1fr}}
+
+/* V3: visual studio controls for cutouts, realistic product positioning, and trade copy. */
+.ai-two-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ai-two-cols>div{min-width:0}
+.ai-two-cols label{font-size:12px;font-weight:760;color:#0d3657;display:block;margin:8px 0 7px}
+.ai-three-sliders{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;border:1px solid #dce7ef;padding:12px;border-radius:10px;background:#f6f9fc}
+.ai-three-sliders>div{min-width:0}
+.ai-three-sliders label{display:block;font-size:11px;font-weight:770;color:#164362;line-height:1.3;min-height:30px}
+.ai-three-sliders output,.ai-two-cols output{font-variant-numeric:tabular-nums;color:#0875c2}
+.ai-editor-controls input[type=range]{width:100%;accent-color:#0a70b6;cursor:pointer;margin:5px 0}
+.ai-editor-controls input[type=file]{font-size:12px;width:100%;padding:11px;background:#f5faff;border:1px dashed #bfd7e8;border-radius:9px;color:#355f7c}
+.ai-inline-check{display:flex!important;align-items:center;gap:9px;padding:9px 0;font-size:12px!important;font-weight:730}
+.ai-inline-check input{accent-color:#0874bd;width:16px;height:16px}
+.ai-secondary{padding:11px 13px;border:1px solid #a5d3ef;border-radius:9px;background:#ecf7ff;color:#0863a4;text-align:left;font:inherit;font-size:12px;font-weight:820;cursor:pointer}
+.ai-secondary:hover{background:#dbefff}
+.ai-secondary:disabled{opacity:.6;cursor:wait}
+.ai-text-button{align-self:flex-start;padding:4px 0;border:0;background:none;color:#0c6eb2;text-decoration:underline;font:inherit;font-size:11px;cursor:pointer}
+.ai-headline-choices:empty{display:none}
+.ai-headline-choices{display:flex;flex-direction:column;gap:7px}
+.ai-headline-choices button{background:#f5faff;border:1px solid #d6e8f4;border-radius:8px;padding:10px 11px;text-align:left;font-size:12px;font-weight:720;color:#214767;cursor:pointer}
+.ai-headline-choices button:hover{border-color:#0874bd;background:#ecf7ff}
+.ai-editor-controls select{max-width:100%;overflow:hidden}
+@media(max-width:580px){.ai-two-cols{grid-template-columns:1fr}.ai-three-sliders{gap:5px;padding:8px}}
