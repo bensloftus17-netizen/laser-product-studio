@@ -872,6 +872,58 @@ def draw_fitted_panel_copy(d, message, x, y, width, height, sizes,
     return True
 
 
+def decorate_category_stage(im,category,accent):
+    """Visual hierarchy per tool family, not an invented application photo.
+
+    All additions are clearly graphic artwork *behind* the genuine product
+    photograph. The product itself is never AI-redrawn or altered.
+    """
+    d=ImageDraw.Draw(im)
+    if category in ('socket_ratchet','threading_cutting'):
+        d.rounded_rectangle((35,721,1165,1398),radius=28,fill='#DFEAF2',
+                            outline=accent,width=8)
+        d.rounded_rectangle((58,741,1142,1376),radius=21,outline='#95B4CA',width=4)
+        for y in (795,1352):
+            d.line((85,y,1115,y),fill='#B7D0E3',width=3)
+    elif category=='workshop_press':
+        d.polygon(((0,706),(1200,606),(1200,1450),(0,1500)),fill='#233746')
+        for x in (85,195,305,1075,1160):
+            d.line((x,740,x-90,1378),fill='#4C6B82',width=5)
+        d.rectangle((29,1297,1171,1324),fill=accent)
+        d.rectangle((70,1356,1135,1361),fill='#7EA8C0')
+    elif category=='lighting_inspection':
+        d.ellipse((160,651,1134,1464),outline='#D4F3FF',width=15)
+        d.ellipse((230,720,1062,1403),outline=accent,width=5)
+        for x in (100,1100):
+            d.line((x,708,x,1403),fill='#7CBDE4',width=5)
+    elif category in ('diagnostic_electrical','air_power'):
+        for x in range(0,1201,92):
+            d.line((x,700,x,1410),fill='#587B98',width=2)
+        for y in range(760,1411,93):
+            d.line((0,y,1200,y),fill='#5E7E9B',width=2)
+        d.polygon(((800,675),(1200,645),(1200,1330),(1032,1349)),
+                  fill='#1B4969')
+        d.line((770,689,1020,1371),fill=accent,width=8)
+    elif category=='bearing_suspension':
+        d.polygon(((0,813),(1200,697),(1200,790),(0,912)),fill='#33596F')
+        d.line((0,926,1200,810),fill=accent,width=9)
+        d.line((0,1371,1200,1280),fill='#91AEC2',width=6)
+    elif category=='bodyshop_repair':
+        for i in range(6):
+            y=730+i*103
+            d.polygon(((0,y),(0,y+15),(1200,y-73),(1200,y-88)),
+                      fill='#5384A1')
+        d.polygon(((620,655),(1200,655),(1200,1280)),fill='#15466C')
+    elif category=='workshop_service':
+        d.rounded_rectangle((95,758,1105,1402),radius=80,
+                            fill='#204A62',outline=accent,width=6)
+        d.line((110,1290,1090,1290),fill='#8CB7CC',width=7)
+    else:
+        d.rounded_rectangle((35,755,1162,1390),radius=38,
+                            outline='#80B5D7',width=7)
+        d.polygon(((0,1390),(1200,1330),(1200,1400),(0,1450)),fill='#386381')
+
+
 def render_hero(p,blob,application_blob=None,distributor_brand=None):
     """Photo-first reference-style 2:3 ad for ANY Laser SKU.
 
@@ -904,12 +956,25 @@ def render_hero(p,blob,application_blob=None,distributor_brand=None):
     for n in range(13):
         y=1308+n*15
         d.line((0,y,1200,y-55),fill='#687887',width=1)
+    category_plan=strategy_for(p)
+    decorate_category_stage(im,category_plan['category'],category_plan['accent'])
 
     # Render the authentic product large over the background.
     # Tall lamps and presses get a taller stage; horizontal kits fill the width.
     cropped=trim_photo(photo)
     aspect=cropped.width/max(1,cropped.height)
-    if aspect<.64:
+    style=category_plan['visual_style']
+    if style in ('organised_kit','complete_set') and aspect>.70:
+        stage=(46,770,1153,1380)
+    elif style=='industrial_power' and aspect<1.15:
+        stage=(260,636,1055,1424)
+    elif style=='spotlight' and aspect<1.1:
+        stage=(283,661,993,1420)
+    elif style=='precision_tech':
+        stage=(128,719,1074,1389)
+    elif style=='performance' and aspect>1.25:
+        stage=(4,741,1196,1386)
+    elif aspect<.64:
         stage=(270,607,1100,1410)
     elif aspect>1.45:
         stage=(4,679,1194,1407)
@@ -1038,6 +1103,12 @@ def render_price(p,blob,distributor_brand=None):
     photo=manufacturer_photo(blob)
     place_cutout(im,photo,(28,250,935,751))
     d=ImageDraw.Draw(im)
+    # Category-specific sales cue, never a claimed specification.
+    story=strategy_for(p)
+    d.rounded_rectangle((43,204,716,246),radius=9,fill='#0A518A')
+    draw_fitted_panel_copy(d,story['category_label'].upper(),58,209,622,31,
+                           sizes=(24,22,20,18),style='bold',
+                           colors=[WHITE],max_lines=1)
     # Two fast, useful buyer benefits in a white strip under the genuine photo.
     d.rectangle((38,773,938,913),fill=WHITE)
     d.rectangle((38,773,938,779),fill=BLUE)
