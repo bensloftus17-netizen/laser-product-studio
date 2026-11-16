@@ -106,3 +106,25 @@ Added editing controls:
 - Copy generation specifically rejects generic hype (e.g. "conquer", "game-changing", "upgrade your") and prioritises verifiable applications and product functions.
 
 Original manual posters, official-image sourcing, distributor branding, price review, and ZIP export have not changed. Editor updates need no Gemini calls unless you explicitly ask for new copy. Full tests in test_ai_v3.py verify cutouts, photo-source accuracy, context images, safe price locks, new editor choices and browser JavaScript syntax.
+
+
+### V4 — photographic promotional campaigns by product type (November 2026)
+
+**Generate with AI** still uses a single click and outputs **three visibly different sales advertisements**: bold retail, editorial/premium and trade/workshop. The previous boxy graphics have been replaced with full-size photographic backgrounds, large manufacturer-photo product cutouts, dark translucent brand panels, realistic layering, strong readable headlines and bold UK RRP/price-on-request treatments. The original manual poster builder is untouched.
+
+**Context is selected automatically from the actual product**, with simple auditable rules rather than generative hallucination:
+- Battery chargers, maintainers and jump-starters → *genuine photographs of a vehicle battery with connected jumper leads*, with the actual manufacturer charger/kit photo prominent in the foreground.
+- Diagnostics and scanners → vehicle diagnostic workstation/technician.
+- Brake service tools → brake discs, calipers and brake maintenance.
+- Suspension/hubs/bearings → under-car/suspension workshop setting.
+- Engine pullers, glow-plug and timing tools → genuine engine-repair photography.
+- Ratchets/sockets/spanners → real toolbench/workshop photography.
+- Hydraulic workshop presses → industrial press/workshop setting.
+- Welders → real vehicle welding/repair photography.
+- Other tools → credible general vehicle service workshop photography.
+
+Category selection is deterministic and reviewable in promo_scene_library.py. Different part numbers and design families select different photographs/photographic crops from the matching category, plus different poster hierarchies and genuine product packshots. The app **does not claim the photographed stock scene shows the exact tool in use**. An official Laser Tools in-situ application image is preferred for the trade campaign when available, since it is more product-specific than stock imagery. All original tool pixels and verified price/VAT data remain untouched.
+
+**Photo rights & reliability:** Curated genuine photos are from [Pexels](https://www.pexels.com/license/), which licenses images for commercial marketing, with use restrictions (including no implied personal/brand endorsement). The preview cards show which scene was chosen and link to its source. Stock image downloads are strictly restricted to hard-coded verified Pexels photo IDs and cached in process. If a background is unavailable, the system uses a clean navy photographic-style graphic rather than drawing a fake charger/vehicle/tool application. Backgrounds may be replaced with an authorised staff-supplied photo in the existing editor. User uploads are not stored on the server.
+
+No extra API subscription has been introduced: Gemini free tier remains for copy direction; real photos and all poster layout rendering use requests and Pillow. New code: ai_cinematic.py, promo_scene_library.py; tests: test_scene_library.py. External-photo calls are disabled only in CI via DISABLE_STOCK_PHOTOS=1, not in the live site.
