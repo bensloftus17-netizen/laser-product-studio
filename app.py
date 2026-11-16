@@ -58,7 +58,7 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Explore new poster ideas</h3><p>Get three original marketing concepts based on the verified product record. Your manual poster builder stays unchanged.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Explore new poster ideas</h3><p>Three different advertising directions, art-directed for the actual tool. Original manufacturer photography, not invented AI products.</p><label class="ai-prompt-label" for="creativeBrief">Creative direction <span>(optional)</span></label><input id="creativeBrief" class="ai-brief" type="text" maxlength="180" autocomplete="off" placeholder="E.g. premium launch, trade counter impact, bold and minimal"></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
 <div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
 <section id="how" class="how"><div class="how-intro"><div class="sectioncap">MADE FOR REPS &amp; DISTRIBUTORS</div><h2>Simple from start to finish</h2><p>A faster way to prepare product marketing drafts using genuine manufacturer information.</p></div><div class="how-grid"><div><span class="how-icon">01</span><b>Find</b><p>Retrieve a genuine Laser Tools product image and official details.</p></div><div><span class="how-icon">02</span><b>Review</b><p>Check specifications, applications and UK pricing.</p></div><div><span class="how-icon">03</span><b>Download</b><p>Save promotional, technical and sales poster drafts.</p></div></div></section>
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
@@ -109,7 +109,7 @@ $('generateAI').addEventListener('click',async()=>{
  button.disabled=true;button.textContent='AI developing concepts…';
  $('aiIdeas').innerHTML='<p class="ai-loading">Analysing the product and creating three different marketing directions…</p>';
  try{
-   const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor()})});
+   const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor(),creative_brief:$('creativeBrief').value.trim()})});
    const data=await res.json();
    if(!res.ok)throw Error(data.error||'AI recommendations unavailable');
    if(!active||active.part!==productPart)return;
@@ -954,9 +954,10 @@ def ai_recommendations(part):
         product,image=lookup(part)
         if not image:
             return jsonify(error='A verified product photograph is required for AI poster recommendations.'),422
-        distributor=selected_distributor((request.get_json(silent=True) or {}).get('distributor_brand','none'))
+        ai_body=request.get_json(silent=True) or {}
+        distributor=selected_distributor(ai_body.get('distributor_brand','none'))
         product['marketing_direction']=strategy_for(product)
-        concepts=propose_ai_concepts(product)
+        concepts=propose_ai_concepts(product,creative_brief=str(ai_body.get('creative_brief') or '')[:180])
         for concept in concepts:
             poster=render_ai_concept(concept,image,distributor)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
