@@ -37,16 +37,23 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
 
     rgb = rgba.convert("RGB")
     channels = rgb.split()
-    min_chan = ImageChops.darker(ImageChops.darker(channels[0], channels[1]), channels[2])
-    max_chan = ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2])
-    neutral = ImageChops.subtract(max_chan, min_chan).point(lambda v: 255 if v <= 38 else 0)
-    bright = min_chan.point(lambda v: 255 if v >= 217 else 0)
-    candidates = ImageChops.multiply(neutral, bright)
+    minimum = ImageChops.darker(ImageChops.darker(channels[0], channels[1]), channels[2])
+    maximum = ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2])
+
+    # Packshot photography is rarely pure white. Off-white/grey compression
+    # artefacts create the objectionable bright rectangle around the tool.
+    # A pixel qualifies as background only if it is BOTH light and neutral.
+    neutral = ImageChops.subtract(maximum, minimum).point(
+        lambda value: 255 if value <= 56 else 0)
+    light = minimum.point(lambda value: 255 if value >= 199 else 0)
+    candidates = ImageChops.multiply(neutral, light)
     w, h = candidates.size
+
+    # Starting at multiple border locations removes *only* background
+    # connected to the photographic edge. Internal white plastic, badges,
+    # light-grey steel and enclosed gaps remain original product pixels.
     seeds = [(0, 0), (w-1, 0), (0, h-1), (w-1, h-1),
              (w//2, 0), (w//2, h-1), (0, h//2), (w-1, h//2)]
-    # Flood only eligible pixels connected to the photo edge; white parts
-    # inside the actual tool (plastic reservoirs, white labels) remain opaque.
     if not any(candidates.getpixel(pt) == 255 for pt in seeds):
         buf = io.BytesIO()
         rgba.save(buf, format="PNG")
@@ -54,24 +61,41 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     for seed in seeds:
         if candidates.getpixel(seed) == 255:
             ImageDraw.floodfill(candidates, seed, 128, thresh=0)
-    alpha = candidates.point(lambda p: 0 if p == 128 else 255)
-    # Reduce bright antialiasing fringe without resynthesising the tool.
-    alpha = alpha.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(.7))
-    bounds = alpha.getbbox()
+
+    # Expand the connected background by just one pixel then anti-alias the
+    # silhouette. This removes the bright JPG antialias border while leaving
+    # real white product surfaces opaque. Don't darken the product interior.
+    connected_background = candidates.point(lambda p: 255 if p == 128 else 0)
+    expanded_background = connected_background.filter(ImageFilter.MaxFilter(3))
+    alpha = ImageOps.invert(expanded_background).filter(
+        ImageFilter.GaussianBlur(.55))
+    foreground = ImageChops.darker(alpha, orig_a)
+    bounds = foreground.getbbox()
     if not bounds:
         buf = io.BytesIO()
         rgba.save(buf, format="PNG")
         return buf.getvalue(), False
-    foreground = ImageChops.darker(alpha, orig_a)
-    # Reject aggressive cutouts; preserve originals if isolation is uncertain.
-    coverage = foreground.histogram()
-    opaque_fraction = sum(coverage[185:]) / (w*h)
-    if not .012 < opaque_fraction < .91:
+
+    histogram = foreground.histogram()
+    opaque_fraction = sum(histogram[185:]) / (w*h)
+    # If an ordinary workshop photograph is misclassified as a white
+    # packshot, never silently erase large portions of it.
+    if not .012 < opaque_fraction < .92:
         buf = io.BytesIO()
         rgba.save(buf, format="PNG")
         return buf.getvalue(), False
+
+    # JPEG pixels on the boundary have white baked into their RGB channels.
+    # For only semi-transparent boundary pixels borrow the darker local RGB
+    # values, preventing a glowing white fringe against dark workshop photos.
+    # Pixels inside the product are not recoloured at all.
+    fringe = foreground.point(lambda p: 255 if 6 < p < 249 else 0)
+    if fringe.getbbox():
+        decontaminated = rgb.filter(ImageFilter.MinFilter(3))
+        rgb = Image.composite(decontaminated, rgb, fringe)
+    rgba = rgb.convert("RGBA")
     rgba.putalpha(foreground)
-    pad = max(4, int(min(w, h) * .015))
+    pad = max(5, int(min(w, h) * .016))
     rgba = rgba.crop((max(0, bounds[0]-pad), max(0, bounds[1]-pad),
                       min(w, bounds[2]+pad), min(h, bounds[3]+pad)))
     buf = io.BytesIO()
