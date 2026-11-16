@@ -172,7 +172,14 @@ def _product(base, photo, region, floating=True, shadow=True):
     cached,isolated=_photocut(photo)
     src=cached.copy()
     maxw,maxh=x2-x,y2-y
-    src.thumbnail((maxw,maxh),Image.Resampling.LANCZOS)
+    # thumbnail() never enlarges a source image. Poster hero artwork must
+    # scale authentic photography to the full composition, including smaller
+    # manufacturer packshots (with high-quality resampling).
+    ratio=min(maxw/max(1,src.width),maxh/max(1,src.height))
+    ratio=min(ratio,3.4) if not isolated else ratio
+    target=(max(1,round(src.width*ratio)),max(1,round(src.height*ratio)))
+    if target!=src.size:
+        src=src.resize(target,Image.Resampling.LANCZOS)
     xx=x+(maxw-src.width)//2
     yy=y+(maxh-src.height)//2
     if not isolated:
