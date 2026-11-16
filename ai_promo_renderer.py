@@ -235,7 +235,23 @@ def _price_circle(d, price, box, accent, fg):
              (32, 27, 23), fg, "bold", 1, "center")
 
 
-def _retail(concept, photo, product, price, variation):
+def _background_art(d, mode, region, colour, dark):
+    """Optional, brand-safe visual texture; decorative shapes never cover the photo."""
+    x0,y0,x1,y1=region
+    stroke=("#315D81" if dark else "#D8E5EF")
+    if mode=="grid":
+        for x in range(x0+28,x1,104):
+            d.line((x,y0,x,y1),fill=stroke,width=2)
+        for y in range(y0+28,y1,104):
+            d.line((x0,y,x1,y),fill=stroke,width=2)
+    elif mode=="rings":
+        cx,cy=x1-65,(y0+y1)//2
+        for r in (125,220,315,420):
+            d.ellipse((cx-r,cy-r,cx+r,cy+r),outline=stroke,width=5)
+        d.ellipse((cx-14,cy-14,cx+14,cy+14),fill=colour)
+
+
+def _retail(concept, photo, product, price, variation, editor=None):
     """Energetic campaign: blue / white chevrons, large hero and yellow RRP bubble."""
     p = RETAIL_PALETTES[variation % len(RETAIL_PALETTES)]
     canvas = Image.new("RGBA", (W, H), p["blue"])
@@ -245,6 +261,8 @@ def _retail(concept, photo, product, price, variation):
     d.polygon([(0, 632), (1200, 480), (1200, 650), (0, 788)], fill=WHITE)
     d.polygon([(0, 1167), (1200, 1082), (1200, 1500), (0, 1500)], fill=p["navy"])
     d.polygon([(0, 1170), (1200, 1083), (1200, 1112), (0, 1200)], fill=p["accent"])
+    editor=editor or {}
+    _background_art(d,editor.get("background","clean"),(0,38,1200,499),p["accent"],True)
     _laser(d)
     _fit(d, "PRODUCT PROMOTION  /  PART " + str(product.get("part", "")),
          (60, 214, 865, 255), (25, 22), "#6ED4FF", "bold", 1)
@@ -252,16 +270,21 @@ def _retail(concept, photo, product, price, variation):
          (94, 84, 74, 66, 58, 51, 44), WHITE, "bold", 3)
     _fit(d, product.get("title"), (60, 661, 1125, 747),
          (42, 37, 33, 29, 25), p["navy"], "bold", 2)
-    _photo_panel(canvas, photo, (56, 764, 867, 1150), inset=20)
-    d = ImageDraw.Draw(canvas)
-    _price_circle(d, price, (803, 838, 1168, 1203), p["accent"], p["a_ink"])
+    if editor.get("price_position")=="opposite":
+        _photo_panel(canvas,photo,(382,764,1143,1150),inset=20)
+        circle=(34,838,399,1203)
+    else:
+        _photo_panel(canvas,photo,(56,764,867,1150),inset=20)
+        circle=(803,838,1168,1203)
+    d=ImageDraw.Draw(canvas)
+    _price_circle(d,price,circle,p["accent"],p["a_ink"])
     _features(d, concept, [(64, 1248, 1132, 1316), (64, 1321, 1132, 1392)],
               p["accent"], WHITE, (29, 26, 22, 19))
     _footer(d)
     return canvas
 
 
-def _premium(concept, photo, product, price, variation):
+def _premium(concept, photo, product, price, variation, editor=None):
     """Clean premium creative: editorial navy title, framed hero, boxed RRP plaque."""
     p = PREMIUM_PALETTES[variation % len(PREMIUM_PALETTES)]
     canvas = Image.new("RGBA", (W, H), p["paper"])
@@ -269,6 +292,8 @@ def _premium(concept, photo, product, price, variation):
     d.rectangle((0, 0, W, 16), fill=p["navy"])
     d.polygon([(0, 1032), (1200, 960), (1200, 1500), (0, 1500)], fill=p["panel"])
     d.rectangle((59, 231, 1140, 237), fill=p["accent"])
+    editor=editor or {}
+    _background_art(d,editor.get("background","clean"),(25,250,1170,564),p["accent"],False)
     _laser(d, dark=True)
     _fit(d, "LASER PRODUCT PROMOTION", (59, 194, 890, 233),
          (23, 20), p["accent"], "bold", 1)
@@ -278,24 +303,27 @@ def _premium(concept, photo, product, price, variation):
          (39, 34, 30), p["accent"], "bold", 1)
     _photo_panel(canvas, photo, (57, 594, 1143, 1038), inset=18)
     d = ImageDraw.Draw(canvas)
-    _fit(d, product.get("title"), (61, 1073, 692, 1207),
-         (43, 39, 34, 30, 26), p["navy"], "bold", 3)
-    _features(d, concept, [(63, 1255, 690, 1314), (63, 1320, 690, 1392)],
-              p["accent"], p["navy"], (24, 21, 19, 17))
-    d.rounded_rectangle((740, 1100, 1143, 1405), radius=22,
-                        fill=WHITE, outline=p["accent"], width=5)
-    _fit(d, price["label"], (776, 1130, 1113, 1180),
-         (26, 23), p["accent"], "bold", 1)
-    _fit(d, price["amount"] or "PRICE ON REQUEST", (770, 1214, 1115, 1321),
-         (70, 63, 55, 47, 39, 32), p["navy"], "bold", 2)
+    opposite=editor.get("price_position")=="opposite"
+    text_x=508 if opposite else 61
+    text_x2=1135 if opposite else 692
+    boxx=57 if opposite else 740
+    _fit(d,product.get("title"),(text_x,1073,text_x2,1207),
+         (43,39,34,30,26),p["navy"],"bold",3)
+    _features(d,concept,[(text_x+2,1255,text_x2,1314),(text_x+2,1320,text_x2,1392)],
+              p["accent"],p["navy"],(24,21,19,17))
+    d.rounded_rectangle((boxx,1100,boxx+403,1405),radius=22,fill=WHITE,outline=p["accent"],width=5)
+    _fit(d,price["label"] if price["amount"] else "CURRENT PRICE",
+         (boxx+36,1130,boxx+373,1180),(26,23),p["accent"],"bold",1)
+    _fit(d,price["amount"] or "ON REQUEST",
+         (boxx+30,1214,boxx+375,1321),(70,63,55,47,39,32),p["navy"],"bold",2)
     if price["amount"]:
-        _fit(d, price["vat"], (775, 1341, 1113, 1379),
-             (22, 20), p["navy"], "regular", 1)
+        _fit(d,price["vat"],(boxx+35,1341,boxx+373,1379),
+             (22,20),p["navy"],"regular",1)
     _footer(d, dark=False)
     return canvas
 
 
-def _trade(concept, photo, product, price, variation):
+def _trade(concept, photo, product, price, variation, editor=None):
     """Trade-counter campaign: dark navy, high-contrast diagonals and RRP ribbon."""
     p = TRADE_PALETTES[variation % len(TRADE_PALETTES)]
     canvas = Image.new("RGBA", (W, H), p["navy"])
@@ -306,6 +334,8 @@ def _trade(concept, photo, product, price, variation):
         d.line((665+shift*142, 1118, 1025+shift*142, 245), fill="#2B82AA", width=4)
     d.polygon([(0, 1159), (1200, 1055), (1200, 1112), (0, 1218)], fill=p["accent"])
     d.rectangle((0, 1210, W, H), fill="#081C31")
+    editor=editor or {}
+    _background_art(d,editor.get("background","clean"),(15,250,1200,1155),p["accent"],True)
     _laser(d)
     _fit(d, "TRADE PROMOTION   •   PART " + str(product.get("part", "")),
          (58, 199, 885, 250), (24, 21), p["accent"], "bold", 1)
@@ -318,13 +348,16 @@ def _trade(concept, photo, product, price, variation):
     d = ImageDraw.Draw(canvas)
     _features(d, concept, [(59, 996, 508, 1065), (59, 1072, 508, 1152)],
               p["accent"], p["pale"], (23, 20, 18, 16))
-    _fit(d, price["label"], (60, 1242, 700, 1297),
-         (28, 25), p["accent"], "bold", 1)
-    _fit(d, price["amount"] or "PRICE ON REQUEST", (56, 1311, 943, 1421),
-         (100, 89, 77, 65, 55, 46, 39), WHITE, "bold", 2)
+    opposite=editor.get("price_position")=="opposite"
+    _fit(d,price["label"] if price["amount"] else "CURRENT PRICE",
+         (500 if opposite else 60,1242,1144 if opposite else 700,1297),
+         (28,25),p["accent"],"bold",1,"right" if opposite else "left")
+    _fit(d,price["amount"] or "ON REQUEST",
+         (290 if opposite else 56,1311,1144 if opposite else 943,1421),
+         (100,89,77,65,55,46,39),WHITE,"bold",2,"right" if opposite else "left")
     if price["amount"]:
-        _fit(d, price["vat"], (944, 1355, 1144, 1411),
-             (25, 22), WHITE, "bold", 1, "right")
+        _fit(d,price["vat"],(60 if opposite else 944,1355,280 if opposite else 1144,1411),
+             (25,22),WHITE,"bold",1)
     _footer(d)
     return canvas
 
@@ -332,14 +365,15 @@ def _trade(concept, photo, product, price, variation):
 RENDERERS = {"retail": _retail, "premium": _premium, "trade": _trade}
 
 
-def render_promo(concept, photo, product, distributor=None):
+def render_promo(concept, photo, product, distributor=None, editor=None):
     """Generate one professional 1200x1500 PNG; caller controls creative family."""
     family = concept.get("family", "retail")
     if family not in RENDERERS:
         raise ValueError("Unknown promotional design family")
     price = verified_price(product)
     variant = int(concept.get("variant", 0)) % 3
-    canvas = RENDERERS[family](concept, photo, product, price, variant)
+    opts=editor if isinstance(editor,dict) else {}
+    canvas = RENDERERS[family](concept, photo, product, price, variant, opts)
     _co_brand(canvas, distributor)
     out = io.BytesIO()
     canvas.convert("RGB").save(out, format="PNG", optimize=True)
