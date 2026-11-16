@@ -240,7 +240,12 @@ def key_fact(p):
 
 def choose_headline(p):
     source=(product_name(p)+' '+(p.get('description') or '')).lower()
+    # Product category defines marketing tone; this is not a generic headline.
+    profile=strategy_for(p)
     feat=' '.join(facts(p)).lower();alltext=source+' '+feat
+    if profile['category'] in ('socket_ratchet','workshop_press','air_power',
+                               'diagnostic_electrical','threading_cutting'):
+        return tuple(profile['headline_lines'])
     if any(w in source for w in ('brake bleeder','brake bleeding','bleeding kit')):
         return ('ONE-PERSON','BRAKE BLEEDING.')
     if any(w in source for w in ('workshop press','hydraulic press')):
@@ -273,7 +278,7 @@ def customer_features(p,n=5,maxlen=118):
     at genuine sentence/clause boundaries, never completed by invented wording.
     """
     out=[]
-    for raw in facts(p):
+    for raw in rank_verified_features(p,limit=20):
         full=' '.join(raw.split()).strip(' •-')
         if not full:continue
         number_count=len(re.findall(r'\b\d+(?:[.,]\d+)?(?:mm|Nm|W|psi)?\b',full,re.I))
@@ -311,6 +316,7 @@ def page_footer(d,W,H,p,color=NAVY):
 # Technical dimensions or drawings are never inferred from a photo.
 # ---------------------------------------------------------------------------
 from decimal import Decimal, ROUND_HALF_UP
+from marketing_intelligence import strategy_for, rank_verified_features, rank_specs
 
 def prepared_price(p):
     """Consistent UK RRP display: inc VAT prominent, ex VAT secondary.
@@ -427,21 +433,22 @@ def technical_layout_mode(p):
     Common small hand-tool sets should not become microscopic six-panel
     catalogues merely because the UK site publishes lots of specification rows.
     """
-    title=product_name(p).lower()
+    art=strategy_for(p)
+    cat=art['category']
     features=customer_features(p,6,125)
-    specs=best_specs(p,7)
-    simple=r'\b(?:ratchets?|spanners?|screwdrivers?|sockets?|pliers?|torx|bit sets?|hand tools?)\b'
-    complex_product=r'(?:wheel bearing|bearing kit|hydraulic press|bearing puller|timing kit|gearbox|induction heater)'
-    if re.search(simple,title) and not re.search(complex_product,title):
+    specs=rank_specs(p,cat,7)
+    # A small socket/ratchet set stays visually spacious even if it has
+    # many official size/drive specifications.
+    if cat in ('socket_ratchet','general_hand_tools','threading_cutting',
+               'accessories_consumables'):
         return 'light'
-    if len(features)>=4 and len(specs)>=4:
-        return 'dense'
-    if re.search(complex_product,title) and len(features)>=3 and len(specs)>=2:
-        return 'dense'
-    if len(specs)>=2 and len(features)>=2:
-        return 'medium'
-    if len(features)>=4 and len(specs)>=1:
-        return 'medium'
+    # A specialist kit or press earns a detailed page only when genuine
+    # specifications and useful source claims exist.
+    if cat in ('bearing_suspension','workshop_press'):
+        return 'dense' if len(features)>=3 and len(specs)>=2 else 'medium'
+    if len(features)>=4 and len(specs)>=4:return 'dense'
+    if len(specs)>=2 and len(features)>=2:return 'medium'
+    if len(features)>=4 and len(specs)>=1:return 'medium'
     return 'light'
 
 
@@ -495,9 +502,9 @@ def technical_masthead(im,p,mode):
     if has_application:
         technical_body(d,app,36,276,1175,52,sizes=(23,22,20),colour='#D1E8F8')
     elif mode=='light':
-        txt(d,(38,276),'PROFESSIONAL WORKSHOP TOOL',23,'#A7DDF7','bold')
+        txt(d,(38,276),strategy_for(p)['category_label'].upper(),23,'#A7DDF7','bold')
     else:
-        txt(d,(38,276),'PRODUCT INFORMATION  /  TECHNICAL OVERVIEW',23,'#A7DDF7','bold')
+        txt(d,(38,276),'TECHNICAL OVERVIEW  /  '+strategy_for(p)['category_label'].upper(),23,'#A7DDF7','bold')
     d.rectangle((31,333,1249,338),fill='#2296D5')
 
 
@@ -575,7 +582,7 @@ def render_technical(p,blob,application_blob=None,distributor_brand=None):
     d=ImageDraw.Draw(im)
     photo=manufacturer_photo(blob)
     features=customer_features(p,6,125)
-    specs=best_specs(p,7)
+    specs=rank_specs(p,strategy_for(p)['category'],7)
     purpose=short_purpose(p)
 
     if mode=='light':
@@ -731,6 +738,24 @@ def campaign_benefit(p):
     """Compact, defensible sales benefit from official product facts."""
     title=clean_name_for_poster(p).lower()
     corpus=' '.join(facts(p)).lower()+' '+str(p.get('description') or '').lower()
+    profile=strategy_for(p)
+    # These are real product facts, not generic claims bolted onto every SKU.
+    if profile['category']=='socket_ratchet':
+        for feature in customer_features(p,4,105):
+            if re.search(r'\b(?:piece|pc|ratchet|drive|socket|case|tray)\b',feature,re.I):
+                return feature
+        return clean_name_for_poster(p)
+    if profile['category']=='workshop_press':
+        tonnes=re.search(r'\b(\d{1,3})\s*(?:tonne|ton)\b',title,re.I)
+        if tonnes:return tonnes.group(1)+'-tonne workshop pressing capacity'
+        for feature in customer_features(p,4,110):
+            if re.search(r'\b(?:capacity|hydraulic|pressing|pedal)\b',feature,re.I):
+                return feature
+        return 'Workshop press for professional applications'
+    if profile['category']=='air_power':
+        for feature in customer_features(p,4,110):
+            if re.search(r'\b(?:torque|drive|nm|impact|air)\b',feature,re.I):
+                return feature
     if 'split hub' in title and ('strut' in corpus and ('leaving the hub' in corpus or 'without removing' in corpus)):
         return 'Remove & refit struts without removing the hub'
     if ('brake bleeder' in title or 'bleeding' in title) and ('one' in corpus or 'pump' in corpus or 'pressure' in corpus):
@@ -760,6 +785,16 @@ def campaign_quick_facts(p):
     output=[]
     title=clean_name_for_poster(p).lower()
     known=' '.join(facts(p)).lower()+' '+str(p.get('description') or '').lower()
+    category=strategy_for(p)['category']
+    if category=='socket_ratchet':
+        match=re.search(r'\b(\d{1,3})\s*(?:pc|piece)\b',title+' '+known)
+        if match:output.append(match.group(1)+'-PIECE SET')
+        if 'drive' in known:output.append('DRIVE SIZES IN PRODUCT DATA')
+        if 'tray' in known or 'case' in known:output.append('STORAGE INCLUDED')
+    if category=='workshop_press':
+        match=re.search(r'\b(\d{1,3})\s*(?:tonne|ton)\b',title)
+        if match:output.append(match.group(1)+'-TONNE CAPACITY')
+        if 'foot control' in known:output.append('FOOT CONTROL')
     # Make the reference-like specifications recognizable when they are verified.
     if 'tap' in title and 'die' in title:
         if re.search(r'\b110\s*(?:pc|pieces?|piece)\b',title+' '+known):
@@ -1070,8 +1105,9 @@ def create_fact_sheet_pdf(p,blob,application_blob=None,distributor_brand=None):
 
 def create_marketing_copy(p):
     key=short_features(p,3)
+    direction=strategy_for(p)
     head=' '.join(choose_headline(p))
     price=prepared_price(p)
     price_line=(f"Manufacturer RRP: {price['primary']} ({price['basis']}). "
                 f"{price['source_basis']}") if price else                'Manufacturer RRP: Not available from verified UK sources. Enquire with your distributor; never assume a price.'
-    return f'''LASER TOOLS {p.get('part')} — {product_name(p)}\n\nPROMOTIONAL POSTER HEADLINE (DRAFT)\n{head}\n\nShort customer points:\n{chr(10).join('• '+v for v in key)}\n\nTECHNICAL POSTER\nUse only the verified description, source features and specs in the attached source record. No inferred measurements or diagrams.\n\nRRP / SALES POSTER\n{price_line}\n\nPRODUCT SOURCE\n{p.get('source','')}\n\nREVIEW REQUIRED: price, product image rights, application wording, technical correctness and brand approval.\n'''
+    return f'''LASER TOOLS {p.get('part')} — {product_name(p)}\n\nDETECTED PRODUCT CATEGORY\n{direction['category_label']}\nMARKETING ANGLE\n{direction['marketing_angle']}\nVISUAL DIRECTION\n{direction['hero_focus']}\n\nPROMOTIONAL POSTER HEADLINE (DRAFT)\n{head}\n\nShort customer points:\n{chr(10).join('• '+v for v in key)}\n\nTECHNICAL POSTER\nUse only the verified description, source features and specs in the attached source record. No inferred measurements or diagrams.\n\nRRP / SALES POSTER\n{price_line}\n\nPRODUCT SOURCE\n{p.get('source','')}\n\nREVIEW REQUIRED: price, product image rights, application wording, technical correctness and brand approval.\n'''
