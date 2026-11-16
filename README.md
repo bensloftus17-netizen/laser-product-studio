@@ -89,3 +89,20 @@ The new editor works on that design only; the other two previews remain untouche
 * The edited card in the three-poster gallery is updated and can be downloaded as a full-resolution PNG. Changes live in the current browser session; **download** to keep your work (persistent project history is not yet available).
 
 The server always obtains the official product photograph, true part number, official product title and verified RRP independently from the product lookup; it never accepts those values or uploaded images from editor settings. Manufacturer feature bullets are validated against the original record, and any staff-entered prices still require explicit price review. Original marketing-pack generation remains unchanged. Editor API: `POST /api/ai/edit/<part>`. Editor tests: `test_ai_editor.py`.
+
+
+### V3 — cutout-first posters, contextual backgrounds and advanced editor (November 2026)
+
+The one-click AI button still creates **exactly three sales posters**: Retail, Premium, and Trade. They use the original Laser Tools packshot with a **safe edge-connected background removal pass**, not an AI-generated replacement product. White parts of the tool that are enclosed by its outline are preserved. If isolation is unreliable, the original manufacturer photograph is retained inside a tidy frame rather than mangled.
+
+The Trade layout uses a separate **genuine official manufacturer in-situ photo** as an out-of-focus background whenever the official product record supplies one. Otherwise it uses a clearly illustrative workshop, toolbench or engine-bay background. Illustrations are not actual demonstrations or evidence of fitment. Editors may optionally supply an authorised JPEG/PNG/WebP image (up to 2 MB); this picture is used **only behind** the original manufacturer product photograph, not in place of it. Background photos are not stored server-side; editor settings live only in the current browser session.
+
+Added editing controls:
+- Product: cutout, soft shadow, glow, or framed original; scale 70–160%; horizontal and vertical offsets.
+- Graphic styling: colour palettes, custom colour accents, clean/grid/rings or contextual backgrounds, background strength and graphic-shape intensity.
+- RRP: circle, plaque, wide banner, angled tag; two safe placement options. Price/VAT always remains the verified figure.
+- Typography: headline size, optional editable supporting line, and UK trade/technical/premium/sales tone.
+- Copy: **Suggest 3 trade-ready headlines** makes one Gemini free-tier call, and selecting a suggestion simply fills the editor field. **Regenerate this design** asks Gemini for only one revised marketing concept in the chosen tone.
+- Copy generation specifically rejects generic hype (e.g. "conquer", "game-changing", "upgrade your") and prioritises verifiable applications and product functions.
+
+Original manual posters, official-image sourcing, distributor branding, price review, and ZIP export have not changed. Editor updates need no Gemini calls unless you explicitly ask for new copy. Full tests in test_ai_v3.py verify cutouts, photo-source accuracy, context images, safe price locks, new editor choices and browser JavaScript syntax.
