@@ -22,7 +22,7 @@ def propose(product):
             "feature_ids (array of up to three integer indices into the supplied features array). "
             "Make each visual composition different: spotlight, split, technical used once each. "
             "No unsupported factual assertions in the headlines or sublines. Avoid invented adjectives about performance.")
-    model=os.environ.get("GEMINI_MODEL","gemini-2.5-flash-lite").strip()
+    model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
         raise RuntimeError("Invalid GEMINI_MODEL configuration.")
@@ -50,7 +50,7 @@ def propose(product):
         elif status==429:
             message="Gemini free-tier rate limit reached. Try again later; do not enable paid billing."
         elif status==404:
-            message="Gemini model unavailable. Check GEMINI_MODEL is a model available in your free tier."
+            message="Gemini model unavailable for this Google project. The default is gemini-3.5-flash-lite; check GEMINI_MODEL or your AI Studio project access."
         elif status>=500:
             message="Google Gemini is temporarily unavailable. Retry later."
         else:
