@@ -44,6 +44,27 @@ API charges. The old `OPENAI_API_KEY` is no longer used and can be deleted from 
 
 Note (Nov 2026): Google restricts Gemini 2.5 access for newly created API projects. New projects should use `gemini-3.5-flash-lite` (the default in this repo), provided it is available to your free-tier project. If `GEMINI_MODEL` was manually set to an older model on Render, update or remove that override.
 
-### Creative direction (November 2026)
 
-The optional AI section includes a short free-text creative brief for staff (e.g. 'premium automotive launch, less copy'). This text informs Gemini's art direction. All AI outputs remain drafts requiring staff review. The site does not call a paid image-generation model: on Google's developer API, image-generating Gemini models have no free API tier. The free, text-generating Gemini model proposes campaign art direction and the server renders finished posters from genuine manufacturer photography. The nine-style compositor and typo-avoidance checks live in `ai_creative_engine.py` and `test_ai_creative.py`. The original manual posters remain untouched.
+### One-click promotional AI (November 2026)
+
+The **Generate with AI** button requires no prompt or choices. Once a product is loaded,
+Gemini chooses marketing headlines and verified selling points from the official manufacturer
+record, and the site ALWAYS renders three distinct sales advertisements:
+
+1. **Bold retail promo** — vibrant Laser blue, angular shapes and a circular RRP burst.
+2. **Clean premium promo** — light editorial spacing, genuine product photo and refined RRP plaque.
+3. **High-impact trade promo** — industrial dark backgrounds, asymmetrical composition, angular
+   shapes and a wide price banner.
+
+Each design has three colour variations, chosen anew on every generation. All three include
+the authentic product photograph, verified part number/title, manufacturer facts and
+the **actual UK RRP with correct VAT descriptor** where known; missing prices say
+**PRICE ON REQUEST**. Staff-entered RRP only applies after the existing review control
+has been explicitly approved, and is labelled draft. The renderer does not calculate or invent
+prices, discounts or product specifications. Brand review remains required before publication.
+
+These new posters are rendered by `ai_promo_renderer.py`. The original manual poster
+builder and its three export formats remain unchanged. Promos are separate downloadable PNGs.
+The generative model is the free-tier text model (not a paid image synthesis API). The
+optional creative direction field was intentionally removed to make generation truly one-click.
+Tests live in `test_ai_promos.py`.
