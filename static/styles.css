@@ -264,3 +264,23 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
   font-weight:740;word-break:break-word}
 .marketing-angle{font-size:13px;line-height:1.5;color:#294d6b;font-weight:650}
 .marketing-support{font-size:10px;color:#678399;line-height:1.5;margin-top:12px}
+
+
+/* Optional generative AI gallery. Keeps the original poster workflow intact. */
+.ai-explore{margin:24px 0 22px;padding:22px;border:1px solid #cbdce9;border-radius:16px;background:#f5f9fd}
+.ai-explore-top{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.ai-explore-top h3{font-size:22px;line-height:1.2;margin:8px 0;color:#0d2b4f}
+.ai-explore-top p{font-size:14px;line-height:1.6;margin:0;max-width:540px;color:#4b6885}
+.ai-explore-top .primary{white-space:nowrap}
+.ai-ideas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}
+.ai-ideas:empty{display:none}
+.ai-idea{background:#fff;border:1px solid #d2dfeb;border-radius:12px;overflow:hidden;min-width:0}
+.ai-idea img{display:block;width:100%;height:auto;aspect-ratio:4/5;object-fit:contain;background:#eef3f8}
+.ai-copy{padding:14px}
+.ai-index{font-size:11px;letter-spacing:.08em;font-weight:700;color:#0874bd}
+.ai-copy h4{font-size:17px;margin:6px 0;color:#102d4d}
+.ai-copy p{font-size:13px;line-height:1.5;color:#536b83;margin:8px 0;overflow-wrap:anywhere}
+.ai-copy a{font-size:13px;font-weight:700;color:#0874bd;display:inline-block;margin-top:7px}
+.ai-error,.ai-loading{grid-column:1/-1;padding:14px;background:white;border-radius:8px;font-size:14px}
+.ai-error{color:#a12626}
+@media(max-width:760px){.ai-ideas{grid-template-columns:1fr}.ai-explore{padding:16px}.ai-explore-top .primary{width:100%}}
