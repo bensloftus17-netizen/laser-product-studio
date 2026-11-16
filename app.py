@@ -59,7 +59,7 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click creates three different sales posters: bold retail, premium product and trade-counter promo. Each includes genuine product photography and UK RRP (when verified). No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click creates three different price-led sales posters using the original tool image, a clean cutout treatment and verified manufacturer claims. Trade posters can use an official application photograph where available. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
 <div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
 <div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
 <form id="aiEditorForm" class="ai-editor-controls">
@@ -70,7 +70,7 @@ V7_HOME_PAGE = r'''
  <label for="aiEditPalette">Colour palette</label><select id="aiEditPalette"><option value="0">Style A</option><option value="1">Style B</option><option value="2">Style C</option></select>
  <div class="ai-colour-row"><div><label for="aiEditAccent">Accent colour</label><input id="aiEditAccent" type="color" value="#FFC82E"></div><div><label for="aiEditBgColour">Background colour</label><input id="aiEditBgColour" type="color" value="#056DB9"></div></div>
  <small class="ai-hint">Background tones are adjusted for readable Laser Tools branding.</small>
- <label for="aiEditBackground">Background / context</label><select id="aiEditBackground"><option value="clean">Clean brand background</option><option value="grid">Technical grid</option><option value="rings">Circular graphics</option><option value="context">Workshop setting — automatically selected</option><option value="workshop">Illustrative garage environment</option><option value="bench">Illustrative toolbench</option><option value="engine">Illustrative engine bay</option></select>
+ <label for="aiEditBackground">Background / context</label><select id="aiEditBackground"><option value="clean">Clean brand background</option><option value="grid">Technical grid</option><option value="rings">Circular graphics</option><option value="context">Auto context — official in-use photo if available</option><option value="workshop">Illustrative garage environment</option><option value="bench">Illustrative toolbench</option><option value="engine">Illustrative engine bay</option></select>
  <div class="ai-two-cols"><div><label for="aiEditIntensity">Background strength <output id="aiEditIntensityValue">50</output>%</label><input type="range" id="aiEditIntensity" min="0" max="100" value="50"></div><div><label for="aiEditShapes">Graphic shapes</label><select id="aiEditShapes"><option value="0">None</option><option value="1">Subtle</option><option value="2" selected>Balanced</option><option value="3">Bold</option></select></div></div>
  <label for="aiEditSceneFile">Optional genuine workshop background photo</label><input type="file" id="aiEditSceneFile" accept="image/png,image/jpeg,image/webp"><button type="button" id="aiSceneRemove" class="ai-text-button">Remove uploaded background</button><small id="aiSceneNote" class="ai-hint">Use a photo you own or have permission to use. The built-in scenes are illustrations, not verified tool demonstrations. Max 2 MB.</small>
  <label for="aiEditDisplay">Product photo treatment</label><select id="aiEditDisplay"><option value="shadow">Clean cutout + soft shadow</option><option value="cutout">Cutout only</option><option value="glow">Cutout + subtle glow</option><option value="panel">Framed official photo</option></select>
@@ -175,7 +175,7 @@ function openAiEditor(index){
  for(const [input,label] of [['aiEditIntensity','aiEditIntensityValue'],['aiEditScale','aiEditScaleValue'],['aiEditX','aiEditXValue'],['aiEditY','aiEditYValue']])$(label).value=$(input).value;
  $('aiHeadlineChoices').innerHTML='';
  $('aiEditSceneFile').value='';
- $('aiSceneNote').textContent=aiScenePhotos[index]?'Workshop background uploaded for this design.':'Upload an approved workshop photo if you want a genuine scene. Max 2 MB.';
+ $('aiSceneNote').textContent=aiScenePhotos[index]?'Workshop background uploaded for this design.':'Upload an approved workshop photo if you want a specific scene. Otherwise the tool's official application photo is used where available (or an illustrative backdrop). Max 2 MB.';
  setAiPaletteOptions(index);
  $('aiEditPalette').value=String(variant);
  refreshAiPaletteColours();
@@ -1154,8 +1154,16 @@ def ai_recommendations(part):
         product=with_reviewed_price(product,ai_body.get('staff_rrp_ex'),ai_body.get('staff_rrp_reviewed') is True,ai_body.get('staff_rrp_basis','ex'))
         product['marketing_direction']=strategy_for(product)
         concepts=propose_ai_concepts(product)
+        official_scene=(APPLICATION_IMAGE_CACHE.get(part)
+                       if product.get('application_photo_source') and
+                       product.get('application_photo_source')!=product.get('photo_source')
+                       else None)
         for concept in concepts:
-            poster=render_ai_promo(concept,image,product,distributor)
+            # Only the trade/context campaign uses the verified genuine
+            # official in-situ photo automatically; the others stay clean.
+            options={'background':'context','_scene_bytes':official_scene} if (
+                concept.get('family')=='trade' and official_scene) else None
+            poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
@@ -1301,6 +1309,11 @@ def edit_ai_promo(part):
                  'display_mode':display_mode,'price_style':price_style,
                  'headline_size':headline_size,'show_subline':edits.get('show_subline',False),
                  'tone':tone,**transforms}
+        if scene_bytes is None and background in ('context','workshop','bench','engine'):
+            # Use a product-specific manufacturer in-situ photograph when
+            # available; never substitute an AI-invented application photo.
+            if product.get('application_photo_source') and product.get('application_photo_source')!=product.get('photo_source'):
+                scene_bytes=APPLICATION_IMAGE_CACHE.get(part)
         render_options={**options,'_scene_bytes':scene_bytes} if scene_bytes else options
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
