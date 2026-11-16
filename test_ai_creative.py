@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 
 from ai_creative_engine import W,H,STYLE_GROUPS,RENDERERS,render_concept
 from ai_concepts import propose
+from ai_promo_renderer import FAMILIES
 
 
 class CreativeCampaignTests(unittest.TestCase):
@@ -76,9 +77,11 @@ class CreativeCampaignTests(unittest.TestCase):
                       "marketing_direction":{"category_label":"Socket and ratchet sets"}}
         with patch.dict(os.environ,{"GEMINI_API_KEY":"not-a-real-key"}),patch("ai_concepts.requests.post",return_value=FakeResponse()) as post:
             concepts=propose(manufacturer,creative_brief="bold launch campaign")
-        self.assertEqual([c["visual_style"] for c in concepts],["retail","minimal","blueprint"])
+        self.assertEqual([c["family"] for c in concepts],list(FAMILIES))
+        self.assertTrue(all(0<=c["variant"]<=2 for c in concepts))
         self.assertEqual(concepts[0]["features"],["Ratchet with 72 teeth"])
-        self.assertIn("bold launch campaign",post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"])
+        # The user now never needs a creative prompt: the AI is given official product data.
+        self.assertNotIn("bold launch campaign",post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"])
 
     def test_gemini_bare_array_output_is_accepted(self):
         """The live Google model sometimes returns a JSON array, not a wrapper."""
@@ -97,7 +100,7 @@ class CreativeCampaignTests(unittest.TestCase):
         with patch.dict(os.environ,{"GEMINI_API_KEY":"not-a-real-key"}),patch("ai_concepts.requests.post",return_value=FakeResponse()):
             concepts=propose({**self.record,"description":"Three ratchets","specs":{}})
         self.assertEqual(len(concepts),3)
-        self.assertEqual([c["visual_style"] for c in concepts],["cinematic","editorial","data"])
+        self.assertEqual([c["family"] for c in concepts],list(FAMILIES))
 
     def test_invalid_model_styles_are_safely_constrained(self):
         import ai_creative_engine
