@@ -112,9 +112,11 @@ def _retail(concept,photo,product,price,variation):
     _txt(d,product.get("title"),(57,526,1110,631),
          (36,32,29,25,22),p["deep"],"bold",3)
     # Large photograph takes central stage; price is an independent bold circle.
-    _product(base,photo,(42,646,1050,1155),shadow=True)
+    # Reserve a separate zone for the circular price burst so it cannot
+    # obscure the real tool photo (especially long socket/ratchet sets).
+    _product(base,photo,(34,668,786,1152),shadow=True)
     d=ImageDraw.Draw(base)
-    _circle_price(d,price,(768,834,1156,1222),p["accent"],p["label"])
+    _circle_price(d,price,(792,835,1164,1207),p["accent"],p["label"])
     _info(d,concept,[(61,1284,1100,1333),(61,1338,1100,1393)],
           WHITE,(25,22,19))
     _footer(d,price)
