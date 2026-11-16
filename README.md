@@ -25,7 +25,7 @@ See [MARKETING_ART_DIRECTION.md](MARKETING_ART_DIRECTION.md) for the full catego
 
 The original product lookup, three default poster previews, distributor branding, price review
 and ZIP export are unchanged. **Generate with AI** uses Google's Gemini API to propose three
-product-aware advertising concepts, with authentic manufacturer imagery and downloadable PNGs.
+product-aware advertising concepts, with authentic manufacturer imagery and downloadable PNGs. Gemini directs nine distinct design families: cinematic, retail, diagonal, industrial, editorial, minimal, feature, blueprint and data. Each generation must select one impact campaign, one editorial advert and one technical concept; the model chooses which layouts fit the product. The real product packshot may be isolated from a plain white background and enlarged, but is never AI-redrawn.
 
 ### Free setup (Google AI Studio)
 
@@ -43,3 +43,7 @@ project/region/model and Google's current terms. Do not enable paid billing if y
 API charges. The old `OPENAI_API_KEY` is no longer used and can be deleted from Render.
 
 Note (Nov 2026): Google restricts Gemini 2.5 access for newly created API projects. New projects should use `gemini-3.5-flash-lite` (the default in this repo), provided it is available to your free-tier project. If `GEMINI_MODEL` was manually set to an older model on Render, update or remove that override.
+
+### Creative direction (November 2026)
+
+The optional AI section includes a short free-text creative brief for staff (e.g. 'premium automotive launch, less copy'). This text informs Gemini's art direction. All AI outputs remain drafts requiring staff review. The site does not call a paid image-generation model: on Google's developer API, image-generating Gemini models have no free API tier. The free, text-generating Gemini model proposes campaign art direction and the server renders finished posters from genuine manufacturer photography. The nine-style compositor and typo-avoidance checks live in `ai_creative_engine.py` and `test_ai_creative.py`. The original manual posters remain untouched.
