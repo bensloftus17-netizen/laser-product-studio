@@ -13,6 +13,7 @@ import io
 import re
 from PIL import Image, ImageDraw, ImageOps, ImageChops
 from poster import font
+from ai_photo_effects import compose_product
 
 W, H = 1200, 1500
 NAVY = "#0B2948"
@@ -302,10 +303,10 @@ def _retail(concept, photo, product, price, variation, editor=None):
     _fit(d, product.get("title"), (60, 661, 1125, 747),
          (42, 37, 33, 29, 25), p["navy"], "bold", 2)
     if editor.get("price_position")=="opposite":
-        _photo_panel(canvas,photo,(382,764,1143,1150),inset=20)
+        compose_product(canvas,photo,(382,754,1143,1150),editor,product,editor.get("_scene_bytes"))
         circle=(34,838,399,1203)
     else:
-        _photo_panel(canvas,photo,(56,764,867,1150),inset=20)
+        compose_product(canvas,photo,(56,754,867,1150),editor,product,editor.get("_scene_bytes"))
         circle=(803,838,1168,1203)
     d=ImageDraw.Draw(canvas)
     _price_circle(d,price,circle,p["accent"],_price_ink(p["accent"]))
@@ -332,7 +333,7 @@ def _premium(concept, photo, product, price, variation, editor=None):
          (89, 80, 70, 61, 54, 47), p["navy"], "bold", 3)
     _fit(d, "PART " + str(product.get("part", "")), (60, 505, 940, 565),
          (39, 34, 30), p["accent"], "bold", 1)
-    _photo_panel(canvas, photo, (57, 594, 1143, 1038), inset=18)
+    compose_product(canvas,photo,(57,594,1143,1038),editor,product,editor.get("_scene_bytes"))
     d = ImageDraw.Draw(canvas)
     opposite=editor.get("price_position")=="opposite"
     text_x=508 if opposite else 61
@@ -375,7 +376,7 @@ def _trade(concept, photo, product, price, variation, editor=None):
     d.rectangle((60, 715, 448, 726), fill=p["accent"])
     _fit(d, product.get("title"), (59, 770, 528, 952),
          (37, 33, 29, 26, 23), WHITE, "bold", 4)
-    _photo_panel(canvas, photo, (548, 370, 1150, 1070), inset=22)
+    compose_product(canvas,photo,(548,370,1150,1070),editor,product,editor.get("_scene_bytes"))
     d = ImageDraw.Draw(canvas)
     _features(d, concept, [(59, 996, 508, 1065), (59, 1072, 508, 1152)],
               p["accent"], p["pale"], (23, 20, 18, 16))
@@ -403,7 +404,9 @@ def render_promo(concept, photo, product, distributor=None, editor=None):
         raise ValueError("Unknown promotional design family")
     price = verified_price(product)
     variant = int(concept.get("variant", 0)) % 3
-    opts=editor if isinstance(editor,dict) else {}
+    opts=dict(editor) if isinstance(editor,dict) else {}
+    if "display_mode" not in opts:opts["display_mode"]="shadow"
+    if "background" not in opts:opts["background"]="context" if family=="trade" else "clean"
     canvas = RENDERERS[family](concept, photo, product, price, variant, opts)
     _co_brand(canvas, distributor)
     out = io.BytesIO()
