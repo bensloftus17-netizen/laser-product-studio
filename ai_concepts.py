@@ -2,7 +2,7 @@
 import io, os, json, re, base64
 import requests
 from PIL import Image, ImageDraw, ImageOps
-from poster import font, lines, paragraph
+from ai_design import render_concept  # distinct editorial, product hero, technical layouts
 
 LAYOUTS=("spotlight","split","technical")
 def propose(product):
@@ -12,16 +12,24 @@ def propose(product):
     features=[str(x).strip()[:175] for x in (product.get("features") or []) if str(x).strip()][:12]
     specs=[{"label":str(k)[:65],"value":str(v)[:110]} for k,v in (product.get("specs") or {}).items()][:12]
     context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label","")}
-    system=("You are a B2B UK automotive workshop marketing art director for Laser Tools. "
-            "Develop exactly THREE genuinely different poster concepts with creative positioning appropriate to the actual product. "
-            "Use only the supplied manufacturer record; never invent specifications, vehicle fitment, performance, savings, superiority or prices. "
-            "The actual tool photo is provided separately and MUST remain unmodified. "
-            "Return ONLY a JSON object with key concepts: array of exactly three objects. "
-            "Each concept has: name (max 35 chars), headline (max 65 chars), subline (max 100 chars), "
-            "layout (one of spotlight, split, technical), angle (max 140 chars), "
-            "feature_ids (array of up to three integer indices into the supplied features array). "
-            "Make each visual composition different: spotlight, split, technical used once each. "
-            "No unsupported factual assertions in the headlines or sublines. Avoid invented adjectives about performance.")
+    system=("You are the creative director at a real automotive workshop tools advertising agency. "
+            "Create three visually and commercially DIFFERENT campaign concepts grounded strictly in the supplied manufacturer information. "
+            "Not three rewritten versions of the same product name. These are concepts for professional Laser Tools retail advertising. "
+            "1: a BOLD PRODUCT SPOTLIGHT: very short, punchy, non-generic headline; product is the hero; use layout spotlight. "
+            "2: an APPLICATION STORY: what job / compatible vehicle / practical use makes the product relevant, ONLY if the manufacturer source confirms it; layout split. "
+            "3: a SPECIFICATION / PRODUCT DETAIL story: accurate, concrete, technician-facing angle, no unverified figures; layout technical. "
+            "Consider the product family: sockets are sold for kit contents and sizes; presses for verified capacity; "
+            "specialist service tools for stated application and fitments. "
+            "Use factual product details ONLY from manufacturer evidence. Do not claim quality superiority, speed, savings, suitability, "
+            "mechanisms, capabilities, or performance not directly established in the evidence. "
+            "All ads use original manufacturer product photography separately. "
+            "Return ONLY JSON object with key concepts: exactly 3 objects in the above order. "
+            "Each: name (short unique internal concept title, max 30 characters), headline (max 52 characters, useful at poster size), "
+            "subline (max 96 characters, short and grounded), layout (spotlight/split/technical in order), "
+            "angle (why the creative direction sells this specific product, max 140 characters), "
+            "feature_ids (up to 2 different zero-based indices into the exact supplied features array). "
+            "Prefer genuinely varied visual hierarchy, message and feature selection. "
+            "Do not use a near-identical headline twice. Not every headline needs to repeat the full product name.")
     model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
@@ -78,71 +86,3 @@ def propose(product):
             "part":str(product.get("part","")), "title":str(product.get("title",""))[:125]})
     return cleaned
 
-def render_concept(concept, image_bytes, distributor=None):
-    """Non-generative precise print rendering: the tool image itself is never AI-redrawn."""
-    from brand_assets import get_brand_image
-    W,H=960,1200
-    navy="#0C2846";blue="#0874BD";cyan="#29B6EC";white="#FFFFFF";pale="#F1F6FB"
-    im=Image.new("RGB",(W,H),white);d=ImageDraw.Draw(im)
-    layout=concept["layout"]
-    if layout=="spotlight":
-        d.rectangle((0,0,W,355),fill=navy);d.rectangle((0,340,W,355),fill=cyan)
-        d.rectangle((0,355,W,975),fill=pale)
-    elif layout=="split":
-        d.rectangle((0,0,W,H),fill=pale);d.polygon([(0,0),(960,0),(960,700),(460,700)],fill=navy)
-        d.rectangle((0,0,20,H),fill=cyan)
-    else:
-        d.rectangle((0,0,W,H),fill=white);d.rectangle((0,0,W,175),fill=navy)
-        d.rectangle((0,175,W,185),fill=cyan)
-        d.rectangle((50,420,910,920),fill=pale)
-    def write(x,y,s,size,fill,maxwidth,maxlines=2,kind="bold"):
-        rows=lines(d,s,maxwidth,size,kind,max_lines=maxlines)
-        for line in rows:
-            d.text((x,y),line,font=font(size,kind),fill=fill);y+=int(size*1.23)
-        return y
-    label_y=45 if layout!="technical" else 39
-    d.text((58,label_y),"LASER",font=font(77,"bold"),fill=white if layout!="split" else white)
-    d.text((59,label_y+81),"TOOLS  /  PRODUCT PROMOTION",font=font(18,"bold"),fill=cyan)
-    # Place real manufacturer image within its own opaque white image frame.
-    source=Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    source.thumbnail((760,510),Image.Resampling.LANCZOS)
-    if layout=="split":frame=(300,345,920,880)
-    elif layout=="technical":frame=(75,445,885,905)
-    else:frame=(85,400,875,900)
-    x0,y0,x1,y1=frame
-    d.rounded_rectangle(frame,radius=22,fill=white,outline="#D7E3EC",width=3)
-    src=Image.open(io.BytesIO(image_bytes));src=ImageOps.exif_transpose(src)
-    if src.mode=="RGBA":
-        rgba=src.copy();rgba.thumbnail((x1-x0-50,y1-y0-45),Image.Resampling.LANCZOS)
-        px=x0+(x1-x0-rgba.width)//2;py=y0+(y1-y0-rgba.height)//2
-        im.paste(rgba,(px,py),rgba)
-    else:
-        pic=ImageOps.contain(src.convert("RGB"),(x1-x0-44,y1-y0-40),Image.Resampling.LANCZOS)
-        im.paste(pic,(x0+(x1-x0-pic.width)//2,y0+(y1-y0-pic.height)//2))
-    d=ImageDraw.Draw(im)
-    if layout=="spotlight":
-        write(57,190,concept["headline"],52,white,840,2)
-        write(57,311,concept["subline"],24,white,830,1,"regular")
-    elif layout=="split":
-        d.rounded_rectangle((46,195,745,340),radius=12,fill=white)
-        write(68,215,concept["headline"],43,navy,650,2)
-        write(48,895,concept["subline"],25,navy,850,2,"regular")
-    else:
-        write(56,218,concept["headline"],53,navy,850,2)
-        write(57,366,concept["subline"],24,blue,845,2,"regular")
-    lower=975 if layout!="split" else 970
-    d.rectangle((0,lower,W,H),fill=navy)
-    d.text((55,lower+23),"PART NO. "+concept["part"],font=font(25,"bold"),fill=cyan)
-    fy=lower+69
-    for feature in concept["features"][:2]:
-        fy=write(55,fy,"• "+feature,20,white,840,2,"regular")+7
-        if fy>H-65:break
-    d.text((56,H-39),"DRAFT — VERIFY PRODUCT CLAIMS BEFORE PUBLICATION",font=font(15,"bold"),fill="#A8C5DC")
-    if distributor:
-        logo=get_brand_image(distributor)
-        if logo:
-            logo.thumbnail((190,84))
-            if logo.mode=="RGBA":im.paste(logo,(W-logo.width-30,25),logo)
-            else:im.paste(logo,(W-logo.width-30,25))
-    out=io.BytesIO();im.save(out,format="PNG",optimize=True)
-    return out.getvalue()
