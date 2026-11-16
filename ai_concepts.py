@@ -72,8 +72,19 @@ def propose(product, creative_brief=""):
         raise RuntimeError("Google Gemini timed out. Try again.") from exc
     except (requests.RequestException, KeyError, ValueError, TypeError) as exc:
         raise RuntimeError("Could not connect to or read the Gemini response. Please retry.") from exc
-    concepts=raw.get("concepts",[])
-    if not isinstance(concepts,list) or len(concepts)!=3:raise RuntimeError("AI returned an invalid set of concepts. Please retry.")
+    # Gemini's JSON mode can return either the requested {"concepts": [...]}
+    # object or the bare [...] array. Both represent valid generative output.
+    if isinstance(raw,list):
+        concepts=raw
+    elif isinstance(raw,dict):
+        concepts=raw.get("concepts",[])
+        # Some model responses nest the array under an object with "items".
+        if isinstance(concepts,dict):
+            concepts=concepts.get("items",[])
+    else:
+        concepts=[]
+    if not isinstance(concepts,list) or len(concepts)!=3:
+        raise RuntimeError("Gemini returned an unexpected poster format. Click Generate with AI to retry.")
     cleaned=[]
     for i,c in enumerate(concepts):
         if not isinstance(c,dict):raise RuntimeError("AI concept response was invalid.")
