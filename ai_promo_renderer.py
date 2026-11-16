@@ -479,10 +479,16 @@ def render_promo(concept, photo, product, distributor=None, editor=None):
     price = verified_price(product)
     variant = int(concept.get("variant", 0)) % 3
     opts=dict(editor) if isinstance(editor,dict) else {}
-    if "display_mode" not in opts:opts["display_mode"]="shadow"
-    if "background" not in opts:opts["background"]="context" if family=="trade" else "clean"
-    canvas = RENDERERS[family](concept, photo, product, price, variant, opts)
-    _co_brand(canvas, distributor)
+    opts.setdefault("display_mode","shadow")
+    opts.setdefault("background","context")
+    # True photographic advertisement rather than flat catalogue-box layouts.
+    # Scene bytes originate only from a verified manufacturer image, a curated
+    # Pexels photograph or a user-approved upload, never model-generated tools.
+    from ai_cinematic import render_campaign
+    scene=opts.get("_scene_bytes") if opts.get("background") in (
+        "context","workshop","bench","engine") else None
+    canvas=render_campaign(concept,photo,product,price,variant,opts,scene)
+    _co_brand(canvas,distributor)
     out = io.BytesIO()
     canvas.convert("RGB").save(out, format="PNG", optimize=True)
     return out.getvalue()
