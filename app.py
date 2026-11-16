@@ -129,12 +129,13 @@ $('applyRrp').addEventListener('click',()=>{
     setState('Draft price applied. Review all posters before exporting.','success');
 });
 const aiFamilyNames=['Bold Retail Promo','Clean Premium Promo','Trade Campaign Promo'];
+let aiScenePhotos=[null,null,null];
 const aiAccentPresets=[['#FFC82E','#FF9D3D','#C5EB58'],['#B28D52','#0D95CD','#418C9B'],['#FFAA32','#25C4EC','#D2E96B']];
 const aiBackgroundPresets=[['#056DB9','#0A65AF','#175CB0'],['#FCFBF8','#FBFDFF','#F9FBFC'],['#0E263C','#061E39','#202D3A']];
 const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'],['Ivory / gold','White / cyan','Stone / teal'],['Navy / orange','Blue / cyan','Charcoal / lime']];
 
 function clearAiDesigns(){
- aiConcepts=[];aiOriginals=[];currentAiEditor=-1;
+ aiConcepts=[];aiOriginals=[];currentAiEditor=-1;aiScenePhotos=[null,null,null];
  $('aiIdeas').innerHTML='';
  $('aiEditor').hidden=true;
 }
@@ -160,12 +161,27 @@ function openAiEditor(index){
  $('aiEditorDownload').href=c.preview;
  $('aiEditorDownload').download='LASER_'+active.part+'_AI_edited_'+(index+1)+'.png';
  $('aiEditHeadline').value=c.headline||'';
+ $('aiEditSubline').value=e.subline||c.subline||'';
+ $('aiEditTone').value=e.tone||'trade';
+ $('aiEditHeadlineSize').value=e.headline_size||'normal';
+ $('aiEditShowSubline').checked=!!e.show_subline;
+ $('aiEditDisplay').value=e.display_mode||'shadow';
+ $('aiEditPriceStyle').value=e.price_style||['bubble','plaque','banner'][index];
+ $('aiEditIntensity').value=String(e.background_intensity??50);
+ $('aiEditShapes').value=String(e.shape_intensity??2);
+ $('aiEditScale').value=String(e.product_scale??100);
+ $('aiEditX').value=String(e.product_x??0);
+ $('aiEditY').value=String(e.product_y??0);
+ for(const [input,label] of [['aiEditIntensity','aiEditIntensityValue'],['aiEditScale','aiEditScaleValue'],['aiEditX','aiEditXValue'],['aiEditY','aiEditYValue']])$(label).value=$(input).value;
+ $('aiHeadlineChoices').innerHTML='';
+ $('aiEditSceneFile').value='';
+ $('aiSceneNote').textContent=aiScenePhotos[index]?'Workshop background uploaded for this design.':'Upload an approved workshop photo if you want a genuine scene. Max 2 MB.';
  setAiPaletteOptions(index);
  $('aiEditPalette').value=String(variant);
  refreshAiPaletteColours();
  $('aiEditAccent').value=e.accent||$('aiEditAccent').value;
  $('aiEditBgColour').value=e.background_colour||$('aiEditBgColour').value;
- $('aiEditBackground').value=e.background||'clean';
+ $('aiEditBackground').value=e.background||(index===2?'context':'clean');
  $('aiEditPricePosition').value=e.price_position||'standard';
  $('aiEditStatus').textContent='Edit this design and apply changes. No new AI request is needed.';
  $('aiEditor').hidden=false;
@@ -179,11 +195,17 @@ async function saveAiEdit(regenerate=false){
  if(idx<0||!productPart||aiEditing||!aiConcepts[idx])return;
  const headline=$('aiEditHeadline').value.trim();
  if(!regenerate&&!headline){$('aiEditStatus').textContent='Please enter a headline.';return;}
- const edits={headline:headline,palette:Number($('aiEditPalette').value),
-  background:$('aiEditBackground').value,
-  price_position:$('aiEditPricePosition').value,
-  accent:$('aiEditAccent').value,
-  background_colour:$('aiEditBgColour').value};
+ const edits={headline:headline,subline:$('aiEditSubline').value.trim(),
+  palette:Number($('aiEditPalette').value),background:$('aiEditBackground').value,
+  price_position:$('aiEditPricePosition').value,accent:$('aiEditAccent').value,
+  background_colour:$('aiEditBgColour').value,display_mode:$('aiEditDisplay').value,
+  price_style:$('aiEditPriceStyle').value,headline_size:$('aiEditHeadlineSize').value,
+  tone:$('aiEditTone').value,show_subline:$('aiEditShowSubline').checked,
+  background_intensity:Number($('aiEditIntensity').value),
+  shape_intensity:Number($('aiEditShapes').value),
+  product_scale:Number($('aiEditScale').value),
+  product_x:Number($('aiEditX').value),product_y:Number($('aiEditY').value),
+  scene_data:aiScenePhotos[idx]||''};
  const original=aiConcepts[idx],{preview,...concept}=original;
  aiEditing=true;
  const applyButton=$('aiEditApply'),regenButton=$('aiEditRegenerate');
@@ -208,6 +230,53 @@ async function saveAiEdit(regenerate=false){
  }catch(err){$('aiEditStatus').textContent=err.message;setState(err.message,'error');}
  finally{aiEditing=false;applyButton.disabled=false;regenButton.disabled=false;}
 }
+for(const [input,label] of [['aiEditIntensity','aiEditIntensityValue'],['aiEditScale','aiEditScaleValue'],['aiEditX','aiEditXValue'],['aiEditY','aiEditYValue']]){
+ $(input).addEventListener('input',()=>{$(label).value=$(input).value;});
+}
+$('aiEditSceneFile').addEventListener('change',event=>{
+ const file=event.target.files?.[0],idx=currentAiEditor;
+ if(!file||idx<0)return;
+ if(file.size>2000000||!['image/png','image/jpeg','image/webp'].includes(file.type)){
+  $('aiSceneNote').textContent='Choose a PNG, JPEG or WebP image no larger than 2 MB.';
+  event.target.value='';return;
+ }
+ const reader=new FileReader();
+ reader.onload=()=>{
+  if(currentAiEditor!==idx)return;
+  aiScenePhotos[idx]=String(reader.result);
+  $('aiEditBackground').value='context';
+  $('aiSceneNote').textContent='Approved workshop photo selected. Click Apply changes to use it behind the real product.';
+ };
+ reader.onerror=()=>{$('aiSceneNote').textContent='Could not read that workshop photo.';};
+ reader.readAsDataURL(file);
+});
+$('aiSceneRemove').addEventListener('click',()=>{
+ if(currentAiEditor<0)return;
+ aiScenePhotos[currentAiEditor]=null;
+ $('aiEditSceneFile').value='';
+ $('aiSceneNote').textContent='Workshop photo removed. Built-in contextual artwork remains available.';
+});
+$('aiHeadlineChoices').addEventListener('click',event=>{
+ const btn=event.target.closest('button[data-headline]');
+ if(btn){$('aiEditHeadline').value=btn.dataset.headline;$('aiEditStatus').textContent='Headline selected. Click Apply changes to update your poster.';}
+});
+$('aiSuggestHeadlines').addEventListener('click',async()=>{
+ const idx=currentAiEditor,part=active?.part;
+ if(idx<0||!part||aiEditing)return;
+ const button=$('aiSuggestHeadlines');button.disabled=true;
+ $('aiHeadlineChoices').textContent='Finding three professional headline options…';
+ try{
+  const res=await fetch('/api/ai/headlines/'+encodeURIComponent(part),{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({index:idx,tone:$('aiEditTone').value})});
+  const data=await res.json();
+  if(!res.ok)throw Error(data.error||'Could not suggest headlines');
+  if(currentAiEditor!==idx||active?.part!==part)return;
+  $('aiHeadlineChoices').innerHTML=data.headlines.map((h,i)=>
+   '<button type="button" data-headline="'+esc(h)+'">'+(i+1)+'. '+esc(h)+'</button>').join('');
+ }catch(error){$('aiHeadlineChoices').textContent=error.message;}
+ finally{button.disabled=false;}
+});
 $('aiEditPalette').addEventListener('change',refreshAiPaletteColours);
 $('aiEditorForm').addEventListener('submit',event=>{event.preventDefault();saveAiEdit(false);});
 $('aiEditRegenerate').addEventListener('click',()=>saveAiEdit(true));
