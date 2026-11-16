@@ -1175,14 +1175,14 @@ def ai_recommendations(part):
             scene,reference=find_scene(
                 product,variation=i+image_variation,official_photo=official_scene,
                 prefer_official=(i==2))
-            options={'background':'context','_scene_bytes':scene}
+            options={'background':'context','_scene_bytes':scene,'show_subline':True}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
             # Keep the image source visible to staff for licence and accuracy
             # review, but never embed large binary data in a JSON concept.
             concept['scene']={k:reference.get(k) for k in (
                 'category','description','source','page_url','license_url')}
-            concept['editor']={'background':'context'}
+            concept['editor']={'background':'context','show_subline':True}
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
     except ValueError as e:return jsonify(error=str(e)),400
