@@ -80,6 +80,25 @@ class CreativeCampaignTests(unittest.TestCase):
         self.assertEqual(concepts[0]["features"],["Ratchet with 72 teeth"])
         self.assertIn("bold launch campaign",post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"])
 
+    def test_gemini_bare_array_output_is_accepted(self):
+        """The live Google model sometimes returns a JSON array, not a wrapper."""
+        result=[
+            {"name":"Campaign","headline":"Three ratchets","subline":"Professional tool set",
+             "visual_style":"cinematic","angle":"Hero promotion","feature_ids":[0]},
+            {"name":"Editorial","headline":"Designed for the job","subline":"Chrome vanadium ratchets",
+             "visual_style":"editorial","angle":"Workshop story","feature_ids":[1]},
+            {"name":"Details","headline":"Drive sizes","subline":"Verified specifications",
+             "visual_style":"data","angle":"Specification story","feature_ids":[0,1]},
+        ]
+        class FakeResponse:
+            def raise_for_status(self):return None
+            def json(self):
+                return {"candidates":[{"content":{"parts":[{"text":json.dumps(result)}]}}]}
+        with patch.dict(os.environ,{"GEMINI_API_KEY":"not-a-real-key"}),patch("ai_concepts.requests.post",return_value=FakeResponse()):
+            concepts=propose({**self.record,"description":"Three ratchets","specs":{}})
+        self.assertEqual(len(concepts),3)
+        self.assertEqual([c["visual_style"] for c in concepts],["cinematic","editorial","data"])
+
     def test_invalid_model_styles_are_safely_constrained(self):
         import ai_creative_engine
         self.assertEqual(len(STYLE_GROUPS),3)
