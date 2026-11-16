@@ -17,4 +17,4 @@ jobs:
       - name: Test posters, UK VAT and English filters
         env:
           DISABLE_STOCK_PHOTOS: "1"
-        run: python -m unittest -v test_studio.py test_ai_design.py test_ai_creative.py test_ai_promos.py test_ai_editor.py test_ai_v3.py test_scene_library.py
+        run: python -m unittest -v test_studio.py test_ai_design.py test_ai_creative.py test_ai_promos.py test_ai_editor.py test_ai_v3.py test_scene_library.py test_ai_polish.py
