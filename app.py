@@ -25,7 +25,7 @@ from ai_promo_renderer import render_promo as render_ai_promo
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v23">
+<link rel="stylesheet" href="/static/styles.css?design=v24">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -59,7 +59,7 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Explore new poster ideas</h3><p>One click creates three different sales posters: bold retail, premium product and trade-counter promo. Each includes genuine product photography and UK RRP (when verified). No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click creates three different sales posters: bold retail, premium product and trade-counter promo. Each includes genuine product photography and UK RRP (when verified). No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><dialog class="ai-lightbox" id="aiPosterPreview" aria-label="Full-size AI promotional poster"><div class="ai-lightbox-top"><strong id="aiPosterTitle">AI promotional poster</strong><button type="button" id="aiPosterClose" aria-label="Close poster preview">Close ✕</button></div><img id="aiPosterImage" alt="Full-size AI poster preview" src=""></dialog><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
 <div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
 <section id="how" class="how"><div class="how-intro"><div class="sectioncap">MADE FOR REPS &amp; DISTRIBUTORS</div><h2>Simple from start to finish</h2><p>A faster way to prepare product marketing drafts using genuine manufacturer information.</p></div><div class="how-grid"><div><span class="how-icon">01</span><b>Find</b><p>Retrieve a genuine Laser Tools product image and official details.</p></div><div><span class="how-icon">02</span><b>Review</b><p>Check specifications, applications and UK pricing.</p></div><div><span class="how-icon">03</span><b>Download</b><p>Save promotional, technical and sales poster drafts.</p></div></div></section>
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
@@ -115,11 +115,22 @@ $('generateAI').addEventListener('click',async()=>{
    const data=await res.json();
    if(!res.ok)throw Error(data.error||'AI recommendations unavailable');
    if(!active||active.part!==productPart)return;
-   $('aiIdeas').innerHTML=data.concepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI CONCEPT '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(c.name)+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><a href="'+c.preview+'" download="LASER_'+esc(productPart)+'_AI_Concept_'+(i+1)+'.png">Download this poster ↓</a></div></article>').join('');
+   $('aiIdeas').innerHTML=data.concepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI CONCEPT '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(c.name)+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><a href="'+c.preview+'" download="LASER_'+esc(productPart)+'_AI_Concept_'+(i+1)+'.png">Download this poster ↓</a><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View large preview ⤢</button></div></article>').join('');
    setState('Three AI promotional posters generated. Check the verified RRP and copy before sharing.','success');
  }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
  finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
+$('aiIdeas').addEventListener('click',event=>{
+ const btn=event.target.closest('button[data-ai-zoom]');
+ if(!btn)return;
+ const card=btn.closest('.ai-idea'),poster=card?.querySelector('img');
+ if(!poster)return;
+ $('aiPosterImage').src=poster.src;
+ $('aiPosterTitle').textContent=card.querySelector('h4')?.textContent||'AI promotional poster';
+ const dialog=$('aiPosterPreview');if(!dialog.open)dialog.showModal();
+});
+$('aiPosterClose').addEventListener('click',()=>$('aiPosterPreview').close());
+$('aiPosterPreview').addEventListener('click',e=>{if(e.target.id==='aiPosterPreview')e.target.close();});
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
