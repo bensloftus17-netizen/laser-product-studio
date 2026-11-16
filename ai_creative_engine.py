@@ -8,6 +8,7 @@ commercial focus; the image compositor handles print-safe placement.
 from __future__ import annotations
 
 import io
+from functools import lru_cache
 from math import sin, cos, pi
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 from poster import font
@@ -125,6 +126,7 @@ def _grid(d, spacing=90, fg="#204A69",left=0,top=0,right=W,bottom=H):
         d.line((left,y,right,y),fill=fg,width=1)
 
 
+@lru_cache(maxsize=12)
 def _photocut(original):
     """Remove ONLY near-white edge-connected background; never redraw a tool.
 
@@ -167,7 +169,8 @@ def _glow(base,box,color=(6,145,222,135),blur=105):
 def _product(base, photo, region, floating=True, shadow=True):
     """Source photograph isolated/scaled to a dominant footprint, no fake tool."""
     x,y,x2,y2=map(int,region)
-    src,isolated=_photocut(photo)
+    cached,isolated=_photocut(photo)
+    src=cached.copy()
     maxw,maxh=x2-x,y2-y
     src.thumbnail((maxw,maxh),Image.Resampling.LANCZOS)
     xx=x+(maxw-src.width)//2
