@@ -3,10 +3,12 @@ import os, json, re, secrets, time
 import requests
 from ai_promo_renderer import FAMILIES
 
-def propose(product, creative_brief="", only_family=None):
+def propose(product, creative_brief="", only_family=None, tone="trade"):
     """Generate three ideas normally, or ONE new concept for a selected design."""
     if only_family is not None and only_family not in FAMILIES:
         raise ValueError("Unknown promotional family.")
+    if tone not in ("trade","technical","premium","sales"):
+        tone="trade"
     key=os.environ.get("GEMINI_API_KEY","").strip()
     if not key:
         raise RuntimeError("Gemini AI is not configured. Add GEMINI_API_KEY to Render Environment. The regular poster builder still works.")
@@ -21,7 +23,12 @@ def propose(product, creative_brief="", only_family=None):
             "Concept 1 is a colourful BOLD RETAIL PROMOTION with a standout circular price burst. "
             "Concept 2 is a CLEAN PREMIUM PRODUCT PROMOTION with elegant typography and a boxed RRP. "
             "Concept 3 is an ENERGETIC TRADE COUNTER PROMOTION with dramatic angular shapes and a wide price banner. "
-            "Write creative, concise, different headlines that do not simply repeat the catalogue title. "
+            "Write concise, credible UK trade headlines that name the actual tool action, application, workshop task or verified vehicle fitment. "
+            "Examples of style only: 'Ford EcoBlue Crankshaft Pulley Removal', '72-Tooth Ratchet Set', "
+            "'Brake Bleeding for Workshop Service'. Only use those examples if they apply to this product. "
+            "NEVER use cheesy slogans or empty excitement, including conquer, upgrade your, unlock, elevate, "
+            "precision engineering for, game changer, ultimate, unleash, revolutionise, power through, "
+            "master your, game-changing, built to dominate or take control. Prefer factual, useful headlines. "
             "Return concise short sublines and pick 2 or 3 genuine manufacturer feature bullets for each concept. "
             "Only use claims that are directly supported by the official manufacturer description, features or specs provided. "
             "No fabricated vehicle fitment, performance, discount, price reductions, capacity, comparative claims, or invented tools. "
@@ -37,7 +44,11 @@ def propose(product, creative_brief="", only_family=None):
         system=("You are a UK automotive tools advertising copywriter. Generate exactly ONE NEW, "
                 "distinct marketing concept for the following verified Laser Tools product. "
                 "This must be a "+kind+". This is for a SALES POSTER, not a spec sheet. "
-                "Write a fresh, catchy headline of no more than 48 characters that differs "
+                "Use a "+tone+" writing tone. Never use exaggerated slogans such as conquer, "
+                "unlock, elevate, ultimate, upgrade your, precision engineering for, "
+                "game changer, revolutionise, unleash, dominate or master your. "
+                "Make the tool's actual job or verified fitment obvious. "
+                "Write a fresh, specific headline of no more than 48 characters that differs "
                 "from the existing product name, a subline no more than 82 characters, "
                 "an angle no more than 120 characters and select 1-3 real product features. "
                 "Use ONLY supplied manufacturer information. Never invent technical facts, "
@@ -126,7 +137,7 @@ def propose(product, creative_brief="", only_family=None):
             return " ".join(str(c.get(field,"")).split())[:maxlen]
         cleaned.append({"id":family_index,
             "name":safe("name",30) or ("Promotional Option "+str(family_index+1)),
-            "headline":safe("headline",48) or str(product.get("title","Laser Tools"))[:48],
+            "headline":professional_headline(safe("headline",48),product,features),
             "subline":safe("subline",82) or str(product.get("title",""))[:82],
             "angle":safe("angle",120),
             "family":FAMILIES[family_index],
@@ -135,3 +146,73 @@ def propose(product, creative_brief="", only_family=None):
             "part":str(product.get("part","")),
             "title":str(product.get("title",""))[:125]})
     return cleaned
+
+
+_CHEESY=re.compile(r"\b(conquer|unlock|elevate|unleash|revolutionis[ez]|dominate|ultimate|game[\s-]?chang(?:er|ing)|master\s+your|upgrade\s+your|precision\s+engineering\s+for|take\s+control|power\s+through)\b",re.I)
+
+
+def professional_headline(raw, product, features=()):
+    """Reject generic agency-style hype, fall back to exact manufacturer wording."""
+    title=" ".join(str(product.get("title") or "Laser Tools Product").split())
+    candidate=" ".join(str(raw or "").split())[:48]
+    if not candidate or _CHEESY.search(candidate):
+        candidate=title[:48].rstrip(" -,")
+    return candidate
+
+
+def suggest_headlines(product, family, tone="trade", count=3):
+    """Ask the configured Gemini free-tier model for three alternative factual titles."""
+    if family not in FAMILIES:raise ValueError("Unknown promotional family")
+    if tone not in ("trade","technical","premium","sales"):tone="trade"
+    if count!=3:raise ValueError("Exactly three headline options required")
+    key=os.environ.get("GEMINI_API_KEY","").strip()
+    if not key:raise RuntimeError("Gemini AI is not configured.")
+    model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
+    if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
+        raise RuntimeError("Invalid GEMINI_MODEL configuration.")
+    features=[str(x).strip()[:165] for x in (product.get("features") or []) if str(x).strip()][:9]
+    context={"title":product.get("title"),"part":product.get("part"),
+             "description":str(product.get("description",""))[:700],"features":features,
+             "family":family,"tone":tone}
+    system=("Write exactly THREE distinct factual UK automotive trade poster headlines. "
+            "Return JSON as {\"headlines\":[\"...\",\"...\",\"...\"]}, no other fields. "
+            "Each max 48 chars. Tone: "+tone+". Prefer a verified tool action, feature, "
+            "application or vehicle fitment. The three must use different wording. "
+            "No fabricated claims, prices, discounts or unsupported fits. "
+            "NEVER say conquer, unlock, elevate, unleash, upgrade your, ultimate, "
+            "game changer, precision engineering for, revolutionise, or dominate. "
+            "Not poetry, not slogans: real product marketing for UK mechanics.")
+    url="https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent"
+    payload={"systemInstruction":{"parts":[{"text":system}]},
+             "contents":[{"role":"user","parts":[{"text":json.dumps(context,ensure_ascii=False)}]}],
+             "generationConfig":{"responseMimeType":"application/json","temperature":.8,
+                                 "maxOutputTokens":500}}
+    try:
+        for attempt in range(3):
+            response=requests.post(url,headers={"x-goog-api-key":key,
+                                   "Content-Type":"application/json"},json=payload,timeout=24)
+            if getattr(response,"status_code",200) in (500,502,503,504) and attempt<2:
+                time.sleep(1.5*(attempt+1));continue
+            response.raise_for_status()
+            break
+        response_body=response.json()
+        chunks=response_body.get("candidates",[])[0].get("content",{}).get("parts",[])
+        parsed=json.loads("".join(v.get("text","") for v in chunks))
+    except (requests.RequestException,IndexError,ValueError,KeyError) as exc:
+        raise RuntimeError("Gemini headline suggestions are unavailable. Retry later.") from exc
+    raw=parsed.get("headlines") if isinstance(parsed,dict) else parsed
+    if not isinstance(raw,list):
+        raise RuntimeError("Gemini did not return headline choices.")
+    options=[]
+    for item in raw:
+        if not isinstance(item,str):continue
+        title=professional_headline(item,product,features)
+        if title.lower() not in [v.lower() for v in options]:
+            options.append(title)
+    if len(options)<3:
+        for part in [str(product.get("title",""))]+features:
+            title=" ".join(part.split())[:48].rstrip()
+            if title and title.lower() not in [v.lower() for v in options]:
+                options.append(title)
+            if len(options)>=3:break
+    return options[:3]
