@@ -6,9 +6,9 @@ from poster import font, lines, paragraph
 
 LAYOUTS=("spotlight","split","technical")
 def propose(product):
-    key=os.environ.get("OPENAI_API_KEY","").strip()
+    key=os.environ.get("GEMINI_API_KEY","").strip()
     if not key:
-        raise RuntimeError("AI is not configured. Add OPENAI_API_KEY to Render environment variables; the original poster builder still works.")
+        raise RuntimeError("Gemini AI is not configured. Add GEMINI_API_KEY to Render Environment. The regular poster builder still works.")
     features=[str(x).strip()[:175] for x in (product.get("features") or []) if str(x).strip()][:12]
     specs=[{"label":str(k)[:65],"value":str(v)[:110]} for k,v in (product.get("specs") or {}).items()][:12]
     context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label","")}
@@ -22,39 +22,44 @@ def propose(product):
             "feature_ids (array of up to three integer indices into the supplied features array). "
             "Make each visual composition different: spotlight, split, technical used once each. "
             "No unsupported factual assertions in the headlines or sublines. Avoid invented adjectives about performance.")
-    payload={"model":os.environ.get("OPENAI_MODEL","gpt-4.1-mini"),"temperature":0.85,"response_format":{"type":"json_object"},"messages":[{"role":"system","content":system},{"role":"user","content":json.dumps(context,ensure_ascii=False)}],"max_tokens":1100}
+    model=os.environ.get("GEMINI_MODEL","gemini-2.5-flash-lite").strip()
+    # Restrict model configuration to identifier characters, never arbitrary URLs.
+    if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
+        raise RuntimeError("Invalid GEMINI_MODEL configuration.")
+    url="https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent"
+    payload={
+        "systemInstruction":{"parts":[{"text":system}]},
+        "contents":[{"role":"user","parts":[{"text":json.dumps(context,ensure_ascii=False)}]}],
+        "generationConfig":{"temperature":0.85,"responseMimeType":"application/json",
+                            "maxOutputTokens":2200}
+    }
     try:
-        response=requests.post("https://api.openai.com/v1/chat/completions",headers={"Authorization":"Bearer "+key,"Content-Type":"application/json"},json=payload,timeout=38)
+        response=requests.post(url,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload,timeout=45)
         response.raise_for_status()
-        raw=json.loads(response.json()["choices"][0]["message"]["content"])
+        body=response.json()
+        candidates=body.get("candidates") or []
+        if not candidates:
+            raise RuntimeError("Gemini returned no poster ideas. Please retry.")
+        parts=candidates[0].get("content",{}).get("parts",[])
+        generated="".join(part.get("text","") for part in parts if isinstance(part,dict))
+        raw=json.loads(generated)
     except requests.HTTPError as exc:
         status=exc.response.status_code if exc.response is not None else 0
-        error_code=""
-        if exc.response is not None:
-            try:
-                info=exc.response.json().get("error",{})
-                error_code=str(info.get("code") or info.get("type") or "")[:80]
-            except (ValueError, AttributeError, TypeError):
-                pass
-        if status==401:
-            message="OpenAI rejected the API key. Check OPENAI_API_KEY in Render's Environment settings."
-        elif status==429 and error_code=="insufficient_quota":
-            message="OpenAI API billing or credits are unavailable. Open platform.openai.com/settings/organization/billing/overview to add API billing."
+        if status in (400,401,403):
+            message="Google Gemini rejected the request or API key. Check GEMINI_API_KEY and free-tier access in Google AI Studio."
         elif status==429:
-            message="OpenAI API rate limit reached. Please retry shortly or check your API limits."
+            message="Gemini free-tier rate limit reached. Try again later; do not enable paid billing."
         elif status==404:
-            message="The configured OpenAI model was not found or is unavailable to this account. Check OPENAI_MODEL in Render."
-        elif status==403:
-            message="OpenAI API access was denied. Check your API project permissions and model access."
+            message="Gemini model unavailable. Check GEMINI_MODEL is a model available in your free tier."
         elif status>=500:
-            message="The OpenAI service is temporarily unavailable. Retry shortly."
+            message="Google Gemini is temporarily unavailable. Retry later."
         else:
-            message="OpenAI API request failed (HTTP "+str(status)+", code: "+(error_code or "unspecified")+"). Check API configuration."
+            message="Gemini API request failed (HTTP "+str(status)+"). Check your Google AI Studio API key."
         raise RuntimeError(message) from exc
     except requests.Timeout as exc:
-        raise RuntimeError("The OpenAI API request timed out. Please retry.") from exc
+        raise RuntimeError("Google Gemini timed out. Try again.") from exc
     except (requests.RequestException, KeyError, ValueError, TypeError) as exc:
-        raise RuntimeError("Could not connect to or read the OpenAI API response. Retry or check Render network access.") from exc
+        raise RuntimeError("Could not connect to or read the Gemini response. Please retry.") from exc
     concepts=raw.get("concepts",[])
     if not isinstance(concepts,list) or len(concepts)!=3:raise RuntimeError("AI returned an invalid set of concepts. Please retry.")
     cleaned=[]
