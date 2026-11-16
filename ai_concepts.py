@@ -1,8 +1,7 @@
 """Optional live generative-AI creative concepts, with source-grounded poster artwork."""
-import io, os, json, re, base64, hashlib
+import os, json, re, secrets
 import requests
-from PIL import Image, ImageDraw, ImageOps
-from ai_creative_engine import render_concept, STYLE_GROUPS
+from ai_promo_renderer import FAMILIES
 
 def propose(product, creative_brief=""):
     key=os.environ.get("GEMINI_API_KEY","").strip()
@@ -10,30 +9,25 @@ def propose(product, creative_brief=""):
         raise RuntimeError("Gemini AI is not configured. Add GEMINI_API_KEY to Render Environment. The regular poster builder still works.")
     features=[str(x).strip()[:175] for x in (product.get("features") or []) if str(x).strip()][:12]
     specs=[{"label":str(k)[:65],"value":str(v)[:110]} for k,v in (product.get("specs") or {}).items()][:12]
-    context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label",""),"creative_request":str(creative_brief or "")[:230]}
-    system=("You are the lead visual and copy art director for a premium UK automotive tool brand. "
-            "Your task is to propose three visually DIVERGENT high-end advertising posters for the product described in the supplied manufacturer record. "
-            "It must WOW a room full of professional tool reps, not look like three variations of a generic brochure. "
-            "You choose real, substantially different visual design directions that the print compositor can render. "
-            "Concept 1 is a BIG, HIGH-IMPACT CAMPAIGN for retail: choose visual_style cinematic, retail, diagonal or industrial. "
-            "Concept 2 is an ELEGANT EDITORIAL PRODUCT AD telling a different factual customer story: choose visual_style editorial, minimal or feature. "
-            "Concept 3 is a BOLD TECHNICIAN-LED SPECIFICATION CAMPAIGN: choose visual_style blueprint or data. "
-            "Vary message hierarchy, visual weight, colour use, product photograph scale, whitespace and text treatment between concepts. "
-            "The model must generate different HEADLINES and supporting explanations, not repeat the full catalogue title on all three. "
-            "Think like an advertising agency: concise, memorable and clear, with individual artistic intent. "
-            "The tool category matters: ratchet sets - true drive sizes and kit pieces; hydraulic presses - verified capacity; "
-            "specialist bearing tools - confirmed vehicle applications and functionality; diagnostics - verified technical features. "
-            "The manufacturer record is the only approved source of factual assertions. Never invent fitments, material, force, torque, speed, "
-            "performance advantages, ergonomics, warranty, discounts or specifications. Avoid vague superlatives or unsupported benefits. "
-            "Use original product imagery ONLY, placed by the renderer, not redrawn. "
-            "A user creative_request may guide visual tone, but can never override fact accuracy, product photo or Laser Tools branding. "
-            "Return ONLY a JSON object with key concepts: exactly 3 objects IN ORDER. "
-            "Each object has name (max 35 chars), headline (max 46 chars, preferably 2-6 words), "
-            "subline (max 78 chars, preferably 7-12 words), visual_style (one of the allowed choices for its concept), "
-            "angle (max 135 chars, explain the distinct commercial idea), "
-            "feature_ids (array of 1-2 integer 0-based indices into the EXACT features list). "
-            "Do not use similar headlines, crop the photo, or suggest images not supplied. "
-            "Never say the product is better than competitors without evidence.")
+    context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label",""),"verified_price":str(product.get("price") or "Price on request")[:60]}
+    system=("You are a senior UK automotive trade marketing copywriter. Generate THREE completely DIFFERENT, "
+            "short, attention-grabbing PROMOTIONAL advertisement concepts for the actual Laser Tools product in the supplied official data. "
+            "All three are SALES POSTERS, NEVER technical specification sheets, blueprint diagrams or educational posters. "
+            "Posters already display original product photography, exact part number, official product name and the verified RRP "
+            "(or PRICE ON REQUEST where no official UK price is available). "
+            "Concept 1 is a colourful BOLD RETAIL PROMOTION with a standout circular price burst. "
+            "Concept 2 is a CLEAN PREMIUM PRODUCT PROMOTION with elegant typography and a boxed RRP. "
+            "Concept 3 is an ENERGETIC TRADE COUNTER PROMOTION with dramatic angular shapes and a wide price banner. "
+            "Write creative, concise, different headlines that do not simply repeat the catalogue title. "
+            "Return concise short sublines and pick 2 or 3 genuine manufacturer feature bullets for each concept. "
+            "Only use claims that are directly supported by the official manufacturer description, features or specs provided. "
+            "No fabricated vehicle fitment, performance, discount, price reductions, capacity, comparative claims, or invented tools. "
+            "Never say SALE, OFF, SAVING, DISCOUNT or LIMITED OFFER unless the source explicitly supports it. "
+            "Stay professional, use normal UK English spelling. "
+            "Respond with a JSON object with a 'concepts' array of exactly 3 objects in this exact order, each having: "
+            "name (max 30 chars), headline (max 48 chars), subline (max 82 chars), "
+            "angle (max 120 chars, a marketing explanation), feature_ids (2 or 3 integer indices into the supplied features array). "
+            "All three headlines and angles must be meaningfully different. Do not request more input from the user.")
     model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
@@ -87,27 +81,29 @@ def propose(product, creative_brief=""):
         raise RuntimeError("Gemini returned an unexpected poster format. Click Generate with AI to retry.")
     cleaned=[]
     for i,c in enumerate(concepts):
-        if not isinstance(c,dict):raise RuntimeError("AI concept response was invalid.")
+        if not isinstance(c,dict):
+            raise RuntimeError("Gemini returned invalid marketing concepts. Try generating again.")
         ids=c.get("feature_ids",[])
         if not isinstance(ids,list):ids=[]
         selected=[]
         for x in ids:
             if type(x) is int and 0<=x<len(features) and features[x] not in selected:
                 selected.append(features[x])
-            if len(selected)>=2:break
+            if len(selected)>=3:break
+        # Include verified features where Gemini omitted evidence references.
+        for item in features:
+            if len(selected)>=3:break
+            if item not in selected:selected.append(item)
         def safe(field,maxlen):
             return " ".join(str(c.get(field,"")).split())[:maxlen]
-        chosen=safe("visual_style",25).lower()
-        if chosen not in STYLE_GROUPS[i]:
-            # Gemini has creative freedom within each dramatically different
-            # family. Gracefully handle an out-of-schema creative suggestion.
-            seed=(str(product.get("part",""))+safe("headline",46)+str(i)).encode("utf-8")
-            chosen=STYLE_GROUPS[i][int(hashlib.sha256(seed).hexdigest()[:8],16)%len(STYLE_GROUPS[i])]
         cleaned.append({"id":i,
-            "name":safe("name",35) or ("Concept "+str(i+1)),
-            "headline":safe("headline",46) or str(product.get("title","Laser Tools"))[:46],
-            "subline":safe("subline",78) or str(product.get("title",""))[:78],
-            "angle":safe("angle",135),
-            "visual_style":chosen, "features":selected,
-            "part":str(product.get("part","")), "title":str(product.get("title",""))[:125]})
+            "name":safe("name",30) or ("Promotional Option "+str(i+1)),
+            "headline":safe("headline",48) or str(product.get("title","Laser Tools"))[:48],
+            "subline":safe("subline",82) or str(product.get("title",""))[:82],
+            "angle":safe("angle",120),
+            "family":FAMILIES[i],
+            "variant":secrets.randbelow(3),  # fresh colour/shapes each press
+            "features":selected,
+            "part":str(product.get("part","")),
+            "title":str(product.get("title",""))[:125]})
     return cleaned
