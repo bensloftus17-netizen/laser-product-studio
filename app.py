@@ -22,10 +22,11 @@ from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
 from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
+from promo_scene_library import find_scene, classify_product
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v27">
+<link rel="stylesheet" href="/static/styles.css?design=v28">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -59,7 +60,7 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click creates three different price-led sales posters using the original tool image, a clean cutout treatment and verified manufacturer claims. Trade posters can use an official application photograph where available. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
 <div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
 <div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
 <form id="aiEditorForm" class="ai-editor-controls">
@@ -1165,13 +1166,22 @@ def ai_recommendations(part):
                        if product.get('application_photo_source') and
                        product.get('application_photo_source')!=product.get('photo_source')
                        else None)
-        for concept in concepts:
-            # Only the trade/context campaign uses the verified genuine
-            # official in-situ photo automatically; the others stay clean.
-            options={'background':'context','_scene_bytes':official_scene} if (
-                concept.get('family')=='trade' and official_scene) else None
+        for i,concept in enumerate(concepts):
+            # Pick a genuine scene automatically by what this specific tool
+            # does: battery charger -> battery with cables, brakes -> actual
+            # brake service, diagnostics -> scanner, etc. Prefer verified
+            # manufacturer in-situ imagery for the trade campaign.
+            scene,reference=find_scene(
+                product,variation=i,official_photo=official_scene,
+                prefer_official=(i==2))
+            options={'background':'context','_scene_bytes':scene}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
+            # Keep the image source visible to staff for licence and accuracy
+            # review, but never embed large binary data in a JSON concept.
+            concept['scene']={k:reference.get(k) for k in (
+                'category','description','source','page_url','license_url')}
+            concept['editor']={'background':'context'}
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
     except ValueError as e:return jsonify(error=str(e)),400
@@ -1316,11 +1326,15 @@ def edit_ai_promo(part):
                  'display_mode':display_mode,'price_style':price_style,
                  'headline_size':headline_size,'show_subline':edits.get('show_subline',False),
                  'tone':tone,**transforms}
+        scene_reference=None
         if scene_bytes is None and background in ('context','workshop','bench','engine'):
-            # Use a product-specific manufacturer in-situ photograph when
-            # available; never substitute an AI-invented application photo.
-            if product.get('application_photo_source') and product.get('application_photo_source')!=product.get('photo_source'):
-                scene_bytes=APPLICATION_IMAGE_CACHE.get(part)
+            official=(APPLICATION_IMAGE_CACHE.get(part) if
+                product.get('application_photo_source') and
+                product.get('application_photo_source')!=product.get('photo_source')
+                else None)
+            scene_bytes,scene_reference=find_scene(
+                product,variation=idx,official_photo=official,
+                prefer_official=(idx==2))
         render_options={**options,'_scene_bytes':scene_bytes} if scene_bytes else options
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
@@ -1330,6 +1344,14 @@ def edit_ai_promo(part):
                  'variant':raw_palette,'editor':{**options,'palette':raw_palette}}
         rendered=render_ai_promo(concept,image,product,brand,editor=render_options)
         concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
+        if scene_reference:
+            concept['scene']={k:scene_reference.get(k) for k in (
+                'category','description','source','page_url','license_url')}
+        elif scene_bytes:
+            concept['scene']={'category':classify_product(product),
+                              'description':'Approved uploaded context photo',
+                              'source':'Staff-provided photo (confirm usage rights)',
+                              'page_url':'','license_url':None}
         return jsonify(concept=concept,review_required=True)
     except RuntimeError as exc:
         return jsonify(error=str(exc)),503
