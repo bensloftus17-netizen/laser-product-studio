@@ -28,6 +28,124 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         }
         return product,photo
 
+    def test_v19_category_framework_covers_diverse_laser_tools(self):
+        from marketing_intelligence import detect_category, strategy_for, PROFILES
+        self.assertGreaterEqual(len(PROFILES),10)
+        examples={
+            '9364 Ratchet Set with Comfort Handle 3pc': 'socket_ratchet',
+            '9365 Stainless Steel High Quality Ratchet Set 4pc': 'socket_ratchet',
+            '9372 Air-Hydraulic Workshop Press 50 Tonne': 'workshop_press',
+            '9395 Front Wheel Bearing Kit for Mercedes-Benz Sprinter and VW Crafter': 'bearing_suspension',
+            '8324 Suspension Split Hub Knuckle Spreader': 'bearing_suspension',
+            '9197 Under Bonnet Compact Work Lamp 10W COB Infrared': 'lighting_inspection',
+            '9024 Air Impact Wrench 1"D with 6" Anvil': 'air_power',
+            '4554 Metric Tap & Die Set 110pc': 'threading_cutting',
+            '4832 Manual Pressure Brake Bleeder 2L': 'workshop_service',
+            '4567 Vehicle Diagnostic Scanner': 'diagnostic_electrical',
+            '6781 Bodyshop Panel Repair Tool': 'bodyshop_repair',
+            '8031 Screwdriver Set': 'general_hand_tools',
+            '7891 Assortment of Washers': 'accessories_consumables',
+        }
+        for title,expected in examples.items():
+            with self.subTest(title=title):
+                key,evidence=detect_category({'title':title})
+                self.assertEqual(key,expected)
+                self.assertEqual(evidence,'product title')
+                plan=strategy_for({'title':title,'features':[],'specs':{}})
+                self.assertEqual(plan['category'],expected)
+                self.assertTrue(plan['marketing_angle'])
+                self.assertTrue(plan['hero_focus'])
+                self.assertEqual(plan['method'].startswith('deterministic'),True)
+        # A kit should not be wrongly classed as a hydraulic press merely
+        # because it is operated with a standard workshop press.
+        key,_=detect_category({
+            'title':'9395 Front Wheel Bearing Kit',
+            'description':'Use with a standard hydraulic workshop press.'
+        })
+        self.assertEqual(key,'bearing_suspension')
+        unknown,evidence=detect_category({'title':'Unrecognised laser product'})
+        self.assertEqual((unknown,evidence),('general_hand_tools','general workshop fallback'))
+
+    def test_v19_selling_points_are_ranked_but_not_invented(self):
+        from marketing_intelligence import rank_verified_features, rank_specs, strategy_for
+        press={
+          'title':'9372 Air-Hydraulic Workshop Press 50 Tonne',
+          'features':['Blue powder coated finish.',
+                      '50 tonne pressing capacity with air operated foot control.',
+                      'Designed for bearing and bush pressing work.'],
+          'specs':{'Colour':'Blue','Capacity':'50 tonnes','Working height':'1918mm'}
+        }
+        kit={
+          'title':'9364 Ratchet Set with Comfort Handle 3pc',
+          'features':['Three ratchets with 1/4, 3/8 and 1/2 inch drives.',
+                      'Supplied in an EVA foam storage tray.',
+                      'Chrome Vanadium steel construction.'],
+          'specs':{'Storage':'EVA foam tray','Number of pieces':'3','Drive':'1/4, 3/8, 1/2'}
+        }
+        ranked=rank_verified_features(press)
+        self.assertEqual(ranked[0],press['features'][1])
+        self.assertEqual(set(ranked),set(press['features']))
+        self.assertEqual(rank_specs(press)[0],('Capacity','50 tonnes'))
+        self.assertTrue(any('storage' in x.lower() or 'drive' in x.lower()
+                            for x in rank_verified_features(kit)[:3]))
+        self.assertEqual(set(rank_verified_features(kit)),set(kit['features']))
+        self.assertNotEqual(strategy_for(press)['marketing_angle'],
+                            strategy_for(kit)['marketing_angle'])
+        self.assertNotEqual(strategy_for(press)['visual_style'],
+                            strategy_for(kit)['visual_style'])
+        self.assertEqual(strategy_for(press)['technical_preference'],'dense')
+        self.assertEqual(strategy_for(kit)['technical_preference'],'light')
+
+    def test_v19_category_changes_poster_art_direction_and_density(self):
+        from unittest.mock import patch
+        import poster
+        from marketing_intelligence import strategy_for
+        sample,photo=self.sample()
+        press={**sample,'part':'9372',
+           'title':'9372 Air-Hydraulic Workshop Press 50 Tonne',
+           'description':'A professional 50 tonne air-hydraulic workshop press.',
+           'features':['50 tonne pressing capacity.',
+                       'Air-operated foot control.',
+                       'Suitable for pressing workshop bearings and bushes.'],
+           'specs':{'Capacity':'50 tonnes','Operating pressure':'10 bar',
+                    'Working height':'1918mm','Weight':'270kg'}}
+        kit={**sample,'part':'9364',
+           'title':'9364 Ratchet Set with Comfort Handle 3pc',
+           'description':'Set of three comfort handle ratchets.',
+           'features':['Includes 1/4, 3/8 and 1/2 inch drive ratchets.',
+                       'Supplied in a fitted EVA foam tray.'],
+           'specs':{'Number of pieces':'3','Drive':'1/4, 3/8, 1/2'}}
+        self.assertEqual(poster.technical_layout_mode(kit),'light')
+        self.assertEqual(poster.technical_layout_mode(press),'dense')
+        for p,category in ((kit,'socket_ratchet'),(press,'workshop_press')):
+            with self.subTest(category=category):
+                with patch.object(poster,'decorate_category_stage',
+                                  wraps=poster.decorate_category_stage) as stage:
+                    result=poster.render_hero(p,photo)
+                    self.assertEqual(stage.call_args.args[1],category)
+                with Image.open(io.BytesIO(result)) as im:
+                    self.assertEqual(im.size,(1200,1800))
+                self.assertTrue(poster.render_technical(p,photo).startswith(b'\x89PNG'))
+                self.assertTrue(poster.render_price(p,photo).startswith(b'\x89PNG'))
+                text=poster.create_marketing_copy(p)
+                self.assertIn(strategy_for(p)['category_label'],text)
+                self.assertIn(strategy_for(p)['marketing_angle'],text)
+
+    def test_v19_lookup_returns_marketing_direction(self):
+        from unittest.mock import patch
+        import app as app_module
+        p,photo=self.sample()
+        with patch.object(app_module,'lookup',return_value=(p,photo)):
+            response=app_module.app.test_client().get('/api/lookup/9197')
+            self.assertEqual(response.status_code,200)
+            data=response.get_json()['product']
+            self.assertEqual(data['marketing_direction']['category'],'lighting_inspection')
+            self.assertEqual(data['technical_layout'],app_module.technical_layout_mode(p))
+            self.assertEqual(data['marketing_direction']['method'].startswith('deterministic'),True)
+        self.assertIn('PRODUCT-AWARE MARKETING',app_module.V7_HOME_PAGE)
+        self.assertIn('marketing_direction',app_module.V7_HOME_PAGE)
+        self.assertIn('design=v19',app_module.V7_HOME_PAGE)
+
     def test_price_parsing(self):
         self.assertEqual(
             manufacturer_price_from_html('<h1>Product</h1><p>RRP£114.70plus VAT</p>'),
@@ -372,7 +490,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         self.assertEqual(len(ids),len(set(ids)))
         self.assertEqual(len(document.select('.step[data-step]')),3)
         self.assertEqual(len(document.select('.hero-art .art-sheet')),3)
-        self.assertIn('design=v18',V7_HOME_PAGE)
+        self.assertIn('design=v19',V7_HOME_PAGE)
         self.assertIn('function setProgress(stage)',V7_HOME_PAGE)
         self.assertIn('function showPreviews(p,photo)',V7_HOME_PAGE)
         self.assertIn('class="advanced-options"',V7_HOME_PAGE)
