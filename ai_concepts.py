@@ -1,35 +1,39 @@
 """Optional live generative-AI creative concepts, with source-grounded poster artwork."""
-import io, os, json, re, base64
+import io, os, json, re, base64, hashlib
 import requests
 from PIL import Image, ImageDraw, ImageOps
-from ai_design import render_concept  # distinct editorial, product hero, technical layouts
+from ai_creative_engine import render_concept, STYLE_GROUPS
 
-LAYOUTS=("spotlight","split","technical")
-def propose(product):
+def propose(product, creative_brief=""):
     key=os.environ.get("GEMINI_API_KEY","").strip()
     if not key:
         raise RuntimeError("Gemini AI is not configured. Add GEMINI_API_KEY to Render Environment. The regular poster builder still works.")
     features=[str(x).strip()[:175] for x in (product.get("features") or []) if str(x).strip()][:12]
     specs=[{"label":str(k)[:65],"value":str(v)[:110]} for k,v in (product.get("specs") or {}).items()][:12]
-    context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label","")}
-    system=("You are the creative director at a real automotive workshop tools advertising agency. "
-            "Create three visually and commercially DIFFERENT campaign concepts grounded strictly in the supplied manufacturer information. "
-            "Not three rewritten versions of the same product name. These are concepts for professional Laser Tools retail advertising. "
-            "1: a BOLD PRODUCT SPOTLIGHT: very short, punchy, non-generic headline; product is the hero; use layout spotlight. "
-            "2: an APPLICATION STORY: what job / compatible vehicle / practical use makes the product relevant, ONLY if the manufacturer source confirms it; layout split. "
-            "3: a SPECIFICATION / PRODUCT DETAIL story: accurate, concrete, technician-facing angle, no unverified figures; layout technical. "
-            "Consider the product family: sockets are sold for kit contents and sizes; presses for verified capacity; "
-            "specialist service tools for stated application and fitments. "
-            "Use factual product details ONLY from manufacturer evidence. Do not claim quality superiority, speed, savings, suitability, "
-            "mechanisms, capabilities, or performance not directly established in the evidence. "
-            "All ads use original manufacturer product photography separately. "
-            "Return ONLY JSON object with key concepts: exactly 3 objects in the above order. "
-            "Each: name (short unique internal concept title, max 30 characters), headline (max 52 characters, useful at poster size), "
-            "subline (max 96 characters, short and grounded), layout (spotlight/split/technical in order), "
-            "angle (why the creative direction sells this specific product, max 140 characters), "
-            "feature_ids (up to 2 different zero-based indices into the exact supplied features array). "
-            "Prefer genuinely varied visual hierarchy, message and feature selection. "
-            "Do not use a near-identical headline twice. Not every headline needs to repeat the full product name.")
+    context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label",""),"creative_request":str(creative_brief or "")[:230]}
+    system=("You are the lead visual and copy art director for a premium UK automotive tool brand. "
+            "Your task is to propose three visually DIVERGENT high-end advertising posters for the product described in the supplied manufacturer record. "
+            "It must WOW a room full of professional tool reps, not look like three variations of a generic brochure. "
+            "You choose real, substantially different visual design directions that the print compositor can render. "
+            "Concept 1 is a BIG, HIGH-IMPACT CAMPAIGN for retail: choose visual_style cinematic, retail, diagonal or industrial. "
+            "Concept 2 is an ELEGANT EDITORIAL PRODUCT AD telling a different factual customer story: choose visual_style editorial, minimal or feature. "
+            "Concept 3 is a BOLD TECHNICIAN-LED SPECIFICATION CAMPAIGN: choose visual_style blueprint or data. "
+            "Vary message hierarchy, visual weight, colour use, product photograph scale, whitespace and text treatment between concepts. "
+            "The model must generate different HEADLINES and supporting explanations, not repeat the full catalogue title on all three. "
+            "Think like an advertising agency: concise, memorable and clear, with individual artistic intent. "
+            "The tool category matters: ratchet sets - true drive sizes and kit pieces; hydraulic presses - verified capacity; "
+            "specialist bearing tools - confirmed vehicle applications and functionality; diagnostics - verified technical features. "
+            "The manufacturer record is the only approved source of factual assertions. Never invent fitments, material, force, torque, speed, "
+            "performance advantages, ergonomics, warranty, discounts or specifications. Avoid vague superlatives or unsupported benefits. "
+            "Use original product imagery ONLY, placed by the renderer, not redrawn. "
+            "A user creative_request may guide visual tone, but can never override fact accuracy, product photo or Laser Tools branding. "
+            "Return ONLY a JSON object with key concepts: exactly 3 objects IN ORDER. "
+            "Each object has name (max 35 chars), headline (max 46 chars, preferably 2-6 words), "
+            "subline (max 78 chars, preferably 7-12 words), visual_style (one of the allowed choices for its concept), "
+            "angle (max 135 chars, explain the distinct commercial idea), "
+            "feature_ids (array of 1-2 integer 0-based indices into the EXACT features list). "
+            "Do not use similar headlines, crop the photo, or suggest images not supplied. "
+            "Never say the product is better than competitors without evidence.")
     model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
@@ -38,7 +42,7 @@ def propose(product):
     payload={
         "systemInstruction":{"parts":[{"text":system}]},
         "contents":[{"role":"user","parts":[{"text":json.dumps(context,ensure_ascii=False)}]}],
-        "generationConfig":{"temperature":0.85,"responseMimeType":"application/json",
+        "generationConfig":{"temperature":1.0,"responseMimeType":"application/json",
                             "maxOutputTokens":2200}
     }
     try:
@@ -75,14 +79,24 @@ def propose(product):
         if not isinstance(c,dict):raise RuntimeError("AI concept response was invalid.")
         ids=c.get("feature_ids",[])
         if not isinstance(ids,list):ids=[]
-        selected=[features[x] for x in ids[:3] if type(x) is int and 0<=x<len(features)]
+        selected=[]
+        for x in ids:
+            if type(x) is int and 0<=x<len(features) and features[x] not in selected:
+                selected.append(features[x])
+            if len(selected)>=2:break
         def safe(field,maxlen):
-            return re.sub(r"[\r\n\t]+"," ",str(c.get(field,""))).strip()[:maxlen]
-        cleaned.append({"id":i,"name":safe("name",35) or ("Concept "+str(i+1)),
-            "headline":safe("headline",65) or str(product.get("title","Laser Tools"))[:65],
-            "subline":safe("subline",100) or str(product.get("title",""))[:100],
-            "angle":safe("angle",140),
-            "layout":LAYOUTS[i], "features":selected,
+            return re.sub(r"[\\r\\n\\t]+"," ",str(c.get(field,""))).strip()[:maxlen]
+        chosen=safe("visual_style",25).lower()
+        if chosen not in STYLE_GROUPS[i]:
+            # Gemini has creative freedom within each dramatically different
+            # family. Gracefully handle an out-of-schema creative suggestion.
+            seed=(str(product.get("part",""))+safe("headline",46)+str(i)).encode("utf-8")
+            chosen=STYLE_GROUPS[i][int(hashlib.sha256(seed).hexdigest()[:8],16)%len(STYLE_GROUPS[i])]
+        cleaned.append({"id":i,
+            "name":safe("name",35) or ("Concept "+str(i+1)),
+            "headline":safe("headline",46) or str(product.get("title","Laser Tools"))[:46],
+            "subline":safe("subline",78) or str(product.get("title",""))[:78],
+            "angle":safe("angle",135),
+            "visual_style":chosen, "features":selected,
             "part":str(product.get("part","")), "title":str(product.get("title",""))[:125]})
     return cleaned
-
