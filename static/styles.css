@@ -365,3 +365,7 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .ai-headline-choices button:hover{border-color:#0874bd;background:#ecf7ff}
 .ai-editor-controls select{max-width:100%;overflow:hidden}
 @media(max-width:580px){.ai-two-cols{grid-template-columns:1fr}.ai-three-sliders{gap:5px;padding:8px}}
+
+.ai-headline-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ai-headline-buttons button{min-width:0;text-align:center}
+@media(max-width:520px){.ai-headline-buttons{grid-template-columns:1fr}}
