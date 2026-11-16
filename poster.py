@@ -789,7 +789,7 @@ def campaign_quick_facts(p):
     if category=='socket_ratchet':
         match=re.search(r'\b(\d{1,3})\s*(?:pc|piece)\b',title+' '+known)
         if match:output.append(match.group(1)+'-PIECE SET')
-        if 'drive' in known:output.append('DRIVE SIZES IN PRODUCT DATA')
+        # Only show an actual drive measurement when present in official specs.
         if 'tray' in known or 'case' in known:output.append('STORAGE INCLUDED')
     if category=='workshop_press':
         match=re.search(r'\b(\d{1,3})\s*(?:tonne|ton)\b',title)
