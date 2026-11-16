@@ -108,8 +108,9 @@ def _fetch_licensed_photo(asset_id: int) -> bytes | None:
 
 
 def find_scene(product: dict, variation=0, official_photo: bytes | None=None,
-               prefer_official=False) -> tuple[bytes|None, dict]:
-    category = classify_product(product)
+               prefer_official=False, category_override=None) -> tuple[bytes|None, dict]:
+    category = (category_override if category_override in SCENE_PHOTOS
+                else classify_product(product))
     if official_photo and prefer_official:
         return official_photo, {
             "category":category,
