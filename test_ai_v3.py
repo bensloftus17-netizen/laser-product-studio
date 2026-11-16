@@ -125,6 +125,27 @@ class StudioV3Tests(unittest.TestCase):
         self.assertNotIn("scene_data",response.get_json()["concept"]["editor"])
         self.assertNotIn("_scene_bytes",response.get_json()["concept"]["editor"])
 
+    def test_official_application_photograph_is_used_only_for_context_campaign(self):
+        source_photo=Image.new("RGB",(510,320),"#34566D")
+        d=ImageDraw.Draw(source_photo)
+        d.rectangle((50,45,420,280),fill="#627C89")
+        buf=io.BytesIO();source_photo.save(buf,format="PNG")
+        scene=buf.getvalue()
+        product={**self.product,"application_photo_source":"https://www.lasertools.co.uk/items/9385_InSitu.jpg",
+                 "photo_source":"https://www.lasertools.co.uk/items/9385.jpg"}
+        data=[{**self.concept,"id":i,"family":f} for i,f in enumerate(FAMILIES)]
+        with patch.object(studio,"lookup",return_value=(product,self.photo)), \
+             patch.dict(studio.APPLICATION_IMAGE_CACHE,{"9385":scene},clear=False), \
+             patch.object(studio,"propose_ai_concepts",return_value=data), \
+             patch.object(studio,"render_ai_promo",return_value=b"sample") as renderer:
+            response=studio.app.test_client().post("/api/ai/concepts/9385",
+                                                  json={"distributor_brand":"none"})
+        self.assertEqual(response.status_code,200,response.get_json())
+        self.assertEqual(renderer.call_count,3)
+        self.assertNotIn("editor",renderer.call_args_list[0].kwargs)
+        self.assertNotIn("editor",renderer.call_args_list[1].kwargs)
+        self.assertEqual(renderer.call_args_list[2].kwargs["editor"]["_scene_bytes"],scene)
+
     def test_unsafe_editor_options_rejected(self):
         for changes in [
             {"product_scale":500},{"product_x":200},{"shape_intensity":100},
