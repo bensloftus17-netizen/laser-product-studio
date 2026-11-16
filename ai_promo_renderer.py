@@ -236,6 +236,48 @@ def _price_circle(d, price, box, accent, fg):
              (32, 27, 23), fg, "bold", 1, "center")
 
 
+def _sizes(values, editor):
+    setting=(editor or {}).get("headline_size","normal")
+    ratio={"small":.84,"normal":1.0,"large":1.17}.get(setting,1.)
+    return tuple(max(17,int(v*ratio)) for v in values)
+
+
+def _render_price(d, price, bounds, style, accent, dark_ink=NAVY, panel_bg=WHITE):
+    """Switchable price badges, always based on the same verified RRP."""
+    x0,y0,x1,y1=map(int,bounds)
+    width,height=x1-x0,y1-y0
+    value=price["amount"] or "ON REQUEST"
+    label=price["label"] if price["amount"] else "CURRENT PRICE"
+    fg=_price_ink(accent)
+    if style=="bubble":
+        side=min(width,height)-12
+        left=x0+(width-side)//2
+        top=y0+(height-side)//2
+        _price_circle(d,price,(left,top,left+side,top+side),accent,fg)
+        return
+    if style=="tag":
+        d.polygon([(x0+30,y0),(x1,y0),(x1,y1),(x0,y1),(x0,y0+28)],fill=accent)
+        d.polygon([(x0+30,y0),(x0+30,y0+30),(x0,y0+30)],fill="#FFFFFF")
+        _fit(d,label,(x0+37,y0+23,x1-23,y0+65),(27,23,19),fg,"bold",1)
+        _fit(d,value,(x0+28,y0+80,x1-26,y1-20),
+             (75,67,58,48,37,29),fg,"bold",2)
+        return
+    if style=="banner":
+        d.rounded_rectangle(bounds,radius=11,fill=accent)
+        d.rectangle((x0,y0+15,x0+9,y1-15),fill=panel_bg)
+        _fit(d,label,(x0+35,y0+22,x1-22,y0+62),(26,23,20),fg,"bold",1)
+        _fit(d,value,(x0+32,y0+71,x1-20,y1-23),(87,76,65,51,43,35),fg,"bold",2)
+        if price["amount"]:
+            _fit(d,price["vat"],(x0+34,y1-43,x1-23,y1-14),(19,17),fg,"regular",1,"right")
+        return
+    # Premium plaque (also valid as a retail or trade alternative).
+    d.rounded_rectangle(bounds,radius=22,fill=WHITE,outline=accent,width=5)
+    _fit(d,label,(x0+30,y0+25,x1-30,y0+73),(27,24,20),dark_ink,"bold",1)
+    _fit(d,value,(x0+25,y0+93,x1-25,y1-52),(72,62,53,44,35,27),dark_ink,"bold",2)
+    if price["amount"]:
+        _fit(d,price["vat"],(x0+30,y1-38,x1-25,y1-13),(21,18),dark_ink,"regular",1)
+
+
 def _mix(hexcolor,anchor,portion):
     """Blend a user's colour with the brand's legible light/dark foundation."""
     a=tuple(int(hexcolor[i:i+2],16) for i in (1,3,5))
@@ -299,7 +341,9 @@ def _retail(concept, photo, product, price, variation, editor=None):
     _fit(d, "PRODUCT PROMOTION  /  PART " + str(product.get("part", "")),
          (60, 214, 865, 255), (25, 22), "#6ED4FF", "bold", 1)
     _fit(d, concept.get("headline"), (56, 290, 1100, 493),
-         (94, 84, 74, 66, 58, 51, 44), WHITE, "bold", 3)
+         _sizes((94,84,74,66,58,51,44),editor),WHITE,"bold",3)
+    if editor.get("show_subline"):
+        _fit(d,concept.get("subline"),(60,540,1125,614),(33,29,26,23),p["navy"],"bold",2)
     _fit(d, product.get("title"), (60, 661, 1125, 747),
          (42, 37, 33, 29, 25), p["navy"], "bold", 2)
     if editor.get("price_position")=="opposite":
@@ -309,7 +353,8 @@ def _retail(concept, photo, product, price, variation, editor=None):
         compose_product(canvas,photo,(56,754,867,1150),editor,product,editor.get("_scene_bytes"))
         circle=(803,838,1168,1203)
     d=ImageDraw.Draw(canvas)
-    _price_circle(d,price,circle,p["accent"],_price_ink(p["accent"]))
+    _render_price(d,price,circle,
+                  editor.get("price_style","bubble"),p["accent"],p["navy"])
     _features(d, concept, [(64, 1248, 1132, 1316), (64, 1321, 1132, 1392)],
               p["accent"], WHITE, (29, 26, 22, 19))
     _footer(d)
@@ -330,8 +375,11 @@ def _premium(concept, photo, product, price, variation, editor=None):
     _fit(d, "LASER PRODUCT PROMOTION", (59, 194, 890, 233),
          (23, 20), p["accent"], "bold", 1)
     _fit(d, concept.get("headline"), (60, 289, 1130, 484),
-         (89, 80, 70, 61, 54, 47), p["navy"], "bold", 3)
-    _fit(d, "PART " + str(product.get("part", "")), (60, 505, 940, 565),
+         _sizes((89,80,70,61,54,47),editor),p["navy"],"bold",3)
+    if editor.get("show_subline"):
+        _fit(d,concept.get("subline"),(61,488,1125,532),(27,24,21),p["navy"],"regular",1)
+    _fit(d, "PART " + str(product.get("part", "")),
+         (60, 541, 940, 582) if editor.get("show_subline") else (60,505,940,565),
          (39, 34, 30), p["accent"], "bold", 1)
     compose_product(canvas,photo,(57,594,1143,1038),editor,product,editor.get("_scene_bytes"))
     d = ImageDraw.Draw(canvas)
@@ -343,14 +391,8 @@ def _premium(concept, photo, product, price, variation, editor=None):
          (43,39,34,30,26),p["navy"],"bold",3)
     _features(d,concept,[(text_x+2,1255,text_x2,1314),(text_x+2,1320,text_x2,1392)],
               p["accent"],p["navy"],(24,21,19,17))
-    d.rounded_rectangle((boxx,1100,boxx+403,1405),radius=22,fill=WHITE,outline=p["accent"],width=5)
-    _fit(d,price["label"] if price["amount"] else "CURRENT PRICE",
-         (boxx+36,1130,boxx+373,1180),(26,23),p["accent"],"bold",1)
-    _fit(d,price["amount"] or "ON REQUEST",
-         (boxx+30,1214,boxx+375,1321),(70,63,55,47,39,32),p["navy"],"bold",2)
-    if price["amount"]:
-        _fit(d,price["vat"],(boxx+35,1341,boxx+373,1379),
-             (22,20),p["navy"],"regular",1)
+    _render_price(d,price,(boxx,1100,boxx+403,1405),
+                  editor.get("price_style","plaque"),p["accent"],p["navy"])
     _footer(d, dark=False)
     return canvas
 
@@ -372,7 +414,10 @@ def _trade(concept, photo, product, price, variation, editor=None):
     _fit(d, "TRADE PROMOTION   •   PART " + str(product.get("part", "")),
          (58, 199, 885, 250), (24, 21), p["accent"], "bold", 1)
     _fit(d, concept.get("headline"), (56, 304, 566, 668),
-         (76, 68, 61, 54, 47, 41, 36, 30), WHITE, "bold", 5)
+         _sizes((76,68,61,54,47,41,36,30),editor),WHITE,"bold",5)
+    if editor.get("show_subline"):
+        _fit(d,concept.get("subline"),(60,673,518,710),
+             (23,20,18),p["pale"],"regular",1)
     d.rectangle((60, 715, 448, 726), fill=p["accent"])
     _fit(d, product.get("title"), (59, 770, 528, 952),
          (37, 33, 29, 26, 23), WHITE, "bold", 4)
@@ -381,15 +426,22 @@ def _trade(concept, photo, product, price, variation, editor=None):
     _features(d, concept, [(59, 996, 508, 1065), (59, 1072, 508, 1152)],
               p["accent"], p["pale"], (23, 20, 18, 16))
     opposite=editor.get("price_position")=="opposite"
-    _fit(d,price["label"] if price["amount"] else "CURRENT PRICE",
-         (500 if opposite else 60,1242,1144 if opposite else 700,1297),
-         (28,25),p["accent"],"bold",1,"right" if opposite else "left")
-    _fit(d,price["amount"] or "ON REQUEST",
-         (290 if opposite else 56,1311,1144 if opposite else 943,1421),
-         (100,89,77,65,55,46,39),WHITE,"bold",2,"right" if opposite else "left")
-    if price["amount"]:
-        _fit(d,price["vat"],(60 if opposite else 944,1355,280 if opposite else 1144,1411),
-             (25,22),WHITE,"bold",1)
+    price_style=editor.get("price_style","banner")
+    if price_style=="banner":
+        _fit(d,price["label"] if price["amount"] else "CURRENT PRICE",
+             (500 if opposite else 60,1242,1144 if opposite else 700,1297),
+             (28,25),p["accent"],"bold",1,"right" if opposite else "left")
+        _fit(d,price["amount"] or "ON REQUEST",
+             (290 if opposite else 56,1311,1144 if opposite else 943,1421),
+             (100,89,77,65,55,46,39),WHITE,"bold",2,"right" if opposite else "left")
+        if price["amount"]:
+            _fit(d,price["vat"],(60 if opposite else 944,1355,280 if opposite else 1144,1411),
+                 (25,22),WHITE,"bold",1)
+    else:
+        start=713 if opposite else 58
+        end=1144 if opposite else 489
+        badge_box=(start,1215,end,1428)
+        _render_price(d,price,badge_box,price_style,p["accent"],p["navy"])
     _footer(d)
     return canvas
 
