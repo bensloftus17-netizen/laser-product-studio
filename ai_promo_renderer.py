@@ -235,6 +235,37 @@ def _price_circle(d, price, box, accent, fg):
              (32, 27, 23), fg, "bold", 1, "center")
 
 
+def _mix(hexcolor,anchor,portion):
+    """Blend a user's colour with the brand's legible light/dark foundation."""
+    a=tuple(int(hexcolor[i:i+2],16) for i in (1,3,5))
+    b=tuple(int(anchor[i:i+2],16) for i in (1,3,5))
+    return "#"+"".join(f"{round(a[j]*portion+b[j]*(1-portion)):02X}" for j in range(3))
+
+
+def _price_ink(hexcolor):
+    r,g,b=(int(hexcolor[i:i+2],16)/255 for i in (1,3,5))
+    v=0.2126*r+0.7152*g+0.0722*b
+    return NAVY if v>.52 else WHITE
+
+
+def _customize_palette(p,editor,family):
+    opts=editor or {}
+    p=dict(p)
+    accent=opts.get("accent")
+    if isinstance(accent,str) and re.fullmatch(r"#[0-9a-fA-F]{6}",accent):
+        p["accent"]=accent
+    bg=opts.get("background_colour")
+    if isinstance(bg,str) and re.fullmatch(r"#[0-9a-fA-F]{6}",bg):
+        if family=="retail":
+            p["blue"]=_mix(bg,"#056DB9",.75)
+        elif family=="premium":
+            p["paper"]=_mix(bg,"#FFFFFF",.28)
+            p["panel"]=_mix(bg,"#E8EEF2",.35)
+        elif family=="trade":
+            p["navy"]=_mix(bg,"#061E34",.38)
+    return p
+
+
 def _background_art(d, mode, region, colour, dark):
     """Optional, brand-safe visual texture; decorative shapes never cover the photo."""
     x0,y0,x1,y1=region
@@ -253,7 +284,7 @@ def _background_art(d, mode, region, colour, dark):
 
 def _retail(concept, photo, product, price, variation, editor=None):
     """Energetic campaign: blue / white chevrons, large hero and yellow RRP bubble."""
-    p = RETAIL_PALETTES[variation % len(RETAIL_PALETTES)]
+    p = _customize_palette(RETAIL_PALETTES[variation % len(RETAIL_PALETTES)],editor,"retail")
     canvas = Image.new("RGBA", (W, H), p["blue"])
     d = ImageDraw.Draw(canvas)
     d.polygon([(0, 0), (W, 0), (W, 499), (0, 641)], fill=p["navy"])
@@ -277,7 +308,7 @@ def _retail(concept, photo, product, price, variation, editor=None):
         _photo_panel(canvas,photo,(56,764,867,1150),inset=20)
         circle=(803,838,1168,1203)
     d=ImageDraw.Draw(canvas)
-    _price_circle(d,price,circle,p["accent"],p["a_ink"])
+    _price_circle(d,price,circle,p["accent"],_price_ink(p["accent"]))
     _features(d, concept, [(64, 1248, 1132, 1316), (64, 1321, 1132, 1392)],
               p["accent"], WHITE, (29, 26, 22, 19))
     _footer(d)
@@ -286,7 +317,7 @@ def _retail(concept, photo, product, price, variation, editor=None):
 
 def _premium(concept, photo, product, price, variation, editor=None):
     """Clean premium creative: editorial navy title, framed hero, boxed RRP plaque."""
-    p = PREMIUM_PALETTES[variation % len(PREMIUM_PALETTES)]
+    p = _customize_palette(PREMIUM_PALETTES[variation % len(PREMIUM_PALETTES)],editor,"premium")
     canvas = Image.new("RGBA", (W, H), p["paper"])
     d = ImageDraw.Draw(canvas)
     d.rectangle((0, 0, W, 16), fill=p["navy"])
@@ -325,7 +356,7 @@ def _premium(concept, photo, product, price, variation, editor=None):
 
 def _trade(concept, photo, product, price, variation, editor=None):
     """Trade-counter campaign: dark navy, high-contrast diagonals and RRP ribbon."""
-    p = TRADE_PALETTES[variation % len(TRADE_PALETTES)]
+    p = _customize_palette(TRADE_PALETTES[variation % len(TRADE_PALETTES)],editor,"trade")
     canvas = Image.new("RGBA", (W, H), p["navy"])
     d = ImageDraw.Draw(canvas)
     d.polygon([(624, 0), (1200, 0), (1200, 1210), (816, 1210)], fill=p["mid"])
