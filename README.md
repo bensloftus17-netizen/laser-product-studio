@@ -74,3 +74,18 @@ Tests live in `test_ai_promos.py`.
 The three styles were rebuilt to match the new Laser-style reference concept. Retail uses a bold navy/blue angular header, large official photo frame and circular RRP bubble; Premium uses a bright editorial hierarchy, large product hero and clean outlined price plaque; Trade uses a charcoal workshop theme, diagonal shapes, side-by-side text/product framing and a prominent wide RRP ribbon. A single click still produces **exactly three different promotional designs**, with no user prompt required. Text is fitted to measured spaces and long copy safely abbreviated when necessary. The full-size **View large preview** action is available for each design before downloading. Rendered photos are placed unchanged (apart from cropping outer white whitespace and resizing) and all RRPs come from the official/staff-reviewed product record.
 
 Temporary Gemini 500/502/503/504 service errors are retried up to two more times automatically; API quota, authentication and model-access errors are not retried. This uses the existing free API tier and does not require extra infrastructure or paid image generation.
+
+### AI poster editor — November 2026
+
+After using **Generate with AI**, select **Edit this poster** on any of the three options.
+The new editor works on that design only; the other two previews remain untouched.
+
+* Edit the short promotional headline (up to 48 characters).
+* Pick one of three brand-safe colour palettes, or select custom accent and background colours.
+* Choose clean artwork, a geometric grid, or circular background graphics.
+* Move the UK RRP bubble/plaque to the opposite side (or reverse the price banner's alignment on trade adverts).
+* Click **Apply changes to this poster** to redraw locally on the Python server using Pillow; this does **not** invoke or charge the Gemini model.
+* Click **Regenerate this design** to ask Gemini for one fresh marketing concept for this specific poster, retaining the selected palette, background, price placement and manufacturer's original photography.
+* The edited card in the three-poster gallery is updated and can be downloaded as a full-resolution PNG. Changes live in the current browser session; **download** to keep your work (persistent project history is not yet available).
+
+The server always obtains the official product photograph, true part number, official product title and verified RRP independently from the product lookup; it never accepts those values or uploaded images from editor settings. Manufacturer feature bullets are validated against the original record, and any staff-entered prices still require explicit price review. Original marketing-pack generation remains unchanged. Editor API: `POST /api/ai/edit/<part>`. Editor tests: `test_ai_editor.py`.
