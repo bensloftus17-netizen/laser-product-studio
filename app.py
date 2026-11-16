@@ -120,6 +120,91 @@ $('applyRrp').addEventListener('click',()=>{
     $('reviewed').checked=false;$('download').disabled=true;
     setState('Draft price applied. Review all posters before exporting.','success');
 });
+const aiFamilyNames=['Bold Retail Promo','Clean Premium Promo','Trade Campaign Promo'];
+const aiAccentPresets=[['#FFC82E','#FF9D3D','#C5EB58'],['#B28D52','#0D95CD','#418C9B'],['#FFAA32','#25C4EC','#D2E96B']];
+const aiBackgroundPresets=[['#056DB9','#0A65AF','#175CB0'],['#FCFBF8','#FBFDFF','#F9FBFC'],['#0E263C','#061E39','#202D3A']];
+const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'],['Ivory / gold','White / cyan','Stone / teal'],['Navy / orange','Blue / cyan','Charcoal / lime']];
+
+function clearAiDesigns(){
+ aiConcepts=[];aiOriginals=[];currentAiEditor=-1;
+ $('aiIdeas').innerHTML='';
+ $('aiEditor').hidden=true;
+}
+function renderAiGallery(){
+ $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p><div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a></div></div></article>').join('');
+}
+function setAiPaletteOptions(index){
+ const selector=$('aiEditPalette');
+ selector.innerHTML=aiPaletteNames[index].map((n,i)=>'<option value="'+i+'">'+esc(n)+'</option>').join('');
+}
+function refreshAiPaletteColours(){
+ const i=currentAiEditor,p=Number($('aiEditPalette').value);
+ if(i<0||p<0||p>2)return;
+ $('aiEditAccent').value=aiAccentPresets[i][p].toLowerCase();
+ $('aiEditBgColour').value=aiBackgroundPresets[i][p].toLowerCase();
+}
+function openAiEditor(index){
+ if(!Number.isInteger(index)||index<0||index>=aiConcepts.length||!active)return;
+ currentAiEditor=index;
+ const c=aiConcepts[index],e=c.editor||{},variant=Number.isInteger(c.variant)?c.variant:0;
+ $('aiEditorTitle').textContent=aiFamilyNames[index]+' · Part '+active.part;
+ $('aiEditorPreview').src=c.preview;
+ $('aiEditorDownload').href=c.preview;
+ $('aiEditorDownload').download='LASER_'+active.part+'_AI_edited_'+(index+1)+'.png';
+ $('aiEditHeadline').value=c.headline||'';
+ setAiPaletteOptions(index);
+ $('aiEditPalette').value=String(variant);
+ refreshAiPaletteColours();
+ $('aiEditAccent').value=e.accent||$('aiEditAccent').value;
+ $('aiEditBgColour').value=e.background_colour||$('aiEditBgColour').value;
+ $('aiEditBackground').value=e.background||'clean';
+ $('aiEditPricePosition').value=e.price_position||'standard';
+ $('aiEditStatus').textContent='Edit this design and apply changes. No new AI request is needed.';
+ $('aiEditor').hidden=false;
+ $('aiEditor').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function closeAiEditor(){
+ $('aiEditor').hidden=true;currentAiEditor=-1;
+}
+async function saveAiEdit(regenerate=false){
+ const idx=currentAiEditor,productPart=active?.part;
+ if(idx<0||!productPart||aiEditing||!aiConcepts[idx])return;
+ const headline=$('aiEditHeadline').value.trim();
+ if(!regenerate&&!headline){$('aiEditStatus').textContent='Please enter a headline.';return;}
+ const edits={headline:headline,palette:Number($('aiEditPalette').value),
+  background:$('aiEditBackground').value,
+  price_position:$('aiEditPricePosition').value,
+  accent:$('aiEditAccent').value,
+  background_colour:$('aiEditBgColour').value};
+ const original=aiConcepts[idx],{preview,...concept}=original;
+ aiEditing=true;
+ const applyButton=$('aiEditApply'),regenButton=$('aiEditRegenerate');
+ applyButton.disabled=true;regenButton.disabled=true;
+ $('aiEditStatus').textContent=regenerate?'Gemini is creating fresh copy for this poster only…':'Updating this poster with your settings…';
+ try{
+  const response=await fetch('/api/ai/edit/'+encodeURIComponent(productPart),{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({index:idx,concept,edits,regenerate,
+    distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,
+    staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Could not update this poster');
+  if(!active||active.part!==productPart||currentAiEditor!==idx)return;
+  aiConcepts[idx]=data.concept;
+  renderAiGallery();
+  $('aiEditorPreview').src=data.concept.preview;
+  $('aiEditorDownload').href=data.concept.preview;
+  $('aiEditHeadline').value=data.concept.headline;
+  $('aiEditStatus').textContent=regenerate?'New AI copy applied to this poster. The other two are unchanged.':'Changes saved to this poster in the gallery. Download the PNG to keep it.';
+  setState('AI poster '+(idx+1)+' updated. Please review the artwork before sharing.','success');
+ }catch(err){$('aiEditStatus').textContent=err.message;setState(err.message,'error');}
+ finally{aiEditing=false;applyButton.disabled=false;regenButton.disabled=false;}
+}
+$('aiEditPalette').addEventListener('change',refreshAiPaletteColours);
+$('aiEditorForm').addEventListener('submit',event=>{event.preventDefault();saveAiEdit(false);});
+$('aiEditRegenerate').addEventListener('click',()=>saveAiEdit(true));
+$('aiEditorClose').addEventListener('click',closeAiEditor);
+
 $('generateAI').addEventListener('click',async()=>{
  if(!active||!activePhoto)return;
  const button=$('generateAI'),productPart=active.part;
