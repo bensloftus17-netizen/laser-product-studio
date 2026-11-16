@@ -21,33 +21,23 @@ See [MARKETING_ART_DIRECTION.md](MARKETING_ART_DIRECTION.md) for the full catego
 
 
 
-## Optional generative AI poster concepts (V20)
+## Optional generative AI poster concepts (Gemini free-tier)
 
-The original product lookup, three default poster previews, manufacturer photo, RRP review,
-distributor branding and ZIP export remain unchanged. After a successful lookup, click
-**Generate with AI** to obtain three additional visual poster recommendations with
-downloadable PNG previews (spotlight, split-layout and technical-layout).
+The original product lookup, three default poster previews, distributor branding, price review
+and ZIP export are unchanged. **Generate with AI** uses Google's Gemini API to propose three
+product-aware advertising concepts, with authentic manufacturer imagery and downloadable PNGs.
 
-This is a **real model-backed feature**, not a random template picker: the language model
-studies the verified product title, manufacturer description, specifications, and features
-to create different creative positioning, headlines and selected evidence-based selling points.
-The rendering stage preserves the **authentic manufacturer product image** and places
-typography in deliberately bounded layout zones. AI recommendations are new draft images
-and do not replace the original three export formats.
+### Free setup (Google AI Studio)
 
-### Enable the AI on Render
+1. Open https://aistudio.google.com/apikey and create a Gemini API key using a project eligible for the free tier.
+2. In Render > laser-product-studio > Environment add `GEMINI_API_KEY` and paste the secret API key into its value. Never add the key to GitHub.
+3. Save and deploy. Optionally configure `GEMINI_MODEL`, default `gemini-2.5-flash-lite`.
+4. Load product 9395, click **Generate with AI**, and review all generated claims before publication.
 
-1. Open the Render web service for this repository.
-2. Add environment variable `OPENAI_API_KEY` as a **secret** (never put a key in GitHub,
-   browser JavaScript or a source file).
-3. Optional: set `OPENAI_MODEL` (default `gpt-4.1-mini`).
-4. Redeploy the service, load a product, then click **Generate with AI**.
-
-When the key is missing or AI is unreachable, the AI panel shows a clear error and
-the existing poster builder continues working. The server passes only official public
-product details to the configured API; no browser-side credentials are exposed.
-The API may incur usage charges, and Render's free-tier request timeout can affect
-slow model responses. Staff must verify every AI-written headline, subline and
-marketing assertion before external use. Suggested wording is not an approved
-manufacturer claim and no actual model training or long-term learning is implied.
-
+This implementation makes real model calls, but **does not train its own model** or learn
+persistently from previous requests. The visual rendering remains controlled to avoid
+inventing physical tools. Google's free tier has usage limits and may use submitted content
+to improve its products. The AI call transmits only the public official manufacturer record
+to Google, not private internal sales data. Free-tier availability is conditional on your
+project/region/model and Google's current terms. Do not enable paid billing if you want zero
+API charges. The old `OPENAI_API_KEY` is no longer used and can be deleted from Render.
