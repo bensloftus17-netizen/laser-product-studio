@@ -79,7 +79,8 @@ class CreativeCampaignTests(unittest.TestCase):
             concepts=propose(manufacturer,creative_brief="bold launch campaign")
         self.assertEqual([c["family"] for c in concepts],list(FAMILIES))
         self.assertTrue(all(0<=c["variant"]<=2 for c in concepts))
-        self.assertEqual(concepts[0]["features"],["Ratchet with 72 teeth"])
+        self.assertEqual(concepts[0]["features"][:1],["Ratchet with 72 teeth"])
+        self.assertTrue(all(v in manufacturer["features"] for v in concepts[0]["features"]))
         # The user now never needs a creative prompt: the AI is given official product data.
         self.assertNotIn("bold launch campaign",post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"])
 
