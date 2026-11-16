@@ -3,7 +3,10 @@ import os, json, re, secrets, time
 import requests
 from ai_promo_renderer import FAMILIES
 
-def propose(product, creative_brief=""):
+def propose(product, creative_brief="", only_family=None):
+    """Generate three ideas normally, or ONE new concept for a selected design."""
+    if only_family is not None and only_family not in FAMILIES:
+        raise ValueError("Unknown promotional family.")
     key=os.environ.get("GEMINI_API_KEY","").strip()
     if not key:
         raise RuntimeError("Gemini AI is not configured. Add GEMINI_API_KEY to Render Environment. The regular poster builder still works.")
@@ -28,6 +31,19 @@ def propose(product, creative_brief=""):
             "name (max 30 chars), headline (max 48 chars), subline (max 82 chars), "
             "angle (max 120 chars, a marketing explanation), feature_ids (2 or 3 integer indices into the supplied features array). "
             "All three headlines and angles must be meaningfully different. Do not request more input from the user.")
+    if only_family is not None:
+        kind={"retail":"bold retail promotion","premium":"clean premium retail advert",
+              "trade":"dramatic trade counter promotion"}[only_family]
+        system=("You are a UK automotive tools advertising copywriter. Generate exactly ONE NEW, "
+                "distinct marketing concept for the following verified Laser Tools product. "
+                "This must be a "+kind+". This is for a SALES POSTER, not a spec sheet. "
+                "Write a fresh, catchy headline of no more than 48 characters that differs "
+                "from the existing product name, a subline no more than 82 characters, "
+                "an angle no more than 120 characters and select 1-3 real product features. "
+                "Use ONLY supplied manufacturer information. Never invent technical facts, "
+                "fitment, discounts, price, savings, warranty or accessories. "
+                "Return ONLY JSON: a dict with a 'concepts' array containing exactly one "
+                "object with name, headline, subline, angle and feature_ids indices.")
     model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
@@ -84,10 +100,15 @@ def propose(product, creative_brief=""):
             concepts=concepts.get("items",[])
     else:
         concepts=[]
-    if not isinstance(concepts,list) or len(concepts)!=3:
+    # Single-design regeneration is a cheaper ONE-concept Gemini request.
+    if only_family is not None and isinstance(raw,dict) and not concepts and "headline" in raw:
+        concepts=[raw]
+    expected=1 if only_family is not None else 3
+    if not isinstance(concepts,list) or len(concepts)!=expected:
         raise RuntimeError("Gemini returned an unexpected poster format. Click Generate with AI to retry.")
     cleaned=[]
     for i,c in enumerate(concepts):
+        family_index=FAMILIES.index(only_family) if only_family is not None else i
         if not isinstance(c,dict):
             raise RuntimeError("Gemini returned invalid marketing concepts. Try generating again.")
         ids=c.get("feature_ids",[])
@@ -103,12 +124,12 @@ def propose(product, creative_brief=""):
             if item not in selected:selected.append(item)
         def safe(field,maxlen):
             return " ".join(str(c.get(field,"")).split())[:maxlen]
-        cleaned.append({"id":i,
-            "name":safe("name",30) or ("Promotional Option "+str(i+1)),
+        cleaned.append({"id":family_index,
+            "name":safe("name",30) or ("Promotional Option "+str(family_index+1)),
             "headline":safe("headline",48) or str(product.get("title","Laser Tools"))[:48],
             "subline":safe("subline",82) or str(product.get("title",""))[:82],
             "angle":safe("angle",120),
-            "family":FAMILIES[i],
+            "family":FAMILIES[family_index],
             "variant":secrets.randbelow(3),  # fresh colour/shapes each press
             "features":selected,
             "part":str(product.get("part","")),
