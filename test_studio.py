@@ -553,7 +553,7 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         self.assertIsNotNone(doc.find(id='distributorPreview'))
         self.assertIn('function updateDistributorPreview()',V7_HOME_PAGE)
         self.assertIn('distributor_brand:selectedDistributor()',V7_HOME_PAGE)
-        self.assertIn('design=v18',V7_HOME_PAGE)
+        self.assertIn('design=v19',V7_HOME_PAGE)
         self.assertIsNone(selected_distributor('none'))
         with self.assertRaises(ValueError):
             selected_distributor('../secrets')
