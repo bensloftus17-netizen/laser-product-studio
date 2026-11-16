@@ -77,6 +77,38 @@ class OneClickPromos(unittest.TestCase):
         for c in self.concepts:
             self.assertGreater(len(render_promo(c,self.photo,{**self.product,"price":None})),10000)
 
+    def test_full_size_poster_preview_is_present(self):
+        import app as app_module
+        page=app_module.V7_HOME_PAGE
+        self.assertIn('id="aiPosterPreview"',page)
+        self.assertIn('data-ai-zoom=',page)
+        self.assertIn('id="aiPosterClose"',page)
+        self.assertNotIn('id="creativeBrief"',page)
+
+    def test_gemini_retries_temporary_server_failure(self):
+        import os
+        import requests
+        from ai_concepts import propose
+        class TemporarilyUnavailable:
+            status_code=503
+            def raise_for_status(self):
+                raise requests.HTTPError(response=self)
+        class Works:
+            status_code=200
+            def raise_for_status(self): pass
+            def json(self):
+                concepts=[{"name":"Promo", "headline":"Workshop promotion",
+                           "subline":"Genuine tools", "angle":"Sales campaign",
+                           "feature_ids":[0]} for i in range(3)]
+                return {"candidates":[{"content":{"parts":[{"text":json.dumps({"concepts":concepts})}]}}]}
+        with patch.dict(os.environ,{"GEMINI_API_KEY":"mock-test-key"}), \
+             patch("ai_concepts.requests.post",side_effect=[TemporarilyUnavailable(),Works()]) as request_mock, \
+             patch("ai_concepts.time.sleep") as sleeper:
+            concepts=propose({**self.product,"marketing_direction":{}})
+        self.assertEqual(len(concepts),3)
+        self.assertEqual(request_mock.call_count,2)
+        self.assertEqual(sleeper.call_count,1)
+
     def test_mocked_endpoint_generates_three_price_led_posters(self):
         import app as app_module
         self.assertNotIn('id="creativeBrief"',app_module.V7_HOME_PAGE)
