@@ -21,7 +21,7 @@ from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy,
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
 from ai_concepts import propose as propose_ai_concepts
-from ai_promo_renderer import render_promo as render_ai_promo
+from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -982,6 +982,97 @@ def ai_recommendations(part):
     except Exception:
         app.logger.exception('AI concept generation failed')
         return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
+
+@app.post('/api/ai/edit/<part>')
+def edit_ai_promo(part):
+    """Edit one generated AI poster without changing original manufacturer facts.
+
+    The browser sends only selected concept text and presentation controls.
+    Product photo, part number, title, features and RRP are re-validated from
+    official source on EVERY render; clients cannot provide arbitrary images
+    or change the displayed price through this editor.
+    """
+    try:
+        body=request.get_json(silent=True)
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid editor request.'),400
+        idx=body.get('index')
+        if type(idx) is not int or idx not in (0,1,2):
+            return jsonify(error='Choose one of the three promotional posters.'),400
+        family=AI_PROMO_FAMILIES[idx]
+        supplied=body.get('concept')
+        edits=body.get('edits',{})
+        if not isinstance(supplied,dict) or not isinstance(edits,dict):
+            return jsonify(error='Invalid poster editor data.'),400
+        product,image=lookup(part)
+        if not image:
+            return jsonify(error='Official product photography is required.'),422
+        if str(supplied.get('part',''))!=str(product.get('part','')) or supplied.get('family')!=family:
+            return jsonify(error='Poster does not match this product or design.'),400
+        product=with_reviewed_price(product,body.get('staff_rrp_ex'),
+                                   body.get('staff_rrp_reviewed') is True,
+                                   body.get('staff_rrp_basis','ex'))
+        brand=selected_distributor(body.get('distributor_brand','none'))
+
+        # Price, product title, product image and factual feature bullets are
+        # never supplied by or mutable from this editor.
+        known_features=[str(x).strip()[:175] for x in product.get('features',[]) if str(x).strip()]
+        selected=[x for x in supplied.get('features',[]) if
+                  isinstance(x,str) and x in known_features] if isinstance(supplied.get('features'),list) else []
+        selected=list(dict.fromkeys(selected))[:3]
+        if not selected:
+            selected=known_features[:2]
+        def phrase(value,limit):
+            return ' '.join(str(value or '').split())[:limit]
+        if body.get('regenerate') is True:
+            generated=propose_ai_concepts(product,only_family=family)[0]
+            headline=phrase(generated.get('headline'),48)
+            subline=phrase(generated.get('subline'),82)
+            name=phrase(generated.get('name'),30)
+            angle=phrase(generated.get('angle'),120)
+            selected=[x for x in generated.get('features',[]) if x in known_features][:3] or selected
+        else:
+            headline=phrase(edits.get('headline'),48)
+            if not headline:
+                return jsonify(error='Enter a headline before applying your changes.'),400
+            subline=phrase(supplied.get('subline'),82)
+            name=phrase(supplied.get('name'),30)
+            angle=phrase(supplied.get('angle'),120)
+        raw_palette=edits.get('palette',supplied.get('variant',0))
+        if type(raw_palette) is not int or not 0<=raw_palette<=2:
+            return jsonify(error='Select a valid colour palette.'),400
+        background=edits.get('background','clean')
+        position=edits.get('price_position','standard')
+        if background not in ('clean','grid','rings') or position not in ('standard','opposite'):
+            return jsonify(error='Unsupported background or price position.'),400
+        accent=edits.get('accent','')
+        bg_colour=edits.get('background_colour','')
+        if not isinstance(accent,str) or not isinstance(bg_colour,str):
+            return jsonify(error='Invalid colour settings.'),400
+        for value in (accent,bg_colour):
+            if value and not re.fullmatch(r'#[0-9a-fA-F]{6}',value):
+                return jsonify(error='Choose valid colours.'),400
+        options={'background':background,'price_position':position,
+                 'accent':accent,'background_colour':bg_colour}
+        concept={'id':idx,'part':str(product.get('part','')),
+                 'title':str(product.get('title',''))[:125], 'family':family,
+                 'name':name or ('Promotional Option '+str(idx+1)),
+                 'headline':headline or str(product.get('title','Laser Tools'))[:48],
+                 'subline':subline,'angle':angle,'features':selected,
+                 'variant':raw_palette,'editor':{**options,'palette':raw_palette}}
+        rendered=render_ai_promo(concept,image,product,brand,editor=options)
+        concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
+        return jsonify(concept=concept,review_required=True)
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)),503
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)),404
+    except ValueError as exc:
+        return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('AI poster edit failed')
+        return jsonify(error='Unable to update the poster. Please retry.'),500
+
 
 @app.get('/api/photo/<part>')
 def photo(part):
