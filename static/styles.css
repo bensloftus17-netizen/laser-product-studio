@@ -369,3 +369,11 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .ai-headline-buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .ai-headline-buttons button{min-width:0;text-align:center}
 @media(max-width:520px){.ai-headline-buttons{grid-template-columns:1fr}}
+
+/* Traceable genuine background imagery in generated campaigns. */
+.ai-photo-credit{font-size:10px;line-height:1.5;margin:4px 0 0;color:#58758b;border-top:1px solid #e5ecf2;padding-top:8px}
+.ai-photo-credit a{color:#0b6db3;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.ai-idea img{background:#101e30;object-fit:contain}
+.ai-idea:nth-child(1){border-top:5px solid #098fc8}
+.ai-idea:nth-child(2){border-top:5px solid #0a3457}
+.ai-idea:nth-child(3){border-top:5px solid #26a8da}
