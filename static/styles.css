@@ -770,3 +770,15 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .rewrite-tools-title span{display:block;margin-top:4px}
  .rewrite-preview-actions button{flex:1}
 }
+
+/* Helpful recovery controls if the external Gemini service returns HTTP 503. */
+.ai-recovery{background:#fff9ed;border:1px solid #f1d5a6;border-radius:12px;padding:16px 18px;color:#654416}
+.ai-recovery strong{display:block;font-size:15px;color:#744912;margin-bottom:7px}
+.ai-recovery p{font-size:12px;line-height:1.6;margin:6px 0;color:#6b4a21}
+.ai-recovery .ai-recovery-reason{color:#9d4435;font-weight:690}
+.ai-recovery-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:13px 0 9px}
+.ai-recovery-actions button{font-size:12px;padding:10px 12px;border-radius:8px;font-weight:760}
+.ai-recovery-actions button:last-child{background:#0d69ac;color:#fff;border-color:#0d69ac}
+.ai-recovery-actions button:last-child:hover{background:#084e82}
+.ai-recovery small{font-size:11px;line-height:1.5;color:#7c6c4f;display:block}
+@media(max-width:490px){.ai-recovery-actions{display:grid}.ai-recovery-actions button{width:100%}}
