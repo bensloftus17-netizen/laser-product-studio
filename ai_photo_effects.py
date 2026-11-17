@@ -412,5 +412,13 @@ def compose_product(base: Image.Image, blob: bytes, box: tuple[int,int,int,int],
     if right>left and bottom>top:
         crop=cutout.crop((left-cx,top-cy,right-cx,bottom-cy))
         layer.alpha_composite(crop,(left,top))
+    # Capture actual alpha visibility, not just the nominal editor rectangle.
+    # Source tool pixels remain untouched and are never re-generated.
+    from PIL import ImageStat
+    from poster_quality import record_product
+    total_alpha=ImageStat.Stat(cutout.getchannel("A")).sum[0]
+    visible_alpha=ImageStat.Stat(mask).sum[0]
+    record_product((x0,y0,x1,y1),
+                   visible_alpha/max(total_alpha,1),isolated)
     base.alpha_composite(layer,(x0,y0))
     return isolated
