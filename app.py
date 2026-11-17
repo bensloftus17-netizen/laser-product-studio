@@ -30,20 +30,45 @@ from campaign_hub import build_campaign
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v32-copy-unified">
+<link rel="stylesheet" href="/static/styles.css?design=v33-dashboard-hub">
 </head><body>
-<header class="topbar"><div class="wrap nav">
-<div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
-<nav class="navright"><a href="#builder">Create campaigns</a><a href="#how">How it works</a><span class="tag">DEMO · REVIEW REQUIRED</span></nav></div></header>
-<main><section class="hero"><div class="wrap hero-inner">
-<div class="hero-copy"><div class="hero-kicker">LASER TOOLS · PRODUCT MARKETING STUDIO</div><h1>Create complete<br><span>marketing campaigns.</span></h1><p>One part number. A complete distributor marketing campaign. Genuine product images, source-checked claims, ready-to-edit copy and channel-specific graphics in one download.</p><div class="hero-qualities"><span>Official product imagery</span><span>Three poster styles</span><span>Download-ready drafts</span></div></div>
-<div class="hero-art" aria-hidden="true"><div class="art-sheet art-left"><b>LASER TOOLS</b><strong>TECHNICAL<br>INFORMATION</strong><i></i><i></i></div><div class="art-sheet art-right"><b>LASER TOOLS</b><strong>UK RRP</strong><em>£</em></div><div class="art-sheet art-center"><b>LASER TOOLS</b><strong>PRODUCT<br>SPOTLIGHT</strong><div class="art-circle"></div><small>ENGINEERED FOR THE JOB</small></div></div>
-</div></section>
+<header class="studio-topbar">
+ <a class="studio-brand" href="#builder" aria-label="Laser Tools Marketing Hub home">
+  <span class="studio-mark">LASER<span>TOOLS</span></span>
+  <span class="studio-brand-accent" aria-hidden="true"></span>
+  <span class="studio-brand-title">Laser Product Studio<small>Marketing Hub for Laser Tools products</small></span>
+ </a>
+ <nav class="studio-top-links" aria-label="Primary navigation">
+  <a href="#builder" class="active">⌂ Home</a><a href="#studioWorkspace">♧ Campaigns</a><a href="#assetWorkspace">▱ Assets</a>
+  <a href="#savedPromotions">☆ Saved Promotions</a>
+  <span title="Reports are planned for a future release">▥ Reports <small>Soon</small></span>
+ </nav>
+ <span class="studio-pilot-tag">INTERNAL PILOT · REVIEW REQUIRED</span>
+</header>
+<aside class="studio-sidebar" aria-label="Workspace navigation">
+ <div class="sidebar-label">MARKETING WORKSPACE</div>
+ <nav class="sidebar-menu">
+  <a class="active" href="#builder"><span aria-hidden="true">⌂</span> Dashboard</a>
+  <a href="#builder"><span aria-hidden="true">✧</span> Create Campaign</a>
+  <a href="#savedPromotions"><span aria-hidden="true">☆</span> Saved Promotions <small>Soon</small></a>
+  <button type="button" data-open-studio><span aria-hidden="true">▱</span> Product Studio</button>
+  <a href="#assetWorkspace"><span aria-hidden="true">▤</span> Asset Library</a>
+  <button type="button" data-open-ai><span aria-hidden="true">✦</span> AI Generator</button>
+  <span class="sidebar-future" title="Reports are a planned feature"><span aria-hidden="true">▥</span> Reports <small>Soon</small></span>
+ </nav>
+ <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · v1</span></div>
+</aside>
+<main class="studio-main">
 <div class="wrap app-shell" id="builder">
-<div class="steps-panel"><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
-<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">STEP 01 / PRODUCT LOOKUP</div><h2>Find a Laser Tools product</h2><p>Enter a part number to generate every asset needed for a distributor product campaign.</p></div><span class="lookup-chip">Quick product search</span></div>
-<form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create posters <b>→</b></button></div></form>
-<div class="campaign-oneclick"><div><span class="sectioncap">THE COMPLETE MARKETING PACK</span><h3>One part number. One click. One ready-to-review campaign.</h3><p>Three promotional posters, social graphics, a story, website and email banners, copy for every channel, official product facts and a ZIP download.</p></div><button type="button" id="campaignBtn" class="campaign-start">✦ Generate Complete Campaign</button><p id="campaignStatus" role="status" aria-live="polite">Uses original product photographs and verified specifications. No automatic publishing.</p></div>
+<div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
+<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Generate a Marketing Campaign</h2><p>Enter a Laser Tools part number and create a complete draft pack — posters, social graphics, email content and more.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
+<form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Generate Campaign</button></div></form>
+<div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
+<p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
+<details id="campaignSettings" class="campaign-settings">
+ <summary>Distributor branding, product lookup and pricing settings <span>Optional</span></summary>
+ <div class="campaign-settings-content">
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
  <div class="distributor-label"><label for="distributorBrand">Customer / distributor branding <span>(optional)</span></label><small>Show a customer's logo alongside Laser Tools on all three posters.</small></div>
@@ -61,7 +86,38 @@ V7_HOME_PAGE = r'''
 <details class="advanced-options"><summary>Need to enter a price or official product URL? <span>Advanced options</span></summary><div class="advanced-content">
 <div class="advanced-field"><label for="officialUrl">Official UK product URL (optional)</label><input id="officialUrl" type="url" placeholder="https://www.toolconnection.co.uk/products/..."><small>Use this when a product is difficult to find.</small></div>
 <div class="advanced-field"><label for="staffRrp">Staff-reviewed UK RRP</label><div class="price-entry"><input id="staffRrp" type="number" min="0.01" max="500000" step="0.01" placeholder="e.g. 114.70"><select id="staffRrpBasis" aria-label="VAT status"><option value="ex">Ex VAT</option><option value="inc">Inc VAT</option></select></div><label class="check-label"><input id="staffReview" type="checkbox"> I've checked this price</label><button type="button" class="secondary" id="applyRrp">Update poster prices</button><small>Staff-entered prices are drafts and need company approval.</small></div>
-</div></details><p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
+</div></details>
+<button class="studio-preview-trigger secondary" id="searchBtn" type="button">Find product &amp; preview standard posters</button>
+ </div>
+</details>
+<p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
+
+<section class="studio-quickbar" aria-label="Campaign formats and quick actions">
+ <div class="quickbar-item"><span class="quickbar-icon">◎</span><b>3</b><small>Distinct sales angles</small></div>
+ <div class="quickbar-item"><span class="quickbar-icon">▤</span><b>7</b><small>Core artwork files</small></div>
+ <div class="quickbar-item"><span class="quickbar-icon">⇩</span><b>1</b><small>Complete ZIP download</small></div>
+ <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
+  <a href="#assetWorkspace">View assets</a><button type="button" data-open-ai>Use AI Generator</button>
+ </div>
+</section>
+<section class="studio-workspace" id="studioWorkspace" aria-label="Campaign workspace">
+ <section class="asset-workspace" id="assetWorkspace" aria-label="Campaign asset previews">
+  <div class="workspace-heading"><div><h2>▤ Campaign Asset Preview</h2><p id="assetWorkspaceStatus">Your campaign graphics will appear here after you enter a part number.</p></div><a href="#productStudio" data-open-studio>Official product details</a></div>
+ </section>
+ <section class="copy-workspace" id="copyWorkspace" aria-label="Marketing copy editor">
+  <div class="workspace-heading"><div><h2>✎ Copy Editor</h2><p>Choose a channel, refine wording and copy it in one place.</p></div></div>
+  <div id="copyEmpty" class="studio-empty-copy"><span aria-hidden="true">✎</span><b>Marketing copy ready when you are</b><p>Generate a campaign to preview social, LinkedIn, email and web copy here.</p></div>
+ </section>
+</section>
+<section class="saved-promotions" id="savedPromotions" aria-label="Saved promotions future feature">
+ <div class="saved-heading"><div><h2>▱ Saved Promotions Library <span>Coming soon</span></h2><p>Save, reopen, duplicate and organise promotions in a future release.</p></div></div>
+ <div class="saved-not-yet"><span aria-hidden="true">☆</span><div><b>Saved campaigns are not enabled yet</b><p>Your finished campaigns can be downloaded as ZIP files today. A searchable library will be added later — no campaigns are being stored by this demo.</p></div></div>
+</section>
+<details class="studio-deep-tools" id="productStudio">
+ <summary>Product Studio &amp; advanced poster tools <small>Official record · poster previews · AI poster editor · manual export</small></summary>
+ <div id="productRecordSlot" class="record-dock"></div>
+ <div id="advancedStudioSlot" class="advanced-dock"></div>
+</details>
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
