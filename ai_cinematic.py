@@ -358,5 +358,9 @@ def render_campaign(concept,photo,product,price,variation,editor=None,scene_phot
     family=concept.get("family","retail")
     if family not in ("retail","premium","trade"):
         raise ValueError("Unknown photographic campaign family")
+    layout=int(variation)%3
+    if layout in (1,2):
+        from ai_variant_layouts import render_variant
+        return render_variant(family,layout,concept,photo,product,price,editor,scene_photo)
     return {"retail":_retail,"premium":_premium,"trade":_trade}[family](
         concept,photo,product,price,variation,editor,scene_photo)
