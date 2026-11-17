@@ -24,6 +24,7 @@ from ai_concepts import propose as propose_ai_concepts, suggest_headlines as sug
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
 from promo_art_direction import normalise_art_direction, editor_preferences, scene_treatment
+from promo_selling_points import focus_concept
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -1208,6 +1209,10 @@ def ai_recommendations(part):
                        else None)
         image_variation=int.from_bytes(hashlib.sha256(str(part).encode("utf-8")).digest()[:2],"big")
         for i,concept in enumerate(concepts):
+            # Enforce three different *verified* marketing purposes even when
+            # Gemini repeats the same feature or a mocked model omits focus.
+            concept=focus_concept(product,concept,i)
+            concepts[i]=concept
             art=normalise_art_direction(concept.get('art_direction'),
                                         concept.get('family'),concept.get('variant',i))
             concept['art_direction']=art
@@ -1400,11 +1405,14 @@ def edit_ai_promo(part):
         source_art['layout_variant']=raw_palette
         render_options={**options,'_scene_bytes':scene_bytes,
                         '_scene_style':scene_treatment(scene_reference,source_art)}
+        focus_info=focus_concept(product,{'family':family},idx)
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
                  'name':name or ('Promotional Option '+str(idx+1)),
                  'headline':headline or str(product.get('title','Laser Tools'))[:48],
                  'subline':subline,'angle':angle,'features':selected,
+                 'focus':focus_info['focus'],'focus_label':focus_info['focus_label'],
+                 'selling_point':focus_info['selling_point'],
                  'variant':raw_palette,'art_direction':source_art,
                  'editor':{**options,'palette':raw_palette}}
         quality={}
