@@ -75,7 +75,7 @@ class PromotionalCopyTests(unittest.TestCase):
         copy=compose_promotional_copy({
             **self.product,"price":"£79.99 including VAT",
             "price_source":"Staff entry, independently reviewed"},self.concepts[0])
-        self.assertIn("Draft Uk Rrp: £79.99 (inc VAT)",copy["social_caption"])
+        self.assertIn("DRAFT UK RRP: £79.99 (inc VAT)",copy["social_caption"])
         self.assertNotIn("144.16",str(copy))
 
     def test_malicious_or_invented_model_claims_are_not_repeated(self):
