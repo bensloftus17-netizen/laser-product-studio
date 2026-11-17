@@ -13,7 +13,7 @@ class GeminiRecoveryTests(unittest.TestCase):
         self.assertIn("Retry AI posters", html)
         self.assertIn("Generate full campaign instead", html)
         self.assertIn("temporarily unavailable", html)
-        self.assertIn("'verified manufacturer facts", html)
+        self.assertIn("verified manufacturer facts", html)
         self.assertIn("if(retry){$('generateAI').click();return;}", html)
         self.assertIn("if(fallback){$('campaignBtn').click();return;}", html)
         self.assertIn("const temporary=/HTTP 50[0234]", html)
@@ -31,7 +31,7 @@ class GeminiRecoveryTests(unittest.TestCase):
 
     def test_existing_complete_campaign_fallback_remains_available(self):
         page=studio.V7_HOME_PAGE
-        self.assertIn("verified-template-fallback",page)
+        self.assertIn("Verified-source fallback campaign",page)
         self.assertIn("Generate Campaign",page)
         self.assertIn("const response=await fetch('/api/campaign/'",page)
 
