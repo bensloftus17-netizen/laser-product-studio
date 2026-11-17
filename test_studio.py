@@ -489,7 +489,12 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         ids=[node.get('id') for node in document.find_all(id=True)]
         self.assertEqual(len(ids),len(set(ids)))
         self.assertEqual(len(document.select('.step[data-step]')),3)
-        self.assertEqual(len(document.select('.hero-art .art-sheet')),3)
+        # V33 replaces the old decorative paper hero with the approved
+        # campaign-first dashboard and a genuine manufacturer photo.
+        self.assertEqual(len(document.select('.studio-hero-art #heroProductPhoto')),1)
+        self.assertEqual(len(document.select('.studio-sidebar')),1)
+        self.assertEqual(len(document.select('#unifiedCopyStudio textarea')),1)
+        self.assertIsNotNone(document.find(id='savedPromotions'))
         self.assertIn('design=v19',V7_HOME_PAGE)
         self.assertIn('function setProgress(stage)',V7_HOME_PAGE)
         self.assertIn('function showPreviews(p,photo)',V7_HOME_PAGE)
