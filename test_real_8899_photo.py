@@ -40,7 +40,7 @@ class Genuine8899WhiteGapTests(unittest.TestCase):
         components=[]
         for iteration in range(90):
             raw=working.tobytes()
-            idx=raw.find(b"\\xff")
+            idx=raw.find(bytes([255]))
             if idx<0:break
             seed=(idx%working.width,idx//working.width)
             ImageDraw.floodfill(working,seed,128,thresh=0)
