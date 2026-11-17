@@ -782,3 +782,15 @@ body{background:#eef4fb;color:#102744;min-width:320px}
 .ai-recovery-actions button:last-child:hover{background:#084e82}
 .ai-recovery small{font-size:11px;line-height:1.5;color:#7c6c4f;display:block}
 @media(max-width:490px){.ai-recovery-actions{display:grid}.ai-recovery-actions button{width:100%}}
+
+/* Campaign exports are opt-in, including on iPhone Home Screen shortcuts. */
+.campaign-download-choice{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.campaign-download-choice small{font-size:10px;line-height:1.4;color:#607990;max-width:200px}
+.campaign-save-image{display:inline-block;margin-top:8px;font-size:10px;font-weight:750;
+ color:#0769af;text-decoration:underline;text-underline-offset:2px;line-height:1.4}
+.campaign-save-image:hover{color:#003d75}
+@media(max-width:600px){
+ .campaign-download-choice{width:100%;align-items:stretch}
+ .campaign-download-choice .campaign-download{text-align:center}
+ .campaign-download-choice small{max-width:none;text-align:center}
+}

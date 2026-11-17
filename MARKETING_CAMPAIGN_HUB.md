@@ -30,7 +30,7 @@ It does **not** automatically post, email, schedule or publish content.
    - Downloadable preview gallery of all channel graphics.
    - The original selectable copy-preview experience: choose **Price-led / Benefit-led / Application-led**, then **Social / LinkedIn / Email / Hashtags / Website / Short promo** to display the full suggested text in one editable field.
    - **Copy this text**, **Copy all campaign wording** and **Reset this draft** controls; browser edits persist while switching tabs but are not included in the downloaded original ZIP.
-   - **Download full ZIP** and automatic ZIP download after the original click.
+   - **Optional downloads only:** generating a campaign displays the asset gallery and copy editor; it does **not** open a ZIP on mobile or desktop. Tap **Download complete ZIP** if you want the pack, or **Download PNG** on an individual artwork.
 4. **External publication**
    - Human review of every graphic, claim, image right, fitment, RRP/VAT and
      distributor logo permission is mandatory. No auto-publication in MVP.

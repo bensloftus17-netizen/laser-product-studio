@@ -31,7 +31,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v35-gemini-recovery">
+<link rel="stylesheet" href="/static/styles.css?design=v36-optional-downloads">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -134,7 +134,7 @@ V7_HOME_PAGE = r'''
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
-<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><a id="campaignDownload" class="campaign-download" href="#" download>Download full ZIP ↓</a></div>
+<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><div class="campaign-download-choice"><a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a><small>Optional — nothing downloads automatically.</small></div></div>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
 <h4>Campaign graphics — built for each channel</h4><div class="campaign-asset-grid" id="campaignAssets"></div>
 
@@ -593,7 +593,8 @@ function showCampaign(data){
  social_square:'Facebook / Instagram Square',social_story:'Story / Vertical',website_banner:'Website Banner',
  email_header:'Email Header',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
-  '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small></article>').join('');
+  '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
+  '<a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a></article>').join('');
  copyStudioData={origin:'campaign',copy:m.copy};
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};rewriteUndoHistory={};
  renderCampaignCopyStudio();
@@ -802,10 +803,7 @@ $('campaignBtn').addEventListener('click',async()=>{
    });
    const data=await readApiJson(response);
    showCampaign(data);
-   $('campaignStatus').textContent='Complete campaign generated. The download link is available for 15 minutes; review all materials before publication.';
-   const anchor=document.createElement('a');anchor.href=$('campaignDownload').href;
-   anchor.download='LASER_'+part+'_Complete_Campaign.zip';document.body.appendChild(anchor);
-   anchor.click();anchor.remove();
+   $('campaignStatus').textContent='Campaign ready to review. Nothing has downloaded — use Download complete ZIP or choose individual PNGs if you want to save them. The links expire after 15 minutes.';
  }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
  finally{button.disabled=false;button.textContent='✦ Generate Campaign';}
 });
@@ -2034,7 +2032,13 @@ def preview_campaign_asset(token, asset_id):
     asset = bundle['images'].get(asset_id)
     if asset is None:
         return jsonify(error='Campaign asset not found.'), 404
-    response = send_file(io.BytesIO(asset), mimetype='image/png')
+    download_requested = request.args.get('download') == '1'
+    response = send_file(
+        io.BytesIO(asset), mimetype='image/png',
+        as_attachment=download_requested,
+        download_name='LASER_' + re.sub(r'[^A-Za-z0-9_-]', '',
+            str(bundle['manifest'].get('part') or 'Product')) + '_' + asset_id + '.png'
+    )
     response.headers['Cache-Control'] = 'no-store, private'
     return response
 
