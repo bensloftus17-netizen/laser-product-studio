@@ -128,7 +128,7 @@ class OneClickPromos(unittest.TestCase):
                         {"name":"Offer","headline":"Ratchet set","subline":"Three ratchets",
                          "angle":"Trade sale","feature_ids":[0]}
                         for _ in range(3)]})}]}}]})
-        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \\
+        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \
              patch("ai_concepts.requests.post",side_effect=[incomplete,completed]) as send:
             result=propose({**self.product,"marketing_direction":{}})
         self.assertEqual(len(result),3)
@@ -144,7 +144,7 @@ class OneClickPromos(unittest.TestCase):
                 pass
             def json(self):
                 return {"candidates":[{"content":{"parts":[{"text":'{"concepts": ['}]}}]}
-        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \\
+        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \
              patch("ai_concepts.requests.post",return_value=Broken()) as send:
             with self.assertRaisesRegex(RuntimeError,"incomplete or invalid JSON"):
                 propose({**self.product,"marketing_direction":{}})
@@ -158,7 +158,7 @@ class OneClickPromos(unittest.TestCase):
             status_code=403
             def raise_for_status(self):
                 raise requests.HTTPError(response=self)
-        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \\
+        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \
              patch("ai_concepts.requests.post",return_value=Denied()) as send:
             with self.assertRaisesRegex(RuntimeError,"Check GEMINI_API_KEY"):
                 propose({**self.product,"marketing_direction":{}})
