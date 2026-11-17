@@ -32,6 +32,17 @@ V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
 <link rel="stylesheet" href="/static/styles.css?design=v33-dashboard-hub">
 </head><body>
+<svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
+ <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
+ <symbol id="hub-campaign" viewBox="0 0 24 24"><path d="M3 10 17 5v14L3 14zM7 15l2 6h3l-2-7M20 8v8"/></symbol>
+ <symbol id="hub-saved" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v10H3zM12 11l1.2 2.4 2.8.4-2 2 .5 2.7-2.5-1.5-2.5 1.5.5-2.7-2-2 2.8-.4z"/></symbol>
+ <symbol id="hub-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.4"/><path d="m3 18 5-5 4 4 3-3 6 6"/></symbol>
+ <symbol id="hub-stack" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+ <symbol id="hub-spark" viewBox="0 0 24 24"><path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/></symbol>
+ <symbol id="hub-chart" viewBox="0 0 24 24"><path d="M3 20V11h4v9M10 20V5h4v15M17 20v-8h4v8M2 20h20"/></symbol>
+ <symbol id="hub-copy" viewBox="0 0 24 24"><path d="M8 4h11a2 2 0 0 1 2 2v14H8zM3 8h3M3 12h3M3 16h3"/></symbol>
+ <symbol id="hub-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+</svg>
 <header class="studio-topbar">
  <a class="studio-brand" href="#builder" aria-label="Laser Tools Marketing Hub home">
   <span class="studio-mark">LASER<span>TOOLS</span></span>
@@ -39,22 +50,22 @@ V7_HOME_PAGE = r'''
   <span class="studio-brand-title">Laser Product Studio<small>Marketing Hub for Laser Tools products</small></span>
  </a>
  <nav class="studio-top-links" aria-label="Primary navigation">
-  <a href="#builder" class="active">⌂ Home</a><a href="#studioWorkspace">♧ Campaigns</a><a href="#assetWorkspace">▱ Assets</a>
-  <a href="#savedPromotions">☆ Saved Promotions</a>
-  <span title="Reports are planned for a future release">▥ Reports <small>Soon</small></span>
+  <a href="#builder" class="active"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Home</a><a href="#studioWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Campaigns</a><a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Assets</a>
+  <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions</a>
+  <span title="Reports are planned for a future release"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <span class="studio-pilot-tag">INTERNAL PILOT · REVIEW REQUIRED</span>
 </header>
 <aside class="studio-sidebar" aria-label="Workspace navigation">
  <div class="sidebar-label">MARKETING WORKSPACE</div>
  <nav class="sidebar-menu">
-  <a class="active" href="#builder"><span aria-hidden="true">⌂</span> Dashboard</a>
-  <a href="#builder"><span aria-hidden="true">✧</span> Create Campaign</a>
-  <a href="#savedPromotions"><span aria-hidden="true">☆</span> Saved Promotions <small>Soon</small></a>
-  <button type="button" data-open-studio><span aria-hidden="true">▱</span> Product Studio</button>
-  <a href="#assetWorkspace"><span aria-hidden="true">▤</span> Asset Library</a>
-  <button type="button" data-open-ai><span aria-hidden="true">✦</span> AI Generator</button>
-  <span class="sidebar-future" title="Reports are a planned feature"><span aria-hidden="true">▥</span> Reports <small>Soon</small></span>
+  <a class="active" href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Dashboard</a>
+  <a href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Create Campaign</a>
+  <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions <small>Soon</small></a>
+  <button type="button" data-open-studio><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-stack"></use></svg> Product Studio</button>
+  <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a>
+  <button type="button" data-open-ai><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-spark"></use></svg> AI Generator</button>
+  <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
  <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · v1</span></div>
@@ -93,24 +104,24 @@ V7_HOME_PAGE = r'''
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
- <div class="quickbar-item"><span class="quickbar-icon">◎</span><b>3</b><small>Distinct sales angles</small></div>
- <div class="quickbar-item"><span class="quickbar-icon">▤</span><b>7</b><small>Core artwork files</small></div>
- <div class="quickbar-item"><span class="quickbar-icon">⇩</span><b>1</b><small>Complete ZIP download</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Distinct sales angles</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>7</b><small>Core artwork files</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-download"></use></svg><b>1</b><small>Complete ZIP download</small></div>
  <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
   <a href="#assetWorkspace">View assets</a><button type="button" data-open-ai>Use AI Generator</button>
  </div>
 </section>
 <section class="studio-workspace" id="studioWorkspace" aria-label="Campaign workspace">
  <section class="asset-workspace" id="assetWorkspace" aria-label="Campaign asset previews">
-  <div class="workspace-heading"><div><h2>▤ Campaign Asset Preview</h2><p id="assetWorkspaceStatus">Your campaign graphics will appear here after you enter a part number.</p></div><a href="#productStudio" data-open-studio>Official product details</a></div>
+  <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Campaign Asset Preview</h2><p id="assetWorkspaceStatus">Your campaign graphics will appear here after you enter a part number.</p></div><a href="#productStudio" data-open-studio>Official product details</a></div>
  </section>
  <section class="copy-workspace" id="copyWorkspace" aria-label="Marketing copy editor">
-  <div class="workspace-heading"><div><h2>✎ Copy Editor</h2><p>Choose a channel, refine wording and copy it in one place.</p></div></div>
+  <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-copy"></use></svg> Copy Editor</h2><p>Choose a channel, refine wording and copy it in one place.</p></div></div>
   <div id="copyEmpty" class="studio-empty-copy"><span aria-hidden="true">✎</span><b>Marketing copy ready when you are</b><p>Generate a campaign to preview social, LinkedIn, email and web copy here.</p></div>
  </section>
 </section>
 <section class="saved-promotions" id="savedPromotions" aria-label="Saved promotions future feature">
- <div class="saved-heading"><div><h2>▱ Saved Promotions Library <span>Coming soon</span></h2><p>Save, reopen, duplicate and organise promotions in a future release.</p></div></div>
+ <div class="saved-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions Library <span>Coming soon</span></h2><p>Save, reopen, duplicate and organise promotions in a future release.</p></div></div>
  <div class="saved-not-yet"><span aria-hidden="true">☆</span><div><b>Saved campaigns are not enabled yet</b><p>Your finished campaigns can be downloaded as ZIP files today. A searchable library will be added later — no campaigns are being stored by this demo.</p></div></div>
 </section>
 <details class="studio-deep-tools" id="productStudio">
