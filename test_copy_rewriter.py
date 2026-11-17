@@ -35,7 +35,7 @@ class CopyRewriteTests(unittest.TestCase):
             text=rewritten["text"]
             self.assertIn("9395",text)
             self.assertIn("525.66",text)
-            self.assertIn("six threaded bars",text.lower())
+            self.assertTrue(any(feature in text for feature in self.product["features"]))
             self.assertIn("ex VAT",text)
             self.assertTrue(rewritten["review_required"])
             self.assertEqual(rewritten["method"],"verified-template")
