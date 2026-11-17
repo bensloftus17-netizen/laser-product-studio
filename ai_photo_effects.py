@@ -75,16 +75,16 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     bright_core = ImageChops.multiply(
         interior_candidates,
         ImageChops.multiply(
-            minimum.point(lambda p: 255 if p >= 242 else 0),
+            minimum.point(lambda p: 255 if p >= 226 else 0),
             ImageChops.subtract(maximum, minimum).point(
-                lambda p: 255 if p <= 19 else 0)))
+                lambda p: 255 if p <= 30 else 0)))
     bright_core = bright_core.filter(ImageFilter.MinFilter(5))
     border_colours = [rgb.getpixel(pt) for pt in
                       ((0, 0), (w-1, 0), (0, h-1), (w-1, h-1))]
     reference = tuple(sorted(c[i] for c in border_colours)[2] for i in range(3))
-    minimum_area = max(120, int(w*h*.002))
-    maximum_area = int(w*h*.11)
-    for _ in range(24):
+    minimum_area = max(200, int(w*h*.0025))
+    maximum_area = int(w*h*.23)
+    for _ in range(96):
         raw = bright_core.tobytes()
         seed_offset = raw.find(b"\xff")
         if seed_offset < 0:
@@ -115,17 +115,17 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
         region_w = region_box[2] - region_box[0]
         region_h = region_box[3] - region_box[1]
         elongation = max(region_w, region_h) / max(1, min(region_w, region_h))
-        if elongation < 1.42:
+        if elongation < 1.37:
             continue
         # Include even mildly grey/compressed edges if most of the candidate
         # region matches the original paper-white photo background.
         high_confidence = ImageChops.multiply(region,
-                                             minimum.point(lambda p: 255 if p >= 236 else 0))
-        if high_confidence.histogram()[255] < region_area*.86:
+                                             minimum.point(lambda p: 255 if p >= 223 else 0))
+        if high_confidence.histogram()[255] < region_area*.73:
             continue
         from PIL import ImageStat
         mean = ImageStat.Stat(rgb, mask=region).mean
-        if any(abs(mean[i]-reference[i]) > 24 for i in range(3)):
+        if any(abs(mean[i]-reference[i]) > 37 for i in range(3)):
             continue
         exterior = ImageChops.lighter(exterior, region)
         interior_candidates = ImageChops.subtract(interior_candidates, region)
