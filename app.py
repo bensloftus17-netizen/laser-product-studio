@@ -25,6 +25,7 @@ from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PR
 from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
 from promo_art_direction import normalise_art_direction, editor_preferences, scene_treatment
 from promo_selling_points import focus_concept
+from promo_copy import compose_promotional_copy, normalise_copy_direction
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -1247,6 +1248,7 @@ def ai_recommendations(part):
             concept['editor']={'background':'context','show_subline':True,
                                'palette':art['layout_variant'],
                                **editor_preferences(art)}
+            concept['marketing_copy']=compose_promotional_copy(product,concept)
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
     except ValueError as e:return jsonify(error=str(e)),400
@@ -1443,6 +1445,9 @@ def edit_ai_promo(part):
                               'description':'Approved uploaded context photo',
                               'source':'Staff-provided photo (confirm usage rights)',
                               'page_url':'','license_url':None}
+        concept['copy_direction']=normalise_copy_direction(
+            supplied.get('copy_direction'))
+        concept['marketing_copy']=compose_promotional_copy(product,concept)
         return jsonify(concept=concept,review_required=True)
     except RuntimeError as exc:
         return jsonify(error=str(exc)),503
