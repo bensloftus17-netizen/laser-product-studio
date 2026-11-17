@@ -1214,10 +1214,12 @@ def ai_recommendations(part):
             scene,reference=find_scene(
                 product,variation=i+image_variation,official_photo=official_scene,
                 prefer_official=(i==2),family=concept.get('family'))
+            quality={}
             options={'background':'context','_scene_bytes':scene,'show_subline':True,
-                     '_scene_style':reference}
+                     '_scene_style':reference,'_quality_report':quality}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
+            if quality:concept['quality']=quality
             # Keep the image source visible to staff for licence and accuracy
             # review, but never embed large binary data in a JSON concept.
             concept['scene']={k:reference.get(k) for k in (
@@ -1392,8 +1394,11 @@ def edit_ai_promo(part):
                  'headline':headline or str(product.get('title','Laser Tools'))[:48],
                  'subline':subline,'angle':angle,'features':selected,
                  'variant':raw_palette,'editor':{**options,'palette':raw_palette}}
+        quality={}
+        render_options['_quality_report']=quality
         rendered=render_ai_promo(concept,image,product,brand,editor=render_options)
         concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
+        if quality:concept['quality']=quality
         if scene_reference:
             concept['scene']={k:scene_reference.get(k) for k in (
                 'category','description','source','page_url','license_url',
