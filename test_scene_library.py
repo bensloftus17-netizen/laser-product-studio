@@ -17,7 +17,7 @@ class ProductAwareCampaignTests(unittest.TestCase):
             ("Portable Jump Starter with Battery Leads","battery"),
             ("Professional OBD Diagnostic Scan Tool","diagnostic"),
             ("Brake & Clutch Pressure Bleeder Kit","brakes"),
-            ("MacPherson Suspension Hub Spreader Kit","suspension"),
+            ("MacPherson Suspension Hub Spreader Kit","wheel_hub"),
             ("50 Tonne Hydraulic Workshop Press","press"),
             ("MIG Welder Torch Kit","welding"),
             ("Crankshaft Pulley Puller Ford EcoBlue","engine"),
