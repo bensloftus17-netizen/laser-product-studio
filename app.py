@@ -23,6 +23,7 @@ from marketing_intelligence import strategy_for
 from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
+from promo_art_direction import normalise_art_direction, editor_preferences, scene_treatment
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -1207,6 +1208,10 @@ def ai_recommendations(part):
                        else None)
         image_variation=int.from_bytes(hashlib.sha256(str(part).encode("utf-8")).digest()[:2],"big")
         for i,concept in enumerate(concepts):
+            art=normalise_art_direction(concept.get('art_direction'),
+                                        concept.get('family'),concept.get('variant',i))
+            concept['art_direction']=art
+            concept['variant']=art['layout_variant']
             # Pick a genuine scene automatically by what this specific tool
             # does: battery charger -> battery with cables, brakes -> actual
             # brake service, diagnostics -> scanner, etc. Prefer verified
@@ -1215,8 +1220,10 @@ def ai_recommendations(part):
                 product,variation=i+image_variation,official_photo=official_scene,
                 prefer_official=(i==2),family=concept.get('family'))
             quality={}
+            treatment=scene_treatment(reference,art)
             options={'background':'context','_scene_bytes':scene,'show_subline':True,
-                     '_scene_style':reference,'_quality_report':quality}
+                     '_scene_style':treatment,'_quality_report':quality,
+                     **editor_preferences(art)}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
             if quality:concept['quality']=quality
@@ -1225,7 +1232,9 @@ def ai_recommendations(part):
             concept['scene']={k:reference.get(k) for k in (
                 'category','description','source','page_url','license_url',
                 'scene_type','family','crop')}
-            concept['editor']={'background':'context','show_subline':True}
+            concept['editor']={'background':'context','show_subline':True,
+                               'palette':art['layout_variant'],
+                               **editor_preferences(art)}
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
     except ValueError as e:return jsonify(error=str(e)),400
@@ -1386,14 +1395,18 @@ def edit_ai_promo(part):
         if scene_reference is None:
             scene_reference=stock_scene_reference(
                 classify_product(product),idx,family=family)
+        source_art=normalise_art_direction(supplied.get('art_direction'),
+                                           family,raw_palette)
+        source_art['layout_variant']=raw_palette
         render_options={**options,'_scene_bytes':scene_bytes,
-                        '_scene_style':scene_reference}
+                        '_scene_style':scene_treatment(scene_reference,source_art)}
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
                  'name':name or ('Promotional Option '+str(idx+1)),
                  'headline':headline or str(product.get('title','Laser Tools'))[:48],
                  'subline':subline,'angle':angle,'features':selected,
-                 'variant':raw_palette,'editor':{**options,'palette':raw_palette}}
+                 'variant':raw_palette,'art_direction':source_art,
+                 'editor':{**options,'palette':raw_palette}}
         quality={}
         render_options['_quality_report']=quality
         rendered=render_ai_promo(concept,image,product,brand,editor=render_options)
