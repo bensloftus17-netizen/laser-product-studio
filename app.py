@@ -197,7 +197,7 @@ $('applyRrp').addEventListener('click',()=>{
     active.price_source='Staff entry';
     $('record').innerHTML=productCard(active,activePhoto);
     showPreviews(active,activePhoto);
-    clearAiDesigns();
+    clearAiDesigns();clearCampaign();
     $('reviewed').checked=false;$('download').disabled=true;
     setState('Draft price applied. Review all posters before exporting.','success');
 });
@@ -525,7 +525,7 @@ $('campaignBtn').addEventListener('click',async()=>{
    });
    const data=await readApiJson(response);
    showCampaign(data);
-   $('campaignStatus').textContent='Complete campaign generated. The pack is ready; review all materials before publication.';
+   $('campaignStatus').textContent='Complete campaign generated. The download link is available for 15 minutes; review all materials before publication.';
    const anchor=document.createElement('a');anchor.href=$('campaignDownload').href;
    anchor.download='LASER_'+part+'_Complete_Campaign.zip';document.body.appendChild(anchor);
    anchor.click();anchor.remove();
@@ -534,6 +534,7 @@ $('campaignBtn').addEventListener('click',async()=>{
 });
 
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
+['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
 </script></body></html>
