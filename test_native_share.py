@@ -15,9 +15,14 @@ class NativeShareTests(unittest.TestCase):
             self.assertEqual(html.count('id="'+control+'"'), 1, control)
         self.assertIn("data-share-filename=", html)
         self.assertIn("data-ai-share=", html)
-        self.assertIn("Share PNG", html)
+        self.assertIn("Share to apps", html)
+        self.assertIn("Share social graphic", html)
+        self.assertIn("WhatsApp · Instagram · Facebook", html)
+        self.assertEqual(html.count('id="campaignShareSocial"'), 1)
+        self.assertIn("prepareShareButton(socialButton)", html)
+        self.assertIn("const socialAsset=m.images.find(item=>item.id==='social_square')", html)
         self.assertIn("Share complete ZIP", html)
-        self.assertIn("Share edited PNG", html)
+        self.assertIn("Share edited image to apps", html)
         self.assertIn("Share prepared ZIP", html)
         self.assertIn("Download complete ZIP", html)
         self.assertIn("Download PNG", html)
@@ -25,7 +30,7 @@ class NativeShareTests(unittest.TestCase):
         self.assertIn("navigator.canShare({files:[file]})", html)
         self.assertIn("function prepareShareButtons(root)", html)
         self.assertIn("function shareDataImage(dataUrl,filename)", html)
-        self.assertIn("Copy the suggested caption separately", html)
+        self.assertIn("Suggested captions are in the Copy Editor", html)
         # Generated campaign must render the gallery, NOT launch the share
         # sheet or a ZIP download without another deliberate user click.
         start=html.index("$('campaignBtn').addEventListener('click',async()=>{")
@@ -82,6 +87,15 @@ const clickTarget=(button)=>({target:{closest(selector){
   assert.equal(shareCalls[0].files[0].name,'test.png');
   assert.equal(fetchCalls,0);
 
+  // WebKit variants with share() but without canShare() can still receive
+  // the actual image in their native share sheet from one direct tap.
+  const originalCanShare=sandbox.navigator.canShare;
+  delete sandbox.navigator.canShare;
+  sandbox.shareDataImage('data:image/png;base64,aGVsbG8=', 'safari.png');
+  assert.equal(shareCalls.length,2);
+  assert.equal(shareCalls.at(-1).files[0].name,'safari.png');
+  sandbox.navigator.canShare=originalCanShare;
+
   // A remote PNG is preloaded first and shared on a later user click,
   // without an asynchronous network call between click and share().
   const button={dataset:{shareUrl:'/api/campaign/assets/token/social_square',
@@ -103,7 +117,7 @@ const clickTarget=(button)=>({target:{closest(selector){
   const noShare=shareCalls.length;
   sandbox.shareNativeFile(new sandbox.File(['zip'],'campaign.zip',{type:'application/zip'}));
   assert.equal(shareCalls.length,noShare);
-  assert.match(el('shareNoticeText').textContent,/ZIP directly/);
+  assert.match(el('shareNoticeText').textContent,/ZIP files directly/);
   assert.equal(el('shareNotice').hidden,false);
 })().catch(e=>{console.error(e);process.exit(1);});
 """
