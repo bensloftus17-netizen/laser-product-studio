@@ -31,6 +31,8 @@ It does **not** automatically post, email, schedule or publish content.
    - The original selectable copy-preview experience: choose **Price-led / Benefit-led / Application-led**, then **Social / LinkedIn / Email / Hashtags / Website / Short promo** to display the full suggested text in one editable field.
    - **Copy this text**, **Copy all campaign wording** and **Reset this draft** controls; browser edits persist while switching tabs but are not included in the downloaded original ZIP.
    - **Optional downloads only:** generating a campaign displays the asset gallery and copy editor; it does **not** open a ZIP on mobile or desktop. Tap **Download complete ZIP** if you want the pack, or **Download PNG** on an individual artwork.
+   - **Optional native sharing:** Use **Share PNG** beside a campaign graphic to open the iPhone/Android share sheet for installed compatible apps, such as WhatsApp or Instagram where supported. **Share complete ZIP** is also available on devices that support the ZIP file type, though social apps may reject ZIP archives. An explicit Download option remains alongside every Share control.
+   - The share file is prepared in memory after an asset appears, with no automatic file download or share action. The final native share sheet opens **only on your tap**. Other browsers show guidance to download and share from Photos/Files. Marketing captions stay in the copy editor for review/copying.
 4. **External publication**
    - Human review of every graphic, claim, image right, fitment, RRP/VAT and
      distributor logo permission is mandatory. No auto-publication in MVP.

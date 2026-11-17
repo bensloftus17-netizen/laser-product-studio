@@ -31,7 +31,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v36-optional-downloads">
+<link rel="stylesheet" href="/static/styles.css?design=v37-native-share">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -134,9 +134,9 @@ V7_HOME_PAGE = r'''
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
-<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><div class="campaign-download-choice"><a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a><small>Optional — nothing downloads automatically.</small></div></div>
+<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><div class="campaign-download-choice"><a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a><button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button><small>Nothing downloads automatically. Sharing is optional too.</small></div></div>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
-<h4>Campaign graphics — built for each channel</h4><div class="campaign-asset-grid" id="campaignAssets"></div>
+<h4>Campaign graphics — built for each channel</h4><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share PNG</b> to open your phone's sharing options, including compatible apps such as WhatsApp and Instagram. Copy the suggested caption separately from the Copy Editor.</p>
 
 <p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
 </section>
@@ -183,7 +183,7 @@ V7_HOME_PAGE = r'''
 <section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
 </section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
 <div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
-<div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
+<div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><button type="button" id="aiEditorShare" class="asset-share-button">↗ Share edited PNG</button><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
 <form id="aiEditorForm" class="ai-editor-controls">
  <label for="aiEditHeadline">Promotional headline</label><input id="aiEditHeadline" type="text" minlength="1" maxlength="48" required placeholder="e.g. Ford EcoBlue Crankshaft Pulley Removal">
  <div class="ai-two-cols"><div><label for="aiEditTone">Headline tone</label><select id="aiEditTone"><option value="trade">UK trade / workshop</option><option value="technical">Technical / application</option><option value="premium">Premium / understated</option><option value="sales">Product benefits</option></select></div><div><label for="aiEditHeadlineSize">Headline size</label><select id="aiEditHeadlineSize"><option value="small">Compact</option><option value="normal" selected>Balanced</option><option value="large">Large</option></select></div></div>
@@ -205,13 +205,116 @@ V7_HOME_PAGE = r'''
  <button type="button" id="aiEditRegenerate" class="ai-regenerate">✦ Regenerate this design</button>
  <small class="ai-hint">Regenerate asks Gemini for fresh product-specific wording in your selected tone. Manual layout changes do not call Gemini. The manufacturer photo and verified RRP cannot be replaced or altered here.</small>
 </form></div></section><dialog class="ai-lightbox" id="aiPosterPreview" aria-label="Full-size AI promotional poster"><div class="ai-lightbox-top"><strong id="aiPosterTitle">AI promotional poster</strong><button type="button" id="aiPosterClose" aria-label="Close poster preview">Close ✕</button></div><img id="aiPosterImage" alt="Full-size AI poster preview" src=""></dialog><div class="reviewstrip"><label class="approval"><input type="checkbox" id="reviewed" disabled><span>I've checked the product information and posters</span></label><small>Company review required before publication.</small></div>
-<div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button></div></section></div>
+<div class="downloadbar"><div><b>Download your marketing pack</b><small>3 PNG posters · technical PDF · marketing copy · source information</small></div><div class="legacy-export-actions"><button id="download" disabled class="primary">Download all assets (ZIP) ↓</button><button type="button" id="legacyShareZip" class="asset-share-button" disabled>↗ Share prepared ZIP</button></div></div></section></div>
 <section id="how" class="how"><div class="how-intro"><div class="sectioncap">MADE FOR REPS &amp; DISTRIBUTORS</div><h2>Simple from start to finish</h2><p>A faster way to prepare product marketing drafts using genuine manufacturer information.</p></div><div class="how-grid"><div><span class="how-icon">01</span><b>Find</b><p>Retrieve a genuine Laser Tools product image and official details.</p></div><div><span class="how-icon">02</span><b>Review</b><p>Check specifications, applications and UK pricing.</p></div><div><span class="how-icon">03</span><b>Download</b><p>Save promotional, technical and sales poster drafts.</p></div></div></section>
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
 </div></main>
+<div id="shareNotice" class="share-notice" role="status" aria-live="polite" hidden><span id="shareNoticeText"></span><button type="button" id="shareNoticeClose" aria-label="Dismiss sharing message">×</button></div>
 <script>
 const $=id=>document.getElementById(id);let campaignData=null;let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;let aiConcepts=[],aiOriginals=[],currentAiEditor=-1,aiEditing=false;
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
+
+
+// Native iOS/Android sharing. Image/ZIP blobs are prepared *before* the tap:
+// Safari's Web Share API needs the user gesture to reach navigator.share()
+// synchronously, not after waiting for a network fetch.
+const preparedShareFiles=new WeakMap();
+let legacyShareFile=null;
+let shareNoticeTimer=null;
+function canNativeShareFiles(){
+ return typeof File==='function'&&typeof navigator.share==='function'
+  &&typeof navigator.canShare==='function';
+}
+function showShareNotice(message){
+ const notice=$('shareNotice');
+ $('shareNoticeText').textContent=message;
+ notice.hidden=false;
+ if(shareNoticeTimer)clearTimeout(shareNoticeTimer);
+ shareNoticeTimer=setTimeout(()=>{notice.hidden=true;},11000);
+}
+$('shareNoticeClose').addEventListener('click',()=>{$('shareNotice').hidden=true;});
+function shareNativeFile(file){
+ if(!file||!canNativeShareFiles()){
+  showShareNotice('This browser cannot share files directly. Use Download PNG/ZIP, then share the saved file from Photos or Files.');
+  return;
+ }
+ let shareable=false;
+ try{shareable=navigator.canShare({files:[file]});}catch(error){}
+ if(!shareable){
+  showShareNotice(file.type==='application/zip'
+   ?'Your phone does not support sharing a ZIP directly. Download it, then share it from the Files app. Instagram normally needs an image instead.'
+   :'Direct image sharing is not supported here. Download the PNG and share it from Photos or Files.');
+  return;
+ }
+ // CRITICAL: call share() right in this tap handler, without awaits.
+ try{
+  const pending=navigator.share({files:[file]});
+  Promise.resolve(pending).then(()=>showShareNotice('Share sheet completed. Check the receiving app before posting.'))
+   .catch(error=>{
+    if(error?.name==='AbortError')return;
+    showShareNotice('The image could not be shared with that app. Download the PNG and share it from Photos instead.');
+   });
+ }catch(error){
+  showShareNotice('Your browser could not open the share sheet. Download the file and share it from Photos or Files.');
+ }
+}
+function fileFromPngDataUrl(dataUrl,filename){
+ if(typeof dataUrl!=='string'||!dataUrl.startsWith('data:image/png;base64,')||typeof File!=='function')return null;
+ const encoded=dataUrl.slice(dataUrl.indexOf(',')+1),binary=atob(encoded),bytes=new Uint8Array(binary.length);
+ for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+ return new File([bytes],filename,{type:'image/png'});
+}
+function shareDataImage(dataUrl,filename){
+ try{shareNativeFile(fileFromPngDataUrl(dataUrl,filename));}
+ catch(error){showShareNotice('Could not prepare this image. Please use Download PNG.');}
+}
+function prepareShareButton(button){
+ if(!button||!button.dataset.shareUrl||button.dataset.shareLoading==='1')return;
+ if(!canNativeShareFiles()){
+  button.disabled=false;
+  button.title='Your browser may require you to download the file first';
+  return;
+ }
+ const url=button.dataset.shareUrl,name=button.dataset.shareFilename||'LASER_Artwork.png';
+ preparedShareFiles.delete(button);
+ const kind=name.toLowerCase().endsWith('.zip')?'application/zip':'image/png';
+ const originalLabel=button.textContent;
+ button.disabled=true;button.textContent='Preparing share…';
+ button.dataset.shareLoading='1';
+ fetch(url,{credentials:'same-origin',cache:'no-store'}).then(response=>{
+  if(!response.ok)throw Error('File no longer available');
+  return response.blob();
+ }).then(blob=>{
+  if(button.dataset.shareUrl!==url)return;
+  const file=new File([blob],name,{type:kind});
+  // ZIP may not be supported as a native share file; keep download as fallback.
+  if(navigator.canShare({files:[file]}))preparedShareFiles.set(button,file);
+  button.disabled=false;button.textContent=originalLabel;
+ }).catch(error=>{
+  if(button.dataset.shareUrl!==url)return;
+  button.disabled=false;button.textContent=originalLabel;
+  button.title='Share preview unavailable — use the download link';
+ }).finally(()=>{if(button.dataset.shareUrl===url)delete button.dataset.shareLoading;});
+}
+function prepareShareButtons(root){
+ if(root)root.querySelectorAll('button[data-share-url]').forEach(prepareShareButton);
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest('button[data-share-url]');
+ if(!button||button.disabled)return;
+ const file=preparedShareFiles.get(button);
+ if(file){shareNativeFile(file);return;}
+ if(!canNativeShareFiles()){
+  showShareNotice('Your browser does not offer native file sharing. Download the PNG/ZIP, then share it from Photos or Files.');
+  return;
+ }
+ showShareNotice('The share file is not ready or this file type is unsupported. Use its Download button instead.');
+ // A failed preload can be retried without navigating away.
+ if(button.dataset.shareLoading!=='1')prepareShareButton(button);
+});
+$('legacyShareZip').addEventListener('click',()=>{
+ if(legacyShareFile)shareNativeFile(legacyShareFile);
+});
 
 function installMarketingHubLayout(){
  // Relocate existing functional controls into the approved dashboard structure.
@@ -256,6 +359,7 @@ function setState(message,type='neutral'){const el=$('status');el.className='sta
 function selectedDistributor(){return $('distributorBrand').value;}
 function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
+ legacyShareFile=null;$('legacyShareZip').disabled=true;
  const id=selectedDistributor(),target=$('distributorPreview');
  const labels={gsf:'GSF Car Parts',euro:'Euro Car Parts',mpd:'Motor Parts Direct'};
  target.innerHTML=id==='none'?'<span>LASER TOOLS ONLY</span>':
@@ -268,10 +372,10 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
-function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
+function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><div class="asset-links"><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a><a download="LASER_'+esc(p.part)+'_'+key+'.png" href="'+url+'">Download PNG</a><button type="button" class="asset-share-button" data-share-url="'+esc(url)+'" data-share-filename="LASER_'+esc(p.part)+'_'+key+'.png">↗ Share PNG</button></div></div></article>';}).join('');prepareShareButtons($('previews'));}
 // Render's free-hosting wake/deploy screen is HTML, NOT our product JSON.
 // Never show a raw "Unexpected token <" error. GET lookups can safely retry;
 // AI POST requests are not replayed because they may invoke a model.
@@ -370,7 +474,7 @@ function clearAiDesigns(){
  $('aiEditor').hidden=true;
 }
 function renderAiGallery(){
- $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.quality?.status?'<p class="ai-qa-note">Design check: '+esc(c.quality.status==='passed'?'Passed':c.quality.status==='review'?'Manual review advised':'Rejected')+(c.quality.auto_corrected?' · Layout automatically adjusted':'')+(c.quality.warnings?.length?' · '+esc(c.quality.warnings[0]):'')+'</p>':'')+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a><button type="button" data-ai-copy="'+i+'">Captions &amp; email</button></div></div></article>').join('');
+ $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.quality?.status?'<p class="ai-qa-note">Design check: '+esc(c.quality.status==='passed'?'Passed':c.quality.status==='review'?'Manual review advised':'Rejected')+(c.quality.auto_corrected?' · Layout automatically adjusted':'')+(c.quality.warnings?.length?' · '+esc(c.quality.warnings[0]):'')+'</p>':'')+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a><button type="button" class="asset-share-button" data-ai-share="'+i+'">↗ Share PNG</button><button type="button" data-ai-copy="'+i+'">Captions &amp; email</button></div></div></article>').join('');
  renderAiMarketingCopy();
 }
 function setAiPaletteOptions(index){
@@ -557,6 +661,12 @@ $('aiIdeas').addEventListener('click',event=>{
  if(retry){$('generateAI').click();return;}
  const fallback=event.target.closest('button[data-ai-fallback]');
  if(fallback){$('campaignBtn').click();return;}
+ const shareBtn=event.target.closest('button[data-ai-share]');
+ if(shareBtn){
+  const index=Number(shareBtn.dataset.aiShare),concept=aiConcepts[index];
+  if(concept?.preview)shareDataImage(concept.preview,'LASER_'+(active?.part||concept.part)+'_AI_'+(index+1)+'.png');
+  return;
+ }
  const copyBtn=event.target.closest('button[data-ai-copy]');
  if(copyBtn){
   renderAiMarketingCopy();
@@ -575,6 +685,10 @@ $('aiIdeas').addEventListener('click',event=>{
  $('aiPosterTitle').textContent=card.querySelector('h4')?.textContent||'AI promotional poster';
  const dialog=$('aiPosterPreview');if(!dialog.open)dialog.showModal();
 });
+$('aiEditorShare').addEventListener('click',()=>{
+ const source=$('aiEditorPreview').src;
+ if(source)shareDataImage(source,$('aiEditorDownload').download||'LASER_AI_edited_poster.png');
+});
 $('aiPosterClose').addEventListener('click',()=>$('aiPosterPreview').close());
 $('aiPosterPreview').addEventListener('click',e=>{if(e.target.id==='aiPosterPreview')e.target.close();});
 
@@ -587,6 +701,11 @@ function showCampaign(data){
      +m.files.length+' files in the ZIP. All materials still require approval.';
  $('campaignDownload').href='/api/campaign/download/'+encodeURIComponent(data.token);
  $('campaignDownload').setAttribute('download','LASER_'+m.part+'_Complete_Campaign.zip');
+ delete $('campaignShareZip').dataset.shareLoading;
+ preparedShareFiles.delete($('campaignShareZip'));
+ $('campaignShareZip').dataset.shareUrl=$('campaignDownload').href;
+ $('campaignShareZip').dataset.shareFilename='LASER_'+m.part+'_Complete_Campaign.zip';
+ prepareShareButton($('campaignShareZip'));
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+'</span><b>'+esc(angle.headline)+'</b><p>'+esc(angle.selling_point)+'</p></div>').join('');
  const names={poster_price:'Price-led Poster',poster_benefit:'Benefit-led Poster',poster_application:'Application-led Poster',
@@ -594,7 +713,9 @@ function showCampaign(data){
  email_header:'Email Header',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
   '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
-  '<a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a></article>').join('');
+  '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
+  '<button type="button" class="asset-share-button" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share PNG</button></div></article>').join('');
+ prepareShareButtons($('campaignResults'));
  copyStudioData={origin:'campaign',copy:m.copy};
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};rewriteUndoHistory={};
  renderCampaignCopyStudio();
@@ -811,7 +932,7 @@ $('campaignBtn').addEventListener('click',async()=>{
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 ['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
-$('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
+$('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
 </script></body></html>
 
 '''
