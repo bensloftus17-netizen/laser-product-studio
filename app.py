@@ -489,18 +489,18 @@ function renderCampaignCopyStudio(){
 }
 $('campaignCopyAngles').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-angle]');
- if(!button||!campaignData)return;
+ if(!button||!copyStudioData)return;
  campaignCopyIndex=Number(button.dataset.campaignAngle);renderCampaignCopyStudio();
 });
 $('campaignCopyChannels').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-channel]');
- if(!button||!campaignData)return;
+ if(!button||!copyStudioData)return;
  campaignCopyChannel=button.dataset.campaignChannel;renderCampaignCopyStudio();
 });
 $('campaignCopyText').addEventListener('input',()=>{
  if(!copyStudioData)return;
  campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel]=$('campaignCopyText').value;
- $('campaignCopyStatus').textContent='Edited draft — not yet included in downloaded ZIP.';
+ $('campaignCopyStatus').textContent=copyStudioData.origin==='campaign'?'Edited locally — ZIP still contains original wording.':'Edited draft saved in this page.';
 });
 async function copySelectedCampaignText(value){
  if(navigator.clipboard&&navigator.clipboard.writeText){
