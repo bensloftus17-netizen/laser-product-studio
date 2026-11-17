@@ -17,7 +17,7 @@ jobs:
       - name: Test posters, UK VAT and English filters
         env:
           DISABLE_STOCK_PHOTOS: "1"
-        run: python -m unittest -v test_studio.py test_ai_design.py test_ai_creative.py test_ai_promos.py test_ai_editor.py test_ai_v3.py test_scene_library.py test_ai_polish.py test_ai_white_gaps.py test_ai_campaign_layouts.py test_real_8899_photo.py test_scene_variants.py test_render_wake.py test_standard_cutouts.py test_poster_quality.py test_ai_art_direction.py test_promo_upgrades.py
+        run: python -m unittest -v test_studio.py test_ai_design.py test_ai_creative.py test_ai_promos.py test_ai_editor.py test_ai_v3.py test_scene_library.py test_ai_polish.py test_ai_white_gaps.py test_ai_campaign_layouts.py test_real_8899_photo.py test_scene_variants.py test_render_wake.py test_standard_cutouts.py test_poster_quality.py test_ai_art_direction.py test_promo_upgrades.py test_promo_copy.py
 
       - name: Keep real 8899 cutout proof for visual inspection
         if: always()
