@@ -30,7 +30,7 @@ from campaign_hub import build_campaign
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v31">
+<link rel="stylesheet" href="/static/styles.css?design=v32-copy-unified">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -69,8 +69,11 @@ V7_HOME_PAGE = r'''
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><a id="campaignDownload" class="campaign-download" href="#" download>Download full ZIP ↓</a></div>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
 <h4>Campaign graphics — built for each channel</h4><div class="campaign-asset-grid" id="campaignAssets"></div>
-<section class="campaign-copy-studio" aria-label="Campaign wording editor">
-<div class="ai-copy-heading"><div><span class="sectioncap">CAMPAIGN COPY / READY-TO-EDIT DRAFTS</span><h3>Choose your marketing text</h3><p>Select a campaign angle and marketing channel to see the full suggested wording. Edit the draft, then copy the text you want to use.</p></div></div>
+
+<p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
+</section>
+<section id="unifiedCopyStudio" class="campaign-copy-studio" hidden aria-label="Single marketing copy editor">
+<div class="ai-copy-heading"><div><span id="copyStudioOrigin" class="sectioncap">CAMPAIGN COPY / READY-TO-EDIT DRAFTS</span><h3>Choose your marketing text</h3><p>Select a campaign angle and marketing channel to see the full suggested wording. Edit the draft, then copy the text you want to use.</p></div></div>
 <div id="campaignCopyAngles" class="ai-copy-design-tabs" role="group" aria-label="Campaign selling angle"></div>
 <div id="campaignCopyChannels" class="ai-copy-channels" role="group" aria-label="Marketing content type">
  <button type="button" data-campaign-channel="social_caption">Social caption</button>
@@ -86,28 +89,10 @@ V7_HOME_PAGE = r'''
 <button type="button" id="campaignCopyAll" class="ai-secondary">Copy all campaign wording</button>
 <button type="button" id="campaignCopyReset" class="ai-secondary">Reset this draft</button>
 <span id="campaignCopyStatus" role="status" aria-live="polite"></span></div>
-<p class="ai-copy-disclaimer">Your edits are kept while switching tabs in this page and used when copying. The downloaded ZIP still contains the original drafts. Review all wording before publishing.</p>
-</section>
-<p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
+<p id="copyStudioNote" class="ai-copy-disclaimer">Your edits are kept when changing tabs. Review all wording before publishing.</p>
 </section>
 <section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
-<section id="aiMarketingCopy" class="ai-marketing-copy" hidden aria-label="AI promotional captions">
-  <div class="ai-copy-heading"><div><span class="sectioncap">CAMPAIGN CONTENT / READY-TO-EDIT DRAFTS</span><h3>Social posts, email and hashtags</h3>
-   <p>Generated alongside your posters using verified manufacturer details. Select a design, edit the wording and copy what you need. Review before publishing.</p></div></div>
-  <div id="aiCopyDesignTabs" class="ai-copy-design-tabs" role="group" aria-label="Poster to promote"></div>
-  <div id="aiCopyChannels" class="ai-copy-channels" role="group" aria-label="Marketing channel">
-   <button type="button" data-copy-channel="social">Social caption</button>
-   <button type="button" data-copy-channel="linkedin">LinkedIn post</button>
-   <button type="button" data-copy-channel="email">Product email</button>
-   <button type="button" data-copy-channel="hashtags">Hashtags</button>
-  </div>
-  <label for="aiCopyText" id="aiCopyLabel" class="ai-copy-label">Social caption</label>
-  <textarea id="aiCopyText" rows="8" spellcheck="true" aria-label="Editable promotional copy"></textarea>
-  <div class="ai-copy-actions"><button type="button" id="aiCopyCurrent" class="ai-secondary">Copy this text</button>
-   <button type="button" id="aiCopyAll" class="ai-secondary">Copy all four formats</button>
-   <span id="aiCopyStatus" role="status" aria-live="polite"></span></div>
-  <p class="ai-copy-disclaimer">Marketing draft only. Check current pricing, VAT, product suitability and approval before publishing.</p>
-</section></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
+</section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
 <div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
 <div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
 <form id="aiEditorForm" class="ai-editor-controls">
@@ -140,7 +125,7 @@ const $=id=>document.getElementById(id);let campaignData=null;let active=null;le
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('campaignStatus').textContent='Uses original product photos and verified specifications. Review everything before publishing.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;if(copyStudioData?.origin==='campaign'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}$('campaignStatus').textContent='Uses original product photos and verified specifications. Review everything before publishing.';}
 function updateDistributorPreview(){
  const id=selectedDistributor(),target=$('distributorPreview');
  const labels={gsf:'GSF Car Parts',euro:'Euro Car Parts',mpd:'Motor Parts Direct'};
@@ -220,42 +205,27 @@ $('applyRrp').addEventListener('click',()=>{
     setState('Draft price applied. Review all posters before exporting.','success');
 });
 const aiFamilyNames=['Bold Retail Promo','Clean Premium Promo','Trade Campaign Promo'];
-let aiCopyIndex=0,aiCopyChannel='social',aiCopyOverrides={};
-const aiCopyLabels={social:'Social caption',linkedin:'LinkedIn post',email:'Product email',hashtags:'Hashtags'};
-function campaignCopyText(index,channel){
- const data=aiConcepts[index]?.marketing_copy||{},key=String(index)+':'+channel;
- if(Object.prototype.hasOwnProperty.call(aiCopyOverrides,key))return aiCopyOverrides[key];
- if(channel==='social')return data.social_caption||'';
- if(channel==='linkedin')return data.linkedin_post||'';
- if(channel==='email')return 'Subject: '+(data.email_subject||'')+'\n\n'+(data.email_body||'');
- if(channel==='hashtags')return Array.isArray(data.hashtags)?data.hashtags.join(' '):'';
- return '';
-}
+
 function renderAiMarketingCopy(){
- const section=$('aiMarketingCopy');
+ // Reuse the very same editor as the full-campaign route.
+ // Switching data sources never leaves two copy panels on the page.
  if(!aiConcepts.some(c=>c.marketing_copy)){
-  section.hidden=true;return;
+  if(copyStudioData?.origin==='ai'){
+   copyStudioData=null;$('unifiedCopyStudio').hidden=true;
+  }
+  return;
  }
- section.hidden=false;
- aiCopyIndex=Math.max(0,Math.min(aiConcepts.length-1,aiCopyIndex));
- $('aiCopyDesignTabs').innerHTML=aiConcepts.map((c,i)=>
-  '<button type="button" data-copy-index="'+i+'" aria-pressed="'+String(i===aiCopyIndex)+'" class="'+(i===aiCopyIndex?'selected':'')+'">'+esc(aiFamilyNames[i])+'</button>').join('');
- document.querySelectorAll('#aiCopyChannels button').forEach(b=>{
-   const selected=b.dataset.copyChannel===aiCopyChannel;
-   b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));
- });
- $('aiCopyLabel').textContent=aiFamilyNames[aiCopyIndex]+' · '+aiCopyLabels[aiCopyChannel];
- $('aiCopyText').value=campaignCopyText(aiCopyIndex,aiCopyChannel);
- $('aiCopyStatus').textContent='';
-}
-async function copyCampaignText(value){
- if(navigator.clipboard&&navigator.clipboard.writeText){
-   await navigator.clipboard.writeText(value);return true;
+ const wasAi=copyStudioData?.origin==='ai';
+ copyStudioData={
+  origin:'ai',
+  copy:aiConcepts.map((c,i)=>({...c.marketing_copy,campaign_angle:aiFamilyNames[i]}))
+ };
+ if(!wasAi){
+  campaignCopyIndex=0;campaignCopyChannel='social_caption';
+  campaignCopyEdits={};
  }
- const field=$('aiCopyText'),old=field.value;
- field.value=value;field.focus();field.select();
- const copied=document.execCommand('copy');
- field.value=old;return copied;
+ renderCampaignCopyStudio();
+ $('unifiedCopyStudio').hidden=false;
 }
 
 let aiScenePhotos=[null,null,null];
@@ -265,8 +235,7 @@ const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'
 
 function clearAiDesigns(){
  aiConcepts=[];aiOriginals=[];currentAiEditor=-1;aiScenePhotos=[null,null,null];
- aiCopyIndex=0;aiCopyChannel='social';aiCopyOverrides={};
- $('aiMarketingCopy').hidden=true;
+ if(copyStudioData?.origin==='ai'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}
  $('aiIdeas').innerHTML='';
  $('aiEditor').hidden=true;
 }
@@ -352,7 +321,9 @@ async function saveAiEdit(regenerate=false){
   const data=await readApiJson(response);
   if(!active||active.part!==productPart||currentAiEditor!==idx)return;
   aiConcepts[idx]=data.concept;
-  Object.keys(aiCopyOverrides).filter(key=>key.startsWith(String(idx)+':')).forEach(key=>delete aiCopyOverrides[key]);
+  if(copyStudioData?.origin==='ai'){
+   Object.keys(campaignCopyEdits).filter(key=>key.startsWith(String(idx)+':')).forEach(key=>delete campaignCopyEdits[key]);
+  }
   renderAiGallery();
   $('aiEditorPreview').src=data.concept.preview;
   $('aiEditorDownload').href=data.concept.preview;
@@ -437,41 +408,13 @@ $('generateAI').addEventListener('click',async()=>{
  }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
  finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
-$('aiCopyDesignTabs').addEventListener('click',event=>{
- const btn=event.target.closest('button[data-copy-index]');
- if(!btn)return;
- aiCopyIndex=Number(btn.dataset.copyIndex);renderAiMarketingCopy();
-});
-$('aiCopyChannels').addEventListener('click',event=>{
- const btn=event.target.closest('button[data-copy-channel]');
- if(!btn)return;
- aiCopyChannel=btn.dataset.copyChannel;renderAiMarketingCopy();
-});
-$('aiCopyText').addEventListener('input',()=>{
- aiCopyOverrides[String(aiCopyIndex)+':'+aiCopyChannel]=$('aiCopyText').value;
- $('aiCopyStatus').textContent='Draft changed locally. Copy to save it.';
-});
-$('aiCopyCurrent').addEventListener('click',async()=>{
- try{
-  if(await copyCampaignText($('aiCopyText').value))
-   $('aiCopyStatus').textContent='Copied to clipboard.';
-  else $('aiCopyStatus').textContent='Select the text and copy it manually.';
- }catch(e){$('aiCopyStatus').textContent='Copy unavailable. Select and copy the text.';}
-});
-$('aiCopyAll').addEventListener('click',async()=>{
- const channels=['social','linkedin','email','hashtags'];
- const text=channels.map(ch=>aiCopyLabels[ch]+'\n'+campaignCopyText(aiCopyIndex,ch)).join('\n\n----------\n\n');
- try{
-  if(await copyCampaignText(text))$('aiCopyStatus').textContent='All four formats copied.';
-  else $('aiCopyStatus').textContent='Select and copy the text manually.';
- }catch(e){$('aiCopyStatus').textContent='Copy unavailable. Copy each section manually.';}
-});
 $('aiIdeas').addEventListener('click',event=>{
  const copyBtn=event.target.closest('button[data-ai-copy]');
  if(copyBtn){
-  aiCopyIndex=Number(copyBtn.dataset.aiCopy);aiCopyChannel='social';
   renderAiMarketingCopy();
-  $('aiMarketingCopy').scrollIntoView({behavior:'smooth',block:'start'});
+  campaignCopyIndex=Number(copyBtn.dataset.aiCopy);campaignCopyChannel='social_caption';
+  renderCampaignCopyStudio();
+  $('unifiedCopyStudio').scrollIntoView({behavior:'smooth',block:'start'});
   return;
  }
  const editBtn=event.target.closest('button[data-ai-edit]');
@@ -503,13 +446,15 @@ function showCampaign(data){
  email_header:'Email Header',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
   '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small></article>').join('');
+ copyStudioData={origin:'campaign',copy:m.copy};
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};
  renderCampaignCopyStudio();
+ $('unifiedCopyStudio').hidden=false;
  $('campaignResults').hidden=false;
  $('campaignResults').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-let campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
+let copyStudioData=null,campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
 const campaignChannelLabels={
  social_caption:'Social caption',linkedin_post:'LinkedIn post',email_body:'Product email',
  hashtags:'Hashtags',website_listing:'Website listing',short_message:'Short promo'
@@ -517,41 +462,47 @@ const campaignChannelLabels={
 function campaignDraft(index,channel){
  const key=String(index)+':'+channel;
  if(Object.prototype.hasOwnProperty.call(campaignCopyEdits,key))return campaignCopyEdits[key];
- const copy=campaignData?.manifest?.copy?.[index]||{};
+ const copy=copyStudioData?.copy?.[index]||{};
  if(channel==='email_body')return 'Subject: '+(copy.email_subject||'')+'\n\n'+(copy.email_body||'');
  if(channel==='hashtags')return Array.isArray(copy.hashtags)?copy.hashtags.join(' '):'';
  return copy[channel]||'';
 }
 function renderCampaignCopyStudio(){
- if(!campaignData)return;
- const copies=campaignData.manifest.copy||[];
+ if(!copyStudioData)return;
+ const copies=copyStudioData.copy||[];
  campaignCopyIndex=Math.min(Math.max(0,campaignCopyIndex),Math.max(0,copies.length-1));
  $('campaignCopyAngles').innerHTML=copies.map((copy,index)=>
   '<button type="button" data-campaign-angle="'+index+'" class="'+(index===campaignCopyIndex?'selected':'')+
   '" aria-pressed="'+String(index===campaignCopyIndex)+'">'+esc(copy.campaign_angle||'Campaign '+(index+1))+'</button>').join('');
  document.querySelectorAll('#campaignCopyChannels button').forEach(button=>{
+  // Original AI poster concepts only supply the original four copy channels.
+  button.hidden=copyStudioData.origin==='ai'&&['website_listing','short_message'].includes(button.dataset.campaignChannel);
   const active=button.dataset.campaignChannel===campaignCopyChannel;
   button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));
  });
  const name=copies[campaignCopyIndex]?.campaign_angle||'Campaign';
  $('campaignCopyLabel').textContent=name+' · '+campaignChannelLabels[campaignCopyChannel];
+ $('copyStudioOrigin').textContent=copyStudioData.origin==='ai'?'AI POSTER COPY / READY-TO-EDIT DRAFTS':'CAMPAIGN COPY / READY-TO-EDIT DRAFTS';
+ $('copyStudioNote').textContent=copyStudioData.origin==='ai'
+  ?'Wording is taken from the selected AI posters. Your edits remain while switching tabs. Review everything before publishing.'
+  :'Your edits remain while switching tabs and copying. The ZIP still includes the original drafts. Review everything before publishing.';
  $('campaignCopyText').value=campaignDraft(campaignCopyIndex,campaignCopyChannel);
  $('campaignCopyStatus').textContent='';
 }
 $('campaignCopyAngles').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-angle]');
- if(!button||!campaignData)return;
+ if(!button||!copyStudioData)return;
  campaignCopyIndex=Number(button.dataset.campaignAngle);renderCampaignCopyStudio();
 });
 $('campaignCopyChannels').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-channel]');
- if(!button||!campaignData)return;
+ if(!button||!copyStudioData)return;
  campaignCopyChannel=button.dataset.campaignChannel;renderCampaignCopyStudio();
 });
 $('campaignCopyText').addEventListener('input',()=>{
- if(!campaignData)return;
+ if(!copyStudioData)return;
  campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel]=$('campaignCopyText').value;
- $('campaignCopyStatus').textContent='Edited draft — not yet included in downloaded ZIP.';
+ $('campaignCopyStatus').textContent=copyStudioData.origin==='campaign'?'Edited locally — ZIP still contains original wording.':'Edited draft saved in this page.';
 });
 async function copySelectedCampaignText(value){
  if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -562,16 +513,18 @@ async function copySelectedCampaignText(value){
  const copied=document.execCommand('copy');field.value=prior;return copied;
 }
 $('campaignCopyCurrent').addEventListener('click',async()=>{
- if(!campaignData)return;
+ if(!copyStudioData)return;
  try{
   const success=await copySelectedCampaignText(campaignDraft(campaignCopyIndex,campaignCopyChannel));
   $('campaignCopyStatus').textContent=success?'Text copied.':'Select and copy the text manually.';
  }catch(e){$('campaignCopyStatus').textContent='Clipboard unavailable. Select the text and copy it manually.';}
 });
 $('campaignCopyAll').addEventListener('click',async()=>{
- if(!campaignData)return;
- const text=(campaignData.manifest.copy||[]).map((copy,index)=>
-  (copy.campaign_angle||'Campaign '+(index+1))+'\n'+Object.keys(campaignChannelLabels).map(channel=>
+ if(!copyStudioData)return;
+ const channels=copyStudioData.origin==='ai'
+  ?['social_caption','linkedin_post','email_body','hashtags']:Object.keys(campaignChannelLabels);
+ const text=(copyStudioData.copy||[]).map((copy,index)=>
+  (copy.campaign_angle||'Campaign '+(index+1))+'\n'+channels.map(channel=>
    campaignChannelLabels[channel]+'\n'+campaignDraft(index,channel)).join('\n\n')).join('\n\n-------------------------\n\n');
  try{
   const success=await copySelectedCampaignText(text);
@@ -579,7 +532,7 @@ $('campaignCopyAll').addEventListener('click',async()=>{
  }catch(e){$('campaignCopyStatus').textContent='Clipboard unavailable. Copy each section individually.';}
 });
 $('campaignCopyReset').addEventListener('click',()=>{
- if(!campaignData)return;
+ if(!copyStudioData)return;
  delete campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel];
  renderCampaignCopyStudio();$('campaignCopyStatus').textContent='Original suggested wording restored.';
 });
