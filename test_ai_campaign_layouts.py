@@ -55,13 +55,13 @@ class DistinctCampaignTests(unittest.TestCase):
             with Image.open(io.BytesIO(png)) as img:
                 images[family]=img.convert("RGB").copy()
 
-        # The premium concept is intentionally light/editorial at the left
-        # masthead, compared with two photographic dark trade directions.
-        for family in ("retail","trade"):
+        # Retail is now vibrant and bright, Premium is pale editorial, while
+        # Trade is intentionally a dark, full-bleed photographic campaign.
+        for family in ("retail","premium"):
             r,g,b=images[family].getpixel((35,700))
-            self.assertLess((r+g+b)/3,155)
-        r,g,b=images["premium"].getpixel((35,700))
-        self.assertGreater((r+g+b)/3,170)
+            self.assertGreater((r+g+b)/3,160)
+        r,g,b=images["trade"].getpixel((35,700))
+        self.assertLess((r+g+b)/3,155)
 
         # Their centre and side compositions must differ substantially,
         # not just by recolouring the same shapes or changing the headline.
