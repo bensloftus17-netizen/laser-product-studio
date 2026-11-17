@@ -51,27 +51,33 @@ def _brand(d,primary,part,family="retail"):
     _fit(d,"PART  "+str(part),(76,198,292,248),(36,31),WHITE,"bold",1)
 
 
-def _scene_base(photo_bytes,style,product,variation=0):
+def _scene_base(photo_bytes,style,product,variation=0,scene_style=None):
     """Photo fills the page, with real photographic detail and brand-safe blue grade.
 
     If photography is unavailable, use a dark gradient, NEVER a fake rendered
     repair scene. This is deliberate and avoids implying a tool was used.
     """
-    from ai_photo_effects import photo_backdrop
+    scene_style=scene_style if isinstance(scene_style,dict) else {}
     canvas=Image.new("RGBA",(W,H),NAVY)
     if photo_bytes:
         try:
             shot=ImageOps.exif_transpose(Image.open(io.BytesIO(photo_bytes))).convert("RGB")
             shot.thumbnail((2500,2500),Image.Resampling.LANCZOS)
             # Vary crop from one composition to another, respecting portrait ads.
-            cen=(.5,.48) if style=="retail" else ((.65,.47) if style=="premium" else (.4,.57))
+            cen=scene_style.get("crop") or (
+                (.5,.48) if style=="retail" else ((.65,.47) if style=="premium" else (.4,.57)))
+            if not isinstance(cen,(list,tuple)) or len(cen)!=2:cen=(.5,.5)
+            cen=tuple(max(.1,min(.9,float(v))) for v in cen)
             image=ImageOps.fit(shot,(W,H),method=Image.Resampling.LANCZOS,centering=cen)
             # Background is a contextual photograph, not the primary subject:
             # subdue colour/light and blur enough to lift the genuine product.
             image=ImageEnhance.Contrast(image).enhance(1.08)
-            image=ImageEnhance.Color(image).enhance(.67)
-            image=ImageEnhance.Brightness(image).enhance(.74)
-            image=image.filter(ImageFilter.GaussianBlur(3.0))
+            image=ImageEnhance.Color(image).enhance(
+                float(scene_style.get("colour",.67)))
+            image=ImageEnhance.Brightness(image).enhance(
+                max(.4,min(1.0,1-float(scene_style.get("darkness",.26)))))
+            image=image.filter(ImageFilter.GaussianBlur(
+                max(0,min(8,float(scene_style.get("blur",3.0))))))
             canvas.alpha_composite(image.convert("RGBA"))
         except (ValueError,OSError):
             pass
@@ -188,18 +194,25 @@ def _readable_ink(accent,default="#061F38"):
 
 
 
-def _photo_stage(photo_bytes, region, darken=.12, blur=2.2):
+def _photo_stage(photo_bytes, region, darken=.12, blur=2.2, scene_style=None):
     """Crop REAL application/background photography to a given campaign region."""
     x0,y0,x1,y1=map(int,region)
     w,h=x1-x0,y1-y0
+    scene_style=scene_style if isinstance(scene_style,dict) else {}
     if not photo_bytes:
         return Image.new("RGBA",(w,h),"#D3E1E8")
     try:
         source=ImageOps.exif_transpose(Image.open(io.BytesIO(photo_bytes))).convert("RGB")
         source.thumbnail((2400,2400),Image.Resampling.LANCZOS)
-        img=ImageOps.fit(source,(w,h),method=Image.Resampling.LANCZOS)
-        img=ImageEnhance.Color(img).enhance(.7)
-        img=ImageEnhance.Brightness(img).enhance(max(.48,1-darken))
+        centre=scene_style.get("crop",(.5,.5))
+        if not isinstance(centre,(tuple,list)) or len(centre)!=2:centre=(.5,.5)
+        centre=tuple(max(.1,min(.9,float(v))) for v in centre)
+        img=ImageOps.fit(source,(w,h),method=Image.Resampling.LANCZOS,centering=centre)
+        img=ImageEnhance.Color(img).enhance(
+            float(scene_style.get("colour",.7)))
+        img=ImageEnhance.Brightness(img).enhance(
+            max(.43,1-float(scene_style.get("darkness",darken))))
+        blur=max(0,min(8,float(scene_style.get("blur",blur))))
         if blur:img=img.filter(ImageFilter.GaussianBlur(blur))
         return img.convert("RGBA")
     except (OSError,ValueError):
@@ -222,8 +235,8 @@ def _retail(concept,photo,product,price,variation,editor,background):
     canvas=Image.new("RGBA",(W,H),royal)
     # Real workshop photography is a deliberately limited band rather than
     # the same full-bleed image treatment used by Trade.
-    canvas.alpha_composite(_photo_stage(background,(0,515,1200,1224),.36,3),
-                           (0,515))
+    canvas.alpha_composite(_photo_stage(
+        background,(0,515,1200,1224),.36,3,editor.get("_scene_style")), (0,515))
     d=ImageDraw.Draw(canvas,"RGBA")
     d.polygon([(0,0),(1200,0),(1200,495),(0,550)],fill=(2,61,118,255))
     d.polygon([(0,469),(1200,427),(1200,486),(0,532)],fill=accent)
@@ -268,7 +281,8 @@ def _premium(concept,photo,product,price,variation,editor,background):
     # Manufacturer product is NOT inside a white photographic box. This light
     # art direction uses a faded real workshop photo only in right column.
     scene=(676,398,1200,1198)
-    canvas.alpha_composite(_photo_stage(background,scene,.36,4), (scene[0],scene[1]))
+    canvas.alpha_composite(_photo_stage(
+        background,scene,.36,4,editor.get("_scene_style")), (scene[0],scene[1]))
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,0,1200,14),fill=blue)
     d.rectangle((0,394,1200,413),fill=blue)
@@ -308,7 +322,7 @@ def _trade(concept,photo,product,price,variation,editor,background):
     """
     p=COLOURS["trade"][variation%3]
     blue=p["primary"];accent=_accent(editor,p["accent"])
-    canvas=_scene_base(background,"trade",product,variation)
+    canvas=_scene_base(background,"trade",product,variation,editor.get("_scene_style"))
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,0,1200,234),fill=(2,19,35,225))
     d.polygon([(0,237),(1200,220),(1200,251),(0,266)],fill=blue)
