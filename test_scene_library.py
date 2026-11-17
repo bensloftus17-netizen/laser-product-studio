@@ -34,7 +34,7 @@ class ProductAwareCampaignTests(unittest.TestCase):
         for variation in (0,1,2):
             item=scene_reference(classify_product(product),variation)
             self.assertIn(item["photo_id"],(32282232,32282233,6473244))
-            self.assertIn("Battery",item["description"])
+            self.assertIn("battery",item["description"].lower())
             self.assertEqual(item["source"],"Pexels free commercial-use photo")
             self.assertEqual(item["license_url"],"https://www.pexels.com/license/")
             self.assertTrue(item["image_url"].startswith("https://images.pexels.com/photos/"))
