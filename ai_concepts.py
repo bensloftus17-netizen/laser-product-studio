@@ -3,6 +3,7 @@ import os, json, re, secrets, time
 import requests
 from ai_promo_renderer import FAMILIES
 from promo_art_direction import normalise_art_direction
+from promo_copy import normalise_copy_direction
 from promo_selling_points import focus_concept
 
 def propose(product, creative_brief="", only_family=None, tone="trade"):
@@ -62,6 +63,12 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "Select layouts and product photo treatment that suit THIS ACTUAL product. "
             "Each of the three art directions must differ in composition, colour and graphic motifs. "
             "The real product photograph, verified RRP and source claims remain fixed. "
+            "For each concept ALSO include copy_direction: a compact object with three "
+            "fields, tone (direct/practical/professional), hook (product/application/feature), "
+            "and cta (details/enquire/specifications). Choose different copy styles for "
+            "Retail, Premium and Trade. The app will use these choices to compose a short "
+            "social caption, a LinkedIn post, a customer email and relevant hashtags using "
+            "only the supplied verified facts. Never write unsupported marketing claims. "
             "Do not request more input from the user.")
     if only_family is not None:
         kind={"retail":"bold retail promotion","premium":"clean premium retail advert",
@@ -88,7 +95,9 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
                 "accent (an approved Laser blue/yellow/cyan hex), product_scale 85..125, "
                 "product_x/y -30..30, headline_size small/normal/large, "
                 "graphic_motif none/speed-lines/circles/industrial-grid/diagonal-bars, "
-                "photo_focus left/centre/right and background_mood bright/balanced/dramatic.")
+                "photo_focus left/centre/right and background_mood bright/balanced/dramatic. "
+                "Also return copy_direction with tone direct/practical/professional, "
+                "hook product/application/feature and cta details/enquire/specifications.")
     model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
@@ -179,6 +188,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "family":FAMILIES[family_index],
             "variant":direction["layout_variant"],
             "art_direction":direction,
+            "copy_direction":normalise_copy_direction(c.get("copy_direction")),
             "features":selected,
             "part":str(product.get("part","")),
             "title":str(product.get("title",""))[:125]},family_index))
