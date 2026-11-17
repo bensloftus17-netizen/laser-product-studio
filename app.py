@@ -110,8 +110,50 @@ function reset(){$('generateAI').disabled=true;clearAiDesigns();setProgress(1);a
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
+// Render's free-hosting wake/deploy screen is HTML, NOT our product JSON.
+// Never show a raw "Unexpected token <" error. GET lookups can safely retry;
+// AI POST requests are not replayed because they may invoke a model.
+async function readApiJson(response){
+ const type=(response.headers.get('content-type')||'').toLowerCase();
+ if(!type.includes('json')){
+  const error=new Error(response.status===404?
+   'Product lookup service was not found. Refresh the website and try again.':
+   'The website server is starting up or temporarily unavailable. Please try again.');
+  error.retryable=[200,429,500,502,503,504].includes(response.status);
+  throw error;
+ }
+ let data;
+ try{data=await response.json();}
+ catch(parseError){
+  const error=new Error('The server sent an incomplete response. Please retry.');
+  error.retryable=true;throw error;
+ }
+ if(!response.ok){
+  const error=new Error(data&&typeof data.error==='string'?data.error:'The server could not complete the request.');
+  error.retryable=[429,502,503,504].includes(response.status);
+  throw error;
+ }
+ return data;
+}
+async function lookupWithWakeRetry(url){
+ // Exponential-ish delay while Render finishes starting. No duplicate Gemini
+ // requests; only the safe GET lookup is automatically retried.
+ const pauses=[1500,3000,5000,7000];
+ for(let attempt=0;attempt<=pauses.length;attempt++){
+  try{
+   const response=await fetch(url,{headers:{'Accept':'application/json'},cache:'no-store'});
+   return await readApiJson(response);
+  }catch(error){
+   if(!error.retryable&&!(error instanceof TypeError))throw error;
+   if(attempt===pauses.length)
+    throw new Error('The website is still starting. Select Find product again shortly.');
+   setState('Render is waking up. Retrying product lookup ('+(attempt+1)+'/'+pauses.length+')…','working');
+   await new Promise(resolve=>setTimeout(resolve,pauses[attempt]));
+  }
+ }
+}
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
-try{const override=$('officialUrl').value.trim();const res=await fetch(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`,{headers:{'Accept':'application/json'}});const data=await res.json();if(!res.ok)throw Error(data.error||'The lookup did not succeed');active=data.product;activePhoto=data.photo_url;$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
+try{const override=$('officialUrl').value.trim();const data=await lookupWithWakeRetry(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`);active=data.product;activePhoto=data.photo_url;$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
 catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create posters <b>→</b>';inflight=false;}}
 $('applyRrp').addEventListener('click',()=>{
     if(!active){setState('Find a product first.','error');return;}
@@ -218,8 +260,7 @@ async function saveAiEdit(regenerate=false){
    body:JSON.stringify({index:idx,concept,edits,regenerate,
     distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,
     staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});
-  const data=await response.json();
-  if(!response.ok)throw Error(data.error||'Could not update this poster');
+  const data=await readApiJson(response);
   if(!active||active.part!==productPart||currentAiEditor!==idx)return;
   aiConcepts[idx]=data.concept;
   renderAiGallery();
@@ -270,8 +311,7 @@ async function generateHeadlineOptions(single=false){
   const res=await fetch('/api/ai/headlines/'+encodeURIComponent(part),{
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({index:idx,tone:$('aiEditTone').value})});
-  const data=await res.json();
-  if(!res.ok)throw Error(data.error||'Could not suggest headlines');
+  const data=await readApiJson(res);
   if(currentAiEditor!==idx||active?.part!==part)return;
   if(single){
    $('aiEditHeadline').value=data.headlines[0]||'';
@@ -298,8 +338,7 @@ $('generateAI').addEventListener('click',async()=>{
  $('aiIdeas').innerHTML='<p class="ai-loading">Generating three different price-led marketing posters automatically…</p>';
  try{
    const res=await fetch('/api/ai/concepts/'+encodeURIComponent(productPart),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});
-   const data=await res.json();
-   if(!res.ok)throw Error(data.error||'AI recommendations unavailable');
+   const data=await readApiJson(res);
    if(!active||active.part!==productPart)return;
    aiConcepts=data.concepts;
    aiOriginals=data.concepts.map(c=>({...c}));
