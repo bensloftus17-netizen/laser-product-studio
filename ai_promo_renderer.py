@@ -87,7 +87,7 @@ def _split(d, text, max_width, size, kind):
 
 
 def _fit(d, text, box, sizes=(38, 34, 30, 26, 22), colour=INK,
-         weight="bold", max_lines=3, align="left"):
+         weight="bold", max_lines=3, align="left", role="text"):
     """Draw inside an explicit safe rectangle: no overflowing typography."""
     x0, y0, x1, y1 = box
     max_width, max_height = int(x1-x0), int(y1-y0)
@@ -113,6 +113,8 @@ def _fit(d, text, box, sizes=(38, 34, 30, 26, 22), colour=INK,
             lines[-1] = last.rstrip() + "…"
         fitted = size, lines, step
     size, lines, step = fitted
+    from poster_quality import record_text
+    record_text(text,box,lines,size,role)
     y = int(y0)
     for line in lines:
         if align == "center":
@@ -485,10 +487,41 @@ def render_promo(concept, photo, product, distributor=None, editor=None):
     # Scene bytes originate only from a verified manufacturer image, a curated
     # Pexels photograph or a user-approved upload, never model-generated tools.
     from ai_cinematic import render_campaign
+    from poster_quality import capture, review
     scene=opts.get("_scene_bytes") if opts.get("background") in (
         "context","workshop","bench","engine") else None
-    canvas=render_campaign(concept,photo,product,price,variant,opts,scene)
-    _co_brand(canvas,distributor)
-    out = io.BytesIO()
-    canvas.convert("RGB").save(out, format="PNG", optimize=True)
-    return out.getvalue()
+    # Quality gate: repair oversized product positioning, typography and
+    # layouts automatically, without drawing invented product photography.
+    # Each attempt is an independent render of an original manufacturer image.
+    best=None
+    for attempt in range(3):
+        proposal=dict(concept)
+        controls=dict(opts)
+        if attempt:
+            controls["product_scale"]=100 if attempt==1 else 95
+            controls["product_x"]=0
+            controls["product_y"]=0
+            controls["headline_size"]="small"
+            if attempt==2:
+                proposal["variant"]=(variant+1)%3
+        with capture() as tracked:
+            canvas=render_campaign(proposal,photo,product,price,
+                int(proposal.get("variant",0)),controls,scene)
+            _co_brand(canvas,distributor)
+            out=io.BytesIO()
+            canvas.convert("RGB").save(out,format="PNG",optimize=True)
+            png=out.getvalue()
+        quality=review(png,tracked,price,proposal,
+                       photo if attempt==0 else None)
+        quality["attempts"]=attempt+1
+        quality["auto_corrected"]=attempt>0
+        quality["layout_variant"]=int(proposal.get("variant",0))%3
+        if quality["passed"]:
+            if isinstance(editor,dict) and isinstance(editor.get("_quality_report"),dict):
+                editor["_quality_report"].update(quality)
+            return png
+        best=quality
+    if isinstance(editor,dict) and isinstance(editor.get("_quality_report"),dict):
+        editor["_quality_report"].update(best or {})
+    raise RuntimeError("Poster quality check rejected this design: "+
+        "; ".join((best or {}).get("issues") or ["unknown layout error"]))
