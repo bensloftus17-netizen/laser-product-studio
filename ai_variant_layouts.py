@@ -45,7 +45,7 @@ def _retail_split(concept,photo,product,price,editor,scene):
     hero(canvas,photo,product,(390,390,1182,1192),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     brand(d,p["primary"],product.get("part",""),family="retail")
-    fit(d,"TRADE PROMOTION",(55,302,522,361),(33,29,25),gold,"bold",1)
+    fit(d,concept.get("focus_label","TRADE PROMOTION"),(55,302,522,361),(33,29,25),gold,"bold",1)
     headline(d,concept,(55,385,512,750),(80,69,59,50,43),
              "#FFFFFF",5,editor)
     if editor.get("show_subline"):
@@ -79,7 +79,7 @@ def _retail_typographic(concept,photo,product,price,editor,scene):
     hero(canvas,photo,product,(73,468,1100,1200),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     brand(d,p["primary"],product.get("part",""),family="retail")
-    fit(d,"PRODUCT PROMOTION",(674,91,1145,156),
+    fit(d,concept.get("focus_label","PRODUCT PROMOTION"),(674,91,1145,156),
         (31,27,23),gold,"bold",1,"right")
     # A single striking headline across the open light section.
     d.rounded_rectangle((45,285,1153,416),radius=13,fill=(255,255,255,248))
@@ -113,7 +113,7 @@ def _premium_gallery(concept,photo,product,price,editor,scene):
     d=ImageDraw.Draw(canvas,"RGBA")
     from ai_promo_renderer import _laser
     _laser(d,55,43,dark=True)
-    fit(d,"PRODUCT SPOTLIGHT",(730,88,1150,141),
+    fit(d,concept.get("focus_label","PRODUCT SPOTLIGHT"),(730,88,1150,141),
         (28,25,21),blue,"bold",1,"right")
     fit(d,"PART  "+str(product.get("part","")),(57,180,440,237),
         (38,33,29),blue,"bold",1)
@@ -180,7 +180,7 @@ def _trade_industrial(concept,photo,product,price,editor,scene):
     hero(canvas,photo,product,(445,350,1167,1225),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     brand(d,p["primary"],product.get("part",""),family="trade")
-    fit(d,"APPLICATION / SERVICE",(52,298,523,359),
+    fit(d,concept.get("focus_label","APPLICATION / SERVICE"),(52,298,523,359),
         (31,27,24),cyan,"bold",1)
     headline(d,concept,(54,410,510,835),
              (77,68,59,51,43), "#FFFFFF",5,editor)
@@ -209,7 +209,7 @@ def _trade_diagonal(concept,photo,product,price,editor,scene):
     hero(canvas,photo,product,(132,268,1166,1104),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
     brand(d,p["primary"],product.get("part",""),family="trade")
-    fit(d,"AUTOMOTIVE WORKSHOP",(706,94,1144,153),
+    fit(d,concept.get("focus_label","AUTOMOTIVE WORKSHOP"),(706,94,1144,153),
         (30,27,23),lime,"bold",1,"right")
     # Reverses the usual dark text block: white diagonal headline card.
     d.polygon([(0,1063),(1072,971),(1136,1140),(0,1249)],fill=(248,251,252,248))
