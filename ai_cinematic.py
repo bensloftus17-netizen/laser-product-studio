@@ -145,6 +145,60 @@ def _rrp(d,price,box,style,accent,ink="#071F37"):
     amount=price.get("amount") or "ON REQUEST"
     label=price.get("label") if price.get("amount") else "PRICE"
     vat=price.get("vat") or ""
+    if style=="sticker":
+        # Jagged promotional sticker: the source price itself never changes.
+        import math
+        cx,cy=(x0+x1)/2,(y0+y1)/2
+        radius=min(x1-x0,y1-y0)*.45
+        points=[]
+        for j in range(32):
+            theta=(j/32)*math.tau-math.pi/2
+            rad=radius*(1 if j%2==0 else .89)
+            points.append((int(cx+math.cos(theta)*rad),
+                           int(cy+math.sin(theta)*rad)))
+        d.ellipse((cx-radius-4,cy-radius+6,cx+radius+6,cy+radius+14),
+                  fill="#092A44")
+        d.polygon(points,fill=accent)
+        _fit(d,label,(x0+37,cy-radius*.62,x1-37,cy-radius*.26),
+             (28,24,20),ink,"bold",1,"center")
+        _fit(d,amount,(x0+35,cy-radius*.19,x1-35,cy+radius*.35),
+             (72,63,55,44,36),ink,"bold",2,"center")
+        if vat:
+            _fit(d,vat,(x0+39,cy+radius*.43,x1-39,cy+radius*.69),
+                 (23,20,18),ink,"bold",1,"center")
+        return
+    if style=="corner":
+        # Folded, angled corner ticket with a contrasting top fold.
+        d.polygon([(x0+42,y0),(x1,y0),(x1,y1-32),
+                   (x1-40,y1),(x0,y1),(x0,y0+42)],fill=accent)
+        d.polygon([(x0+42,y0),(x0+42,y0+42),(x0,y0+42)],
+                  fill="#FFFFFF")
+        d.polygon([(x1-40,y1),(x1-40,y1-40),(x1,y1-32)],
+                  fill="#0C3652")
+        _fit(d,label,(x0+54,y0+16,x1-50,y0+61),
+             (29,25,22),ink,"bold",1)
+        _fit(d,amount,(x0+48,y0+76,x1-56,y1-52),
+             (79,68,58,49,40),ink,"bold",2)
+        if vat:
+            _fit(d,vat,(x0+49,y1-43,x1-71,y1-17),
+                 (20,18),ink,"bold",1)
+        return
+    if style=="panel":
+        # Large two-tier promotional panel, distinct from the white plaque
+        # and from a single-colour banner.
+        d.rounded_rectangle((x0,y0,x1,y1),radius=20,
+                            fill="#FFFFFF",outline=accent,width=5)
+        header_h=min(66,int((y1-y0)*.33))
+        d.rounded_rectangle((x0+5,y0+5,x1-5,y0+header_h),
+                            radius=13,fill=accent)
+        _fit(d,label,(x0+30,y0+16,x1-27,y0+header_h-5),
+             (29,25,21),ink,"bold",1)
+        _fit(d,amount,(x0+27,y0+header_h+10,x1-27,y1-41),
+             (85,73,62,52,41), "#061F38","bold",2)
+        if vat:
+            _fit(d,vat,(x0+30,y1-36,x1-27,y1-12),
+                 (21,19),"#061F38","bold",1,"right")
+        return
     if style=="bubble":
         side=min(x1-x0,y1-y0)
         x0+=((x1-x0)-side)//2;y0+=((y1-y0)-side)//2
