@@ -1238,9 +1238,7 @@ def ai_recommendations(part):
                     concept['variant']=corrected
                     art['layout_variant']=corrected
                     # The editor opens exactly the auto-repaired artwork.
-                    for key,value in [('product_scale',100),('product_x',0),
-                                      ('product_y',0),('headline_size','small')]:
-                        art[key]=value
+                    art.update(quality.get('effective_editor') or {})
             # Keep the image source visible to staff for licence and accuracy
             # review, but never embed large binary data in a JSON concept.
             concept['scene']={k:reference.get(k) for k in (
@@ -1433,9 +1431,8 @@ def edit_ai_promo(part):
             if quality.get('auto_corrected'):
                 corrected=int(quality.get('layout_variant',raw_palette))
                 concept['variant']=corrected
-                concept['editor'].update({
-                    'palette':corrected,'product_scale':100,
-                    'product_x':0,'product_y':0,'headline_size':'small'})
+                concept['editor']['palette']=corrected
+                concept['editor'].update(quality.get('effective_editor') or {})
                 concept['art_direction']['layout_variant']=corrected
         if scene_reference:
             concept['scene']={k:scene_reference.get(k) for k in (
