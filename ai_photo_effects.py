@@ -18,6 +18,81 @@ RESAMPLE = Image.Resampling.LANCZOS
 DEFAULT_SIZE = 1250
 
 
+def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
+    """Final rescue pass for large paper-white gaps *inside* dark metal tools.
+
+    Edge flood can leave a white parallelogram between scissor arms. Segment
+    only large elongated, bright-neutral components, ignoring small white logo
+    lettering and rounded white reservoirs. This works even with PNG alpha.
+    Never create product pixels; only reduce alpha of confidence-matched paper.
+    """
+    rgba=rgba.convert("RGBA")
+    rgb=rgba.convert("RGB")
+    w,h=rgba.size
+    if min(w,h)<80:
+        return rgba
+    channels=rgb.split()
+    lo=ImageChops.darker(ImageChops.darker(channels[0],channels[1]),channels[2])
+    hi=ImageChops.lighter(ImageChops.lighter(channels[0],channels[1]),channels[2])
+    pale=ImageChops.multiply(
+        lo.point(lambda v:255 if v>=219 else 0),
+        ImageChops.subtract(hi,lo).point(lambda v:255 if v<=43 else 0))
+    alpha=rgba.getchannel("A")
+    pale=ImageChops.multiply(pale,alpha.point(lambda v:255 if v>210 else 0))
+    # Remove tiny disconnected logo glyphs/noise from component search, while
+    # retaining long broad holes through separators, pullers and ratchet sets.
+    core=pale.filter(ImageFilter.MinFilter(3))
+    eligible=Image.new("L",(w,h),0)
+    min_area=max(180,int(w*h*.0035))
+    max_area=int(w*h*.25)
+    for _ in range(80):
+        raw=core.tobytes()
+        index=raw.find(b"\xff")
+        if index<0:break
+        seed=(index%w,index//w)
+        ImageDraw.floodfill(core,seed,128,thresh=0)
+        component_core=core.point(lambda v:255 if v==128 else 0)
+        core.paste(0,mask=component_core)
+        bb=component_core.getbbox()
+        if not bb:continue
+        bw,bh=bb[2]-bb[0],bb[3]-bb[1]
+        if bw*bh < min_area or max(bw,bh)/max(1,min(bw,bh)) < 1.4:
+            continue
+        if bw < w*.09 or bh < h*.025:
+            continue
+        # Grow to include anti-aliased grey/off-white pixels at the boundary.
+        work=pale.copy()
+        ImageDraw.floodfill(work,seed,128,thresh=0)
+        region=work.point(lambda v:255 if v==128 else 0)
+        area=region.histogram()[255]
+        if not min_area<=area<=max_area:
+            continue
+        bbox=region.getbbox()
+        if not bbox:continue
+        # Must be enclosed, not ordinary white photo background.
+        if bbox[0]<=2 or bbox[1]<=2 or bbox[2]>=w-2 or bbox[3]>=h-2:
+            continue
+        from PIL import ImageStat
+        means=ImageStat.Stat(rgb,mask=region).mean
+        if min(means)<225 or max(means)-min(means)>23:
+            continue
+        # Large broad rectangles are intentional labels/white components more
+        # often than mechanical openings. Gaps are elongated or diagonally
+        # clipped and can safely be isolated from a dark-colour tool.
+        if max(bbox[2]-bbox[0],bbox[3]-bbox[1])/max(1,min(bbox[2]-bbox[0],bbox[3]-bbox[1]))<1.42:
+            continue
+        eligible=ImageChops.lighter(eligible,region)
+    if eligible.getbbox() is None:
+        return rgba
+    # A pixel-thin dilate erases baked-in JPEG white edges. Slight antialias
+    # softens the mask without changing opaque steel or LASER typography.
+    eligible=eligible.filter(ImageFilter.MaxFilter(3)).filter(
+        ImageFilter.GaussianBlur(.6))
+    alpha=ImageChops.subtract(alpha,eligible)
+    rgba.putalpha(alpha)
+    return rgba
+
+
 @lru_cache(maxsize=10)
 def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     """Cache safe cutout result so rendering three designs doesn't repeat matting."""
@@ -32,6 +107,7 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
         if bbox:
             rgba = rgba.crop(bbox)
         buf = io.BytesIO()
+        rgba=_clear_enclosed_paper(rgba)
         rgba.save(buf, format="PNG")
         return buf.getvalue(), True
 
@@ -167,6 +243,7 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     pad = max(5, int(min(w, h) * .016))
     rgba = rgba.crop((max(0, bounds[0]-pad), max(0, bounds[1]-pad),
                       min(w, bounds[2]+pad), min(h, bounds[3]+pad)))
+    rgba=_clear_enclosed_paper(rgba)
     buf = io.BytesIO()
     rgba.save(buf, format="PNG", optimize=True)
     return buf.getvalue(), True
