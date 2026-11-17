@@ -19,7 +19,7 @@ class RenderWakeUpTests(unittest.TestCase):
         self.assertIn("async function lookupWithWakeRetry(url)",html)
         self.assertIn("Render is waking up. Retrying product lookup",html)
         self.assertIn("const data=await lookupWithWakeRetry(",html)
-        self.assertNotIn("Unexpected token",html)
+        self.assertNotIn("const data=await res.json()",html)
         # All POST actions validate response type, but are NOT retried
         # automatically, which could duplicate expensive AI requests.
         self.assertGreaterEqual(html.count("const data=await readApiJson("),3)
