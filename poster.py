@@ -7,6 +7,7 @@ measurements, product accessories, prices, logos or extra product photographs.
 from __future__ import annotations
 import io, re, textwrap, os, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps, ImageChops
+from ai_photo_effects import manufacturer_cutout
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
@@ -131,83 +132,83 @@ def trim_photo(photo):
     x0,y0,x1,y1=bb; padx=max(6,int((x1-x0)*.07));pady=max(6,int((y1-y0)*.07))
     return photo.crop((max(0,x0-padx),max(0,y0-pady),min(w,x1+padx),min(h,y1+pady)))
 
-def contain_photo(im,photo,rect,padding=20,background=WHITE):
+def contain_photo(im, photo, rect, padding=20, background=WHITE,
+                  cutout=False, source_blob=None):
+    """Frame a *real scene* as a photo, or show an isolated manufacturer tool.
+
+    The standard product panels previously painted a solid white rectangle
+    and forced an RGB photo flattening. In cutout mode we draw a pale branded
+    surface and place only the tool's original pixels, keeping transparency.
+    Real workshop/in-situ images intentionally remain ordinary photographs.
+    """
     x0,y0,x1,y1=map(int,rect)
     ImageDraw.Draw(im).rectangle((x0,y0,x1,y1),fill=background)
+    if cutout:
+        place_cutout(im,photo,rect,padding=max(8,padding),source_blob=source_blob)
+        return
     img=trim_photo(photo).copy()
-    available_w=max(1,x1-x0-padding*2); available_h=max(1,y1-y0-padding*2)
-    # thumbnail() only shrinks images; enlarge smaller official photos too.
-    # Preserve the original pixels, accepting that low-resolution source images
-    # may remain less sharp than a manufacturer-supplied high-res photograph.
+    available_w=max(1,x1-x0-padding*2);available_h=max(1,y1-y0-padding*2)
     scale=min(available_w/max(1,img.width),available_h/max(1,img.height))
-    img=img.resize((max(1,int(img.width*scale)),max(1,int(img.height*scale))),Image.Resampling.LANCZOS)
+    img=img.resize((max(1,round(img.width*scale)),max(1,round(img.height*scale))),
+                   Image.Resampling.LANCZOS)
     white=Image.new('RGBA',img.size,(255,255,255,255))
     white.alpha_composite(img)
     img=white.convert('RGB')
-    x=x0+(x1-x0-img.width)//2;y=y0+(y1-y0-img.height)//2
+    x=x0+(x1-x0-img.width)//2
+    y=y0+(y1-y0-img.height)//2
     im.paste(img,(x,y))
 
-def isolated_photo(photo):
-    """Remove *only* the contiguous near-white studio background.
 
-    No AI redraw or alteration of physical components. On a non-white source,
-    preserve the entire image, avoiding aggressive threshold damage.
+def isolated_photo(photo,source_blob=None):
+    """Use the same tested cutout engine as the three AI adverts.
+
+    Unlike the previous edge-only flood, this also removes large enclosed
+    paper-white regions trapped between metal jaws (such as part 8899).
+    Genuine white product components and manufacturer marks remain intact.
     """
-    p=photo.copy().convert('RGBA')
-    w,h=p.size
-    if w*h>3_000_000:p.thumbnail((1600,1600),Image.Resampling.LANCZOS);w,h=p.size
-    samples=[p.getpixel((int(w*a),int(h*b)))[:3] for a,b in [(0,0),(.99,0),(0,.99),(.99,.99)]]
-    nearwhite=lambda c:min(c)>229 and max(c)-min(c)<22
-    if sum(nearwhite(c) for c in samples)<3:return p,False
-    # Fill connected near-white regions only, never delete bright internal details.
-    # Work in a grayscale threshold mask then retain largest exterior area from edges.
-    rgbimage=p.convert('RGB')
-    pix=rgbimage.load();visited=bytearray(w*h)
-    stack=[]
-    for y in (0,h-1):
-        for x in range(0,w,max(1,w//110)):
-            if nearwhite(pix[x,y]):stack.append((x,y))
-    for x in (0,w-1):
-        for y in range(0,h,max(1,h//110)):
-            if nearwhite(pix[x,y]):stack.append((x,y))
-    # Fast bbox flood to transparent outside with restrained thresholds.
-    from collections import deque
-    q=deque(stack)
-    while q:
-        x,y=q.popleft();i=y*w+x
-        if visited[i] or not nearwhite(pix[x,y]):continue
-        visited[i]=1
-        if x>0:q.append((x-1,y))
-        if x<w-1:q.append((x+1,y))
-        if y>0:q.append((x,y-1))
-        if y<h-1:q.append((x,y+1))
-    alpha=Image.new('L',(w,h),255)
-    alpha.putdata([0 if t else 255 for t in visited])
-    alpha=alpha.filter(ImageFilter.GaussianBlur(.55))
-    p.putalpha(ImageChops.multiply(p.getchannel('A'),alpha))
-    bb=p.getbbox()
-    if bb:p=p.crop(bb)
-    return p,True
+    if source_blob is None:
+        source=io.BytesIO()
+        photo.save(source,format='PNG')
+        source_blob=source.getvalue()
+    return manufacturer_cutout(source_blob)
 
-def place_cutout(im,photo,box):
-    cut,isolated=isolated_photo(trim_photo(photo))
+
+def place_cutout(im,photo,box,padding=24,source_blob=None):
+    """Composite authentic tool pixels onto the actual poster background.
+
+    Never flatten a successful transparent cutout to white, and never paint
+    a new white panel underneath it. Retain original manufacturer photo
+    inside a modest cool-grey frame if safe separation fails.
+    """
+    cut,isolated=isolated_photo(photo,source_blob)
+    x0,y0,x1,y1=map(int,box)
+    pad=max(4,int(padding))
     if not isolated:
-        contain_photo(im,photo,box,padding=25,background='#EDF4FA')
-        return
-    x0,y0,x1,y1=box
-    # Scale authentic source photo up as well as down. A thumbnail source should
-    # not become a tiny speck in the advert (the resolution may still be limited).
-    maxw,maxh=x1-x0-55,y1-y0-45
-    factor=min(maxw/cut.width,maxh/cut.height)
-    if factor>0:
-        cut=cut.resize((max(1,round(cut.width*factor)),max(1,round(cut.height*factor))),Image.Resampling.LANCZOS)
-    x=x0+(x1-x0-cut.width)//2;y=y0+(y1-y0-cut.height)//2
-    shadow=Image.new('RGBA',im.size,(0,0,0,0));mask=cut.getchannel('A')
-    ss=Image.new('RGBA',cut.size,(0,0,0,85));ss.putalpha(mask.point(lambda a:int(a*.30)))
-    shadow.paste(ss,(x+12,y+15),ss)
-    shadow=shadow.filter(ImageFilter.GaussianBlur(15))
-    im.paste(Image.alpha_composite(im.convert('RGBA'),shadow).convert('RGB'))
-    im.paste(cut,(x,y),cut)
+        # If source is not a studio packshot (or cutout confidence is low),
+        # preserving genuine product pixels is safer than erasing white parts.
+        contain_photo(im,photo,box,padding=pad,
+                      background='#E7EEF4',cutout=False)
+        return False
+    maxw,maxh=max(1,x1-x0-pad*2),max(1,y1-y0-pad*2)
+    factor=min(maxw/max(1,cut.width),maxh/max(1,cut.height))
+    cut=cut.resize((max(1,round(cut.width*factor)),
+                    max(1,round(cut.height*factor))),Image.Resampling.LANCZOS)
+    x=x0+(x1-x0-cut.width)//2
+    y=y0+(y1-y0-cut.height)//2
+
+    # Correct RGBA alpha compositing prevents the pale fringe introduced by
+    # pasting an RGBA source using its own alpha as an additional mask.
+    shadow_mask=cut.getchannel('A').filter(ImageFilter.GaussianBlur(14))
+    shadow_mask=shadow_mask.point(lambda v:int(v*.35))
+    shadow=Image.new('RGBA',im.size,(0,0,0,0))
+    shadow_piece=Image.new('RGBA',cut.size,(5,23,39,0))
+    shadow_piece.putalpha(shadow_mask)
+    shadow.alpha_composite(shadow_piece,(x+10,y+12))
+    result=Image.alpha_composite(im.convert('RGBA'),shadow)
+    result.alpha_composite(cut,(x,y))
+    im.paste(result.convert('RGB'))
+    return True
+
 
 def product_name(p):
     name=str(p.get('title') or 'Professional workshop tool').strip()
@@ -592,7 +593,8 @@ def render_technical(p,blob,application_blob=None,distributor_brand=None):
         photo_end=1007 if has_tiles else 1195
         technical_card(im,(31,356,1249,photo_end),background='#EEF4FA')
         contain_photo(im,photo,(41,366,1239,photo_end-10),
-                      padding=42 if has_tiles else 50,background=WHITE)
+                      padding=42 if has_tiles else 50,
+                      background='#EEF4FA',cutout=True,source_blob=blob)
         purpose_y=1026 if has_tiles else 1214
         purpose_end=1249 if has_tiles else 1492
         technical_card(im,(31,purpose_y,1249,purpose_end),background='#092B4D')
@@ -606,7 +608,8 @@ def render_technical(p,blob,application_blob=None,distributor_brand=None):
         # A product with some specs but no huge list: readable hero image,
         # purpose and two large independently useful information panels.
         technical_card(im,(31,356,809,1011),background='#EBF3F9')
-        contain_photo(im,photo,(41,366,799,1001),padding=36,background=WHITE)
+        contain_photo(im,photo,(41,366,799,1001),padding=36,
+                      background='#EBF3F9',cutout=True,source_blob=blob)
         technical_card(im,(831,356,1249,1011),background='#0A2B4B')
         d=ImageDraw.Draw(im)
         technical_section(d,831,356,418,'PRODUCT PURPOSE')
@@ -655,7 +658,8 @@ def render_technical(p,blob,application_blob=None,distributor_brand=None):
         # High-information specialist kit: two-column image / purpose, features,
         # real workshop photo or specifications, and supporting bottom panels.
         technical_card(im,(31,355,775,777),background='#EAF2F8')
-        contain_photo(im,photo,(41,365,765,767),padding=20,background=WHITE)
+        contain_photo(im,photo,(41,365,765,767),padding=20,
+                      background='#EAF2F8',cutout=True,source_blob=blob)
         technical_card(im,(796,355,1249,777),background='#082B4C')
         d=ImageDraw.Draw(im)
         technical_section(d,796,355,453,'PRODUCT PURPOSE')
@@ -980,7 +984,7 @@ def render_hero(p,blob,application_blob=None,distributor_brand=None):
         stage=(4,679,1194,1407)
     else:
         stage=(28,644,1188,1424)
-    place_cutout(im,photo,stage)
+    place_cutout(im,photo,stage,source_blob=blob)
     d=ImageDraw.Draw(im)
 
     # Oversized, angular blue Laser masthead as in the supplied reference.
@@ -1101,7 +1105,7 @@ def render_price(p,blob,distributor_brand=None):
     d.ellipse((-240,252,1095,1260),fill='#E4EEF6')
     d.ellipse((-160,356,995,1200),outline='#CBDDEB',width=3)
     photo=manufacturer_photo(blob)
-    place_cutout(im,photo,(28,250,935,751))
+    place_cutout(im,photo,(28,250,935,751),source_blob=blob)
     d=ImageDraw.Draw(im)
     # Category-specific sales cue, never a claimed specification.
     story=strategy_for(p)
