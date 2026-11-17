@@ -179,9 +179,49 @@ V7_HOME_PAGE = r'''
 <script>
 const $=id=>document.getElementById(id);let campaignData=null;let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;let aiConcepts=[],aiOriginals=[],currentAiEditor=-1,aiEditing=false;
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
+
+function installMarketingHubLayout(){
+ // Relocate existing functional controls into the approved dashboard structure.
+ // IDs and event handlers remain unchanged; no duplicate editors or poster APIs.
+ const assets=$('assetWorkspace'),copy=$('copyWorkspace');
+ assets.appendChild($('previews'));
+ assets.appendChild($('campaignResults'));
+ copy.appendChild($('unifiedCopyStudio'));
+ const record=document.querySelector('.record-panel');
+ const advanced=document.querySelector('.right');
+ $('productRecordSlot').appendChild(record);
+ $('advancedStudioSlot').appendChild(advanced);
+ const previewDialog=$('aiPosterPreview');
+ if(previewDialog)document.body.appendChild(previewDialog);
+ const old=document.querySelector('.content');
+ if(old)old.hidden=true;
+}
+installMarketingHubLayout();
+function refreshWorkspaceHeading(product){
+ $('assetWorkspaceStatus').textContent=product
+  ?'Part '+String(product.part||'')+' · '+String(product.title||'')+' — review all artwork before publishing.'
+  :'Enter a product part number above to prepare the campaign assets.';
+ if(product&&product.part){
+  const image=$('heroProductPhoto');
+  image.hidden=false;
+  image.src='/api/photo/'+encodeURIComponent(product.part);
+ }
+}
+function showCopyEmpty(){
+ $('copyEmpty').hidden=!$('unifiedCopyStudio').hidden;
+}
+document.querySelectorAll('[data-open-studio]').forEach(control=>control.addEventListener('click',()=>{
+ $('productStudio').open=true;
+ $('productStudio').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventListener('click',()=>{
+ $('productStudio').open=true;
+ $('aiExplore').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;if(copyStudioData?.origin==='campaign'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}$('campaignStatus').textContent='Uses original product photos and verified specifications. Review everything before publishing.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;if(copyStudioData?.origin==='campaign'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  const id=selectedDistributor(),target=$('distributorPreview');
  const labels={gsf:'GSF Car Parts',euro:'Euro Car Parts',mpd:'Motor Parts Direct'};
@@ -195,7 +235,7 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('generateAI').disabled=true;clearAiDesigns();clearCampaign();setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
@@ -242,7 +282,7 @@ async function lookupWithWakeRetry(url){
  }
 }
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
-try{const override=$('officialUrl').value.trim();const data=await lookupWithWakeRetry(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`);active=data.product;activePhoto=data.photo_url;$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
+try{const override=$('officialUrl').value.trim();const data=await lookupWithWakeRetry(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`);active=data.product;activePhoto=data.photo_url;refreshWorkspaceHeading(active);$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
 catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create posters <b>→</b>';inflight=false;}}
 $('applyRrp').addEventListener('click',()=>{
     if(!active){setState('Find a product first.','error');return;}
@@ -282,6 +322,7 @@ function renderAiMarketingCopy(){
  }
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
+ showCopyEmpty();
 }
 
 let aiScenePhotos=[null,null,null];
@@ -291,7 +332,7 @@ const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'
 
 function clearAiDesigns(){
  aiConcepts=[];aiOriginals=[];currentAiEditor=-1;aiScenePhotos=[null,null,null];
- if(copyStudioData?.origin==='ai'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}
+ if(copyStudioData?.origin==='ai'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;showCopyEmpty();}
  $('aiIdeas').innerHTML='';
  $('aiEditor').hidden=true;
 }
@@ -506,8 +547,10 @@ function showCampaign(data){
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
+ showCopyEmpty();
+ $('previews').hidden=true;
  $('campaignResults').hidden=false;
- $('campaignResults').scrollIntoView({behavior:'smooth',block:'start'});
+ $('studioWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 let copyStudioData=null,campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
@@ -619,12 +662,12 @@ $('campaignBtn').addEventListener('click',async()=>{
    anchor.download='LASER_'+part+'_Complete_Campaign.zip';document.body.appendChild(anchor);
    anchor.click();anchor.remove();
  }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
- finally{button.disabled=false;button.textContent='✦ Generate Complete Campaign';}
+ finally{button.disabled=false;button.textContent='✦ Generate Campaign';}
 });
 
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 ['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
-$('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
+$('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
 </script></body></html>
 
