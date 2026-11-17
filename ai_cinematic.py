@@ -81,6 +81,10 @@ def _scene_base(photo_bytes,style,product,variation=0,scene_style=None):
             canvas.alpha_composite(image.convert("RGBA"))
         except (ValueError,OSError):
             pass
+    # AI-selected graphic motifs are painted only into the real scene layer,
+    # BEFORE product cutouts, headlines and verified pricing are drawn.
+    from promo_art_direction import draw_background_motif
+    canvas=draw_background_motif(canvas,scene_style)
     # Multiply bottom and side darkness, not a simple opaque blue rectangle.
     overlay=Image.new("RGBA",(W,H),(0,0,0,0))
     d=ImageDraw.Draw(overlay)
@@ -216,7 +220,8 @@ def _photo_stage(photo_bytes, region, darken=.12, blur=2.2, scene_style=None):
             max(.43,1-float(scene_style.get("darkness",darken))))
         blur=max(0,min(8,float(scene_style.get("blur",blur))))
         if blur:img=img.filter(ImageFilter.GaussianBlur(blur))
-        return img.convert("RGBA")
+        from promo_art_direction import draw_background_motif
+        return draw_background_motif(img,scene_style)
     except (OSError,ValueError):
         return Image.new("RGBA",(w,h),"#D3E1E8")
 
