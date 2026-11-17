@@ -264,7 +264,9 @@ def compose_product(base: Image.Image, blob: bytes, box: tuple[int,int,int,int],
     if mode not in ("cutout","shadow","glow","panel"):
         mode="shadow"
     cutout, isolated=manufacturer_cutout(blob)
-    # Never show a white photographic slab on coloured graphics without framing.
+    # If the photographic edges are too ambiguous to isolate safely, keep
+    # the original genuine tool photograph instead of inventing its outline.
+    # The fallback mount is dark, NEVER an extra white rectangle.
     if not isolated:
         mode="panel"
     layer=Image.new("RGBA",(w,h),(0,0,0,0))
@@ -282,7 +284,7 @@ def compose_product(base: Image.Image, blob: bytes, box: tuple[int,int,int,int],
     elif mode=="panel":
         d=ImageDraw.Draw(layer)
         d.rounded_rectangle((8,8,w-10,h-10),radius=24,
-                            fill="#FFFFFF",outline="#D7E5EF",width=3)
+                            fill=(12,33,53,228),outline=(108,149,176,200),width=3)
 
     zoom=max(70,min(160,int(editor.get("product_scale",100))))/100
     avail_w,avail_h=w-32,h-30
