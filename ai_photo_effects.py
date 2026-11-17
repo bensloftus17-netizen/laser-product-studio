@@ -1,4 +1,4 @@
-"""Faithful manufacturer packshot cut-outs and controlled workshop backdrops.
+"""Faithful manufacturer packshot cut-outs, including enclosed white-background gaps.
 
 No AI-drawn/reconstructed product imagery, no model calls and no new paid API.
 Near-white *edge-connected* photo background is removed, while internal white
@@ -62,6 +62,65 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
         if candidates.getpixel(seed) == 255:
             ImageDraw.floodfill(candidates, seed, 128, thresh=0)
 
+    # A U-shaped tool can surround a large patch of white photograph.
+    # Flooding ONLY from the outer edge leaves that area as a bright white
+    # rectangle suspended inside the metal jaws. Find the isolated, nearly
+    # uniform white *background holes* without touching real tool pixels.
+    #
+    # Conservative safeguards: substantial area, very neutral/light pixels,
+    # colour matching the photo's border, and a limited region count.
+    # Small white LASER lettering and internal highlights stay untouched.
+    exterior = candidates.point(lambda p: 255 if p == 128 else 0)
+    interior_candidates = candidates.point(lambda p: 255 if p == 255 else 0)
+    bright_core = ImageChops.multiply(
+        interior_candidates,
+        ImageChops.multiply(
+            minimum.point(lambda p: 255 if p >= 242 else 0),
+            ImageChops.subtract(maximum, minimum).point(
+                lambda p: 255 if p <= 19 else 0)))
+    bright_core = bright_core.filter(ImageFilter.MinFilter(5))
+    border_colours = [rgb.getpixel(pt) for pt in
+                      ((0, 0), (w-1, 0), (0, h-1), (w-1, h-1))]
+    reference = tuple(sorted(c[i] for c in border_colours)[2] for i in range(3))
+    minimum_area = max(120, int(w*h*.002))
+    maximum_area = int(w*h*.11)
+    for _ in range(24):
+        raw = bright_core.tobytes()
+        seed_offset = raw.find(b"\xff")
+        if seed_offset < 0:
+            break
+        seed = (seed_offset % w, seed_offset // w)
+        ImageDraw.floodfill(bright_core, seed, 128, thresh=0)
+        core_component = bright_core.point(lambda p: 255 if p == 128 else 0)
+        bright_core.paste(0, mask=core_component)
+        bbox = core_component.getbbox()
+        if not bbox or (bbox[2]-bbox[0])*(bbox[3]-bbox[1]) < minimum_area:
+            continue
+
+        # Expand from the bright central pixels only into the matching
+        # isolated white region; it must not connect with the outer border.
+        region_work = interior_candidates.copy()
+        ImageDraw.floodfill(region_work, seed, 128, thresh=0)
+        region = region_work.point(lambda p: 255 if p == 128 else 0)
+        region_area = region.histogram()[255]
+        if not minimum_area <= region_area <= maximum_area:
+            continue
+        # Include even mildly grey/compressed edges if most of the candidate
+        # region matches the original paper-white photo background.
+        high_confidence = ImageChops.multiply(region,
+                                             minimum.point(lambda p: 255 if p >= 236 else 0))
+        if high_confidence.histogram()[255] < region_area*.86:
+            continue
+        from PIL import ImageStat
+        mean = ImageStat.Stat(rgb, mask=region).mean
+        if any(abs(mean[i]-reference[i]) > 24 for i in range(3)):
+            continue
+        exterior = ImageChops.lighter(exterior, region)
+        interior_candidates = ImageChops.subtract(interior_candidates, region)
+
+    # Feather the exterior AND the verified interior background holes.
+    # The actual white metal/labels stay opaque and keep their source pixels.
+    connected_background = exterior
     # Expand the connected background by just one pixel then anti-alias the
     # silhouette. This removes the bright JPG antialias border while leaving
     # real white product surfaces opaque. Don't darken the product interior.
