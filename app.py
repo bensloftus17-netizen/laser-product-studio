@@ -22,7 +22,7 @@ from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
 from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
-from promo_scene_library import find_scene, classify_product
+from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -1174,14 +1174,16 @@ def ai_recommendations(part):
             # manufacturer in-situ imagery for the trade campaign.
             scene,reference=find_scene(
                 product,variation=i+image_variation,official_photo=official_scene,
-                prefer_official=(i==2))
-            options={'background':'context','_scene_bytes':scene,'show_subline':True}
+                prefer_official=(i==2),family=concept.get('family'))
+            options={'background':'context','_scene_bytes':scene,'show_subline':True,
+                     '_scene_style':reference}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
             # Keep the image source visible to staff for licence and accuracy
             # review, but never embed large binary data in a JSON concept.
             concept['scene']={k:reference.get(k) for k in (
-                'category','description','source','page_url','license_url')}
+                'category','description','source','page_url','license_url',
+                'scene_type','family','crop')}
             concept['editor']={'background':'context','show_subline':True}
         return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
     except RuntimeError as e:return jsonify(error=str(e)),503
@@ -1339,8 +1341,12 @@ def edit_ai_promo(part):
             scene_bytes,scene_reference=find_scene(
                 product,variation=idx+seed,official_photo=official,
                 prefer_official=(idx==2 and background=="context" and bool(official)),
-                category_override=selection)
-        render_options={**options,'_scene_bytes':scene_bytes} if scene_bytes else options
+                category_override=selection,family=family)
+        if scene_reference is None:
+            scene_reference=stock_scene_reference(
+                classify_product(product),idx,family=family)
+        render_options={**options,'_scene_bytes':scene_bytes,
+                        '_scene_style':scene_reference}
         concept={'id':idx,'part':str(product.get('part','')),
                  'title':str(product.get('title',''))[:125], 'family':family,
                  'name':name or ('Promotional Option '+str(idx+1)),
@@ -1351,7 +1357,8 @@ def edit_ai_promo(part):
         concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
         if scene_reference:
             concept['scene']={k:scene_reference.get(k) for k in (
-                'category','description','source','page_url','license_url')}
+                'category','description','source','page_url','license_url',
+                'scene_type','family','crop')}
         elif scene_bytes:
             concept['scene']={'category':classify_product(product),
                               'description':'Approved uploaded context photo',
