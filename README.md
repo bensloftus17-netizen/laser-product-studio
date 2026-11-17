@@ -167,3 +167,20 @@ This update implements the five requested improvements **in order**, without add
 Tests include `test_poster_quality.py`, `test_ai_art_direction.py`, `test_promo_upgrades.py` and the existing original-product-image / 8899 photo / browser checks; they run in GitHub Actions on each commit.
 
 **Human approval is still required before external publication.** Automated QA finds specific detectable layout problems, not every possible visual-design or compliance issue. Only official product claims and approved/licensed photography should be used.
+
+
+### V8 — AI promotional captions and customer marketing copy (November 2026)
+
+**Generate with AI** now automatically supplies **four marketing formats for each of the three chosen poster concepts**:
+- Short social media caption, focused on that poster's Retail (price), Premium (benefit), or Trade (application) angle
+- LinkedIn post in UK trade language, with short relevant hashtags
+- Product email with a copy-ready subject, short body and editable signature placeholder
+- Relevant hashtags based on the verified tool category and confirmed vehicle mentions
+
+A **Campaign Content** panel appears beneath the AI poster gallery. Users can switch between the three posters and four channel tabs, edit each draft independently, copy a single format or all four formats at once. Each poster card has a **Captions & email** shortcut. Edited posters regenerate their associated marketing copy from the official manufacturer record; drafts are never published automatically.
+
+Gemini supplies the copy style, hook and CTA via the **same free-tier request already made for the three poster concepts**. The final channel copy is composed from the source manufacturer title, part number, verified manufacturer feature/application statements and reviewed price/VAT status. The app does not accept invented claims, discounts, unverified vehicle fitment, customer quotes, or arbitrary URLs from the model. Draft staff-entered RRPs remain clearly marked as draft; missing RRPs become **Price on request**, not a guessed price.
+
+New modules: \`promo_copy.py\`; updated \`ai_concepts.py\`, \`app.py\` and \`static/styles.css\`. Regression tests in \`test_promo_copy.py\` cover all four channels, different campaign focuses, manufacturer/price tampering, missing VAT/price, safe brand hashtags, AI endpoint integration, editor regeneration and browser syntax.
+
+**All generated copy is a draft requiring human review before sending or publication.** No posting/email-sending integrations or extra paid APIs have been added.
