@@ -794,3 +794,40 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .campaign-download-choice .campaign-download{text-align:center}
  .campaign-download-choice small{max-width:none;text-align:center}
 }
+
+/* Opt-in native file sharing for campaigns, individual posters and AI artwork. */
+.asset-share-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;
+ border:1px solid #b9d6ec;border-radius:7px;background:#eaf4ff;color:#095684;
+ cursor:pointer;font:inherit;font-size:10.5px;font-weight:780;line-height:1.3;
+ padding:8px 10px;white-space:normal;text-align:center}
+.asset-share-button:hover:not(:disabled){background:#d9edff;border-color:#6cb1d9}
+.asset-share-button:focus-visible{outline:3px solid #0b78bd;outline-offset:2px}
+.asset-share-button:disabled{opacity:.63;cursor:progress}
+.campaign-download-choice .asset-share-button{width:100%;font-size:11px;padding:9px 12px}
+.campaign-asset-actions{display:flex;align-items:center;justify-content:space-between;
+ gap:5px;margin-top:9px;flex-wrap:wrap}
+.campaign-asset-actions .campaign-save-image{margin-top:0;font-size:10px}
+.campaign-asset-actions .asset-share-button{padding:6px 7px;font-size:10px}
+.asset-workspace .share-help{font-size:10px;line-height:1.6;color:#637f98;margin:12px 3px}
+.posteritemfoot .asset-links{display:flex;flex-direction:column;align-items:flex-end;gap:7px}
+.asset-links .asset-share-button{font-size:11px}
+.ai-card-actions .asset-share-button{font-size:11px;padding:9px 12px}
+.ai-editor-visual .asset-share-button{margin:8px auto;max-width:95%;display:flex}
+.legacy-export-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
+.legacy-export-actions .asset-share-button{padding:13px}
+.share-notice{position:fixed;z-index:1100;left:50%;bottom:max(22px,env(safe-area-inset-bottom));
+ transform:translateX(-50%);max-width:min(520px,calc(100vw - 28px));width:max-content;
+ background:#092d51;color:#fff;border:1px solid #5d9ccc;border-radius:12px;
+ padding:12px 13px;box-shadow:0 10px 34px rgba(0,18,42,.3);
+ display:flex;align-items:center;gap:14px;font-size:12px;line-height:1.5}
+.share-notice[hidden]{display:none}
+#shareNoticeText{overflow-wrap:anywhere}
+#shareNoticeClose{border:1px solid #5d8bb0;background:transparent;color:#fff;
+ font-size:18px;flex:none;border-radius:7px;padding:2px 9px;cursor:pointer}
+@media(max-width:560px){
+ .asset-workspace .campaign-asset-actions{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+ .campaign-asset-actions .campaign-save-image{text-align:center}
+ .asset-workspace .campaign-asset-actions .asset-share-button{width:100%}
+ .legacy-export-actions{width:100%}
+ .legacy-export-actions button{flex:1}
+}
