@@ -1630,6 +1630,96 @@ def edit_ai_promo(part):
         return jsonify(error='Unable to update the poster. Please retry.'),500
 
 
+
+# Temporary single-worker pack storage. Random tokens prevent unrelated visitors
+# from downloading other distributor drafts; expiry bounds memory on free Render.
+CAMPAIGN_PACKS = {}
+CAMPAIGN_PACK_LOCK = threading.Lock()
+CAMPAIGN_PACK_TTL = 15 * 60
+
+
+def _get_campaign_pack(token):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return None
+    with CAMPAIGN_PACK_LOCK:
+        now = time.time()
+        for key in list(CAMPAIGN_PACKS):
+            if CAMPAIGN_PACKS[key]['expires'] < now:
+                CAMPAIGN_PACKS.pop(key, None)
+        entry = CAMPAIGN_PACKS.get(token)
+        return entry['bundle'] if entry and entry['expires'] >= now else None
+
+
+@app.post('/api/campaign/<part>')
+def one_click_campaign(part):
+    """One click creates a full campaign, previews and a complete ZIP.
+
+    Generate draft material only; no automatic social posts or publishing.
+    The browser cannot replace verified product photos, technical claims or RRP.
+    """
+    try:
+        part = sku_clean(part)
+        body = request.get_json(silent=True) or {}
+        if not isinstance(body, dict):
+            return jsonify(error='Invalid campaign settings.'), 400
+        product, image = lookup(part, uk_url=body.get('official_url') or None)
+        if not image:
+            return jsonify(error='A genuine official product photograph is required.'), 422
+        product = with_reviewed_price(
+            product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
+            body.get('staff_rrp_basis', 'ex')
+        )
+        distributor = selected_distributor(body.get('distributor_brand', 'none'))
+        bundle = build_campaign(product, image, distributor)
+        token = secrets.token_urlsafe(24)
+        with CAMPAIGN_PACK_LOCK:
+            now = time.time()
+            for key in list(CAMPAIGN_PACKS):
+                if CAMPAIGN_PACKS[key]['expires'] < now:
+                    CAMPAIGN_PACKS.pop(key, None)
+            while len(CAMPAIGN_PACKS) >= 4:
+                CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
+            CAMPAIGN_PACKS[token] = {'expires': now + CAMPAIGN_PACK_TTL, 'bundle': bundle}
+        response = jsonify(token=token, manifest=bundle['manifest'])
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)), 400
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    except RuntimeError as exc:
+        app.logger.exception('Campaign rendering failed')
+        return jsonify(error='Campaign could not be completed: ' + str(exc)), 503
+    except Exception:
+        app.logger.exception('One-click campaign error')
+        return jsonify(error='Unable to build the marketing campaign. Please check the application logs.'), 500
+
+
+@app.get('/api/campaign/download/<token>')
+def download_campaign(token):
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='Campaign link expired. Generate the campaign again.'), 404
+    part = re.sub(r'[^A-Za-z0-9_-]', '', str(bundle['manifest'].get('part') or 'Product'))
+    response = send_file(io.BytesIO(bundle['archive']), mimetype='application/zip',
+                         as_attachment=True,
+                         download_name='LASER_' + part + '_Complete_Campaign.zip')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
+@app.get('/api/campaign/assets/<token>/<asset_id>')
+def preview_campaign_asset(token, asset_id):
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='Campaign preview expired. Generate it again.'), 404
+    asset = bundle['images'].get(asset_id)
+    if asset is None:
+        return jsonify(error='Campaign asset not found.'), 404
+    response = send_file(io.BytesIO(asset), mimetype='image/png')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
 @app.get('/api/photo/<part>')
 def photo(part):
     try:
