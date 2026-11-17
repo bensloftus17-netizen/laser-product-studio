@@ -132,6 +132,22 @@ class CampaignHubTests(unittest.TestCase):
                 json={"distributor_brand": "not-a-customer"})
             self.assertEqual(unknown.status_code, 400)
 
+    def test_campaign_ui_selects_and_previews_copy_before_copying(self):
+        page = studio.V7_HOME_PAGE
+        # The previous card buttons copied immediately without showing wording.
+        self.assertNotIn('id="campaignCopies"', page)
+        self.assertIn('id="campaignCopyText"', page)
+        self.assertIn('id="campaignCopyAngles"', page)
+        self.assertIn('id="campaignCopyChannels"', page)
+        self.assertIn('data-campaign-channel="linkedin_post"', page)
+        self.assertIn('data-campaign-channel="social_caption"', page)
+        self.assertIn('data-campaign-channel="email_body"', page)
+        self.assertIn('data-campaign-channel="hashtags"', page)
+        self.assertIn('id="campaignCopyCurrent"', page)
+        self.assertIn('id="campaignCopyAll"', page)
+        self.assertIn('id="campaignCopyReset"', page)
+        self.assertIn("renderCampaignCopyStudio()", page)
+
     def test_one_click_without_gemini_uses_honest_fallback(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": ""}), \
              patch("campaign_hub.render_promo", side_effect=self.sample_poster):
