@@ -377,3 +377,7 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .ai-idea:nth-child(1){border-top:5px solid #098fc8}
 .ai-idea:nth-child(2){border-top:5px solid #0a3457}
 .ai-idea:nth-child(3){border-top:5px solid #26a8da}
+
+/* V7: unobtrusive verification note; warning copy stays visible for manual review. */
+.ai-qa-note{font-size:11px;line-height:1.5;color:#35566e;border-top:1px solid #d5e4ed;margin:6px 0 0;padding-top:7px}
+.ai-qa-note strong{font-weight:750}
