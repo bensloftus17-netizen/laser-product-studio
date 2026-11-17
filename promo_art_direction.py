@@ -42,8 +42,9 @@ def normalise_art_direction(raw,family="retail",fallback_variant=0):
     }.get(family,{"price_style":"banner","accent":"#F9A842",
                     "motif":"none","mood":"balanced"})
     return {
-        "layout_variant":_safe_integer(raw.get("layout_variant"),0,2,
-                                       fallback_variant%3),
+        "layout_variant":raw["layout_variant"] if (
+            type(raw.get("layout_variant")) is int and
+            0<=raw["layout_variant"]<=2) else fallback_variant%3,
         "price_style":_safe_choice(raw.get("price_style"),
                                     PRICE_STYLES,defaults["price_style"]),
         "price_position":_safe_choice(raw.get("price_position"),
