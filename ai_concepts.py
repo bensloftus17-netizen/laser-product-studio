@@ -2,6 +2,7 @@
 import os, json, re, secrets, time
 import requests
 from ai_promo_renderer import FAMILIES
+from promo_art_direction import normalise_art_direction
 
 def propose(product, creative_brief="", only_family=None, tone="trade"):
     """Generate three ideas normally, or ONE new concept for a selected design."""
@@ -43,7 +44,20 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "Respond with a JSON object with a 'concepts' array of exactly 3 objects in this exact order, each having: "
             "name (max 30 chars), headline (max 48 chars), subline (max 82 chars), "
             "angle (max 120 chars, a marketing explanation), feature_ids (2 or 3 integer indices into the supplied features array). "
-            "All three headlines and angles must be meaningfully different. Do not request more input from the user.")
+            "All three headlines and angles must be meaningfully different. "
+            "For each concept ALSO return art_direction: an object recommending the visual arrangement. "
+            "Use only these fields: layout_variant (integer 0,1,2 selecting three structurally distinct layouts "
+            "within the poster's family), price_style (bubble/plaque/banner/tag/sticker/corner), "
+            "price_position (standard/opposite), accent (one of #F6D343 #F9A842 #13B5EC #D9E75B "
+            "#40C1E8 #F1E9D8 #E8F4F4 #FFCB5B #FFFFFF), "
+            "product_scale (integer 85..125), product_x and product_y (integers -30..30), "
+            "headline_size (small/normal/large), graphic_motif (none/speed-lines/circles/"
+            "industrial-grid/diagonal-bars), photo_focus (left/centre/right), "
+            "background_mood (bright/balanced/dramatic). "
+            "Select layouts and product photo treatment that suit THIS ACTUAL product. "
+            "Each of the three art directions must differ in composition, colour and graphic motifs. "
+            "The real product photograph, verified RRP and source claims remain fixed. "
+            "Do not request more input from the user.")
     if only_family is not None:
         kind={"retail":"bold retail promotion","premium":"clean premium retail advert",
               "trade":"dramatic trade counter promotion"}[only_family]
@@ -62,7 +76,14 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
                 "Use ONLY supplied manufacturer information. Never invent technical facts, "
                 "fitment, discounts, price, savings, warranty or accessories. "
                 "Return ONLY JSON: a dict with a 'concepts' array containing exactly one "
-                "object with name, headline, subline, angle and feature_ids indices.")
+                "object with name, headline, subline, angle, feature_ids indices "
+                "and art_direction using the same constrained keys as the ordinary "
+                "three-poster response: layout_variant 0..2, price_style bubble/plaque/"
+                "banner/tag/sticker/corner, price_position standard/opposite, "
+                "accent (an approved Laser blue/yellow/cyan hex), product_scale 85..125, "
+                "product_x/y -30..30, headline_size small/normal/large, "
+                "graphic_motif none/speed-lines/circles/industrial-grid/diagonal-bars, "
+                "photo_focus left/centre/right and background_mood bright/balanced/dramatic.")
     model=os.environ.get("GEMINI_MODEL","gemini-3.5-flash-lite").strip()
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
@@ -143,13 +164,16 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             if item not in selected:selected.append(item)
         def safe(field,maxlen):
             return " ".join(str(c.get(field,"")).split())[:maxlen]
+        variant=secrets.randbelow(3)
+        direction=normalise_art_direction(c.get("art_direction"),FAMILIES[family_index],variant)
         cleaned.append({"id":family_index,
             "name":safe("name",30) or ("Promotional Option "+str(family_index+1)),
             "headline":professional_headline(safe("headline",48),product,features),
             "subline":safe("subline",82) or str(product.get("title",""))[:82],
             "angle":safe("angle",120),
             "family":FAMILIES[family_index],
-            "variant":secrets.randbelow(3),  # fresh colour/shapes each press
+            "variant":direction["layout_variant"],
+            "art_direction":direction,
             "features":selected,
             "part":str(product.get("part","")),
             "title":str(product.get("title",""))[:125]})
