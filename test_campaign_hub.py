@@ -71,7 +71,7 @@ class CampaignHubTests(unittest.TestCase):
         with ZipFile(io.BytesIO(pack["archive"])) as zip_file:
             self.assertEqual(set(zip_file.namelist()), expected)
             self.assertTrue(zip_file.read("05_Product_Info/Campaign_Summary.pdf").startswith(b"%PDF"))
-            self.assertIn(b"Social", zip_file.read("04_Copy/All_Channels.txt"))
+            self.assertIn(b"SOCIAL MEDIA", zip_file.read("04_Copy/All_Channels.txt"))
             self.assertIn(b"review", zip_file.read("05_Product_Info/READ_FIRST.txt").lower())
             for key, size in [
                 ("02_Social/Facebook_Instagram_Square.png", (1080, 1080)),
