@@ -149,3 +149,21 @@ No extra API subscription has been introduced: Gemini free tier remains for copy
 - Rendering uses genuine source photographs and locally produced graphics. No paid image generation is required.
 
 **Regression tests:** test_scene_variants.py exercises family-aware crop metadata, safe approved-photo selection, all nine 1200-by-1500 PNG layouts, their visual differences and editor compatibility. GitHub Actions runs it alongside the existing tests.
+
+### V7 — five promotional-design upgrades (November 2026)
+
+This update implements the five requested improvements **in order**, without adding a paid image-generation service. Existing manual posters, original manufacturer packshots, staff-approved distributor branding and verified UK price/VAT records remain authoritative.
+
+1. **Automatic poster checks** (`poster_quality.py`): Records real text and image geometry during rendering rather than attempting OCR. Detects truncated headlines, cropped tool photographs, overlapping headline/price areas, missing RRP/VAT labels, incorrect poster sizes and suspicious unresolved white backgrounds. Automatically retries with safer tool scale/position or alternative composition; refuses designs which still fail mandatory geometry checks. Displays a design-check status on each AI poster, including manual-review warnings and any automatic adjustment. The visual editor retains the corrected layout and product placement.
+
+2. **Gemini-directed layouts** (`promo_art_direction.py`, `ai_concepts.py`): One model call now suggests a validated layout variant, real-photo focal point and lighting mood, graphic motif, product scale/offset, accent, headline size and RRP treatment. These suggestions are restricted to approved choices and bounded numeric ranges. The renderer uses nine structurally different layouts (three each for Retail, Premium and Trade), then adds restrained shapes **behind** source photography and product content. Gemini cannot supply new product pixels, arbitrary image URLs or a replacement price.
+
+3. **Better real background matching** (`promo_scene_library.py`): Added a separate wheel-hub/bearing category and verified car hub/wheel-service photography, improved authentic battery-charging and vehicle-diagnostic photo choices and automatic same-category stock-photo fallback when one source is unavailable. The original Laser Tools application photo still takes priority for Trade when present. Stock pictures are illustrative context and do **not** claim to demonstrate the precise Laser tool. Relevant photo sources remain reviewable.
+
+4. **Different selling points for each poster** (`promo_selling_points.py`): Retail leads with the source-confirmed UK RRP (or PRICE ON REQUEST), Premium with a documented product benefit, and Trade with manufacturer-confirmed vehicle applications or workshop tasks. All featured proof points are selected verbatim from verified manufacturer features; if fitment evidence is missing, the software does not invent it. Campaign focus is shown in the output.
+
+5. **More expressive RRP graphics** (`ai_cinematic.py`, `app.py`): In addition to the previous price bubble, white plaque, angular tag and banner, added a promotional starburst sticker, folded corner ticket and large split-colour price panel. Every style uses the exact verified price and VAT wording, supports PRICE ON REQUEST and remains adjustable through the editor. No fabricated reductions, discounts or VAT conversions.
+
+Tests include `test_poster_quality.py`, `test_ai_art_direction.py`, `test_promo_upgrades.py` and the existing original-product-image / 8899 photo / browser checks; they run in GitHub Actions on each commit.
+
+**Human approval is still required before external publication.** Automated QA finds specific detectable layout problems, not every possible visual-design or compliance issue. Only official product claims and approved/licensed photography should be used.
