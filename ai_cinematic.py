@@ -35,9 +35,9 @@ COLOURS={
     ),
 }
 
-def _fit(d,text,rect,sizes=(62,55,48,40),fill=WHITE,kind="bold",lines=3,align="left"):
+def _fit(d,text,rect,sizes=(62,55,48,40),fill=WHITE,kind="bold",lines=3,align="left",role="text"):
     from ai_promo_renderer import _fit as original
-    return original(d,text,rect,sizes,fill,kind,lines,align)
+    return original(d,text,rect,sizes,fill,kind,lines,align,role)
 
 
 def _brand(d,primary,part,family="retail"):
@@ -102,7 +102,7 @@ def _headline(d,concept,box,sizes,colour=WHITE,maxlines=4,editor=None):
     ratio={"small":.87,"normal":1,"large":1.13}.get((editor or {}).get("headline_size","normal"),1)
     return _fit(d,concept.get("headline"),box,
                 tuple(max(23,int(v*ratio)) for v in sizes),
-                colour,"bold",maxlines)
+                colour,"bold",maxlines,role="headline")
 
 
 def _features(d,concept,boxes,primary=CYAN,fg=WHITE):
@@ -136,6 +136,8 @@ def _footer(d,light=False):
 def _rrp(d,price,box,style,accent,ink="#071F37"):
     """Different strong promo price treatments share verified data and VAT."""
     x0,y0,x1,y1=map(int,box)
+    from poster_quality import record_area
+    record_area("price",box)
     amount=price.get("amount") or "ON REQUEST"
     label=price.get("label") if price.get("amount") else "PRICE"
     vat=price.get("vat") or ""
