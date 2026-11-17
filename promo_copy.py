@@ -53,7 +53,7 @@ def normalise_copy_direction(raw):
 
 
 def _source_features(product):
-    return [_clean(v) for v in product.get("features",[])
+    return [_clean(v) for v in (product.get("features") or [])
             if isinstance(v,str) and _clean(v)]
 
 
@@ -61,10 +61,12 @@ def _proof(product,concept,focus):
     """Only source features, never client-submitted/model-invented assertions."""
     facts=_source_features(product)
     selected=concept.get("features") or []
-    if isinstance(selected,list):
+    if focus=="price" and isinstance(selected,list):
         for value in selected:
             if value in facts:
                 return value
+    # Premium must lead with a benefit, Trade with a documented application.
+    # Re-evaluate source facts rather than trusting user-supplied poster data.
     verified=choose_feature(product,focus)
     return verified if verified in facts else (facts[0] if facts else "")
 
@@ -73,7 +75,7 @@ def _price(product):
     details=verified_price(product)
     if not details["amount"]:
         return "Price on request"
-    label=details["label"].title()
+    label=details["label"]
     vat=details["vat"]
     vat_label={
         "EX VAT":"ex VAT",
@@ -160,6 +162,12 @@ def compose_promotional_copy(product,concept):
         linkedin.append("Check the product information for the intended application.")
 
     tags=_hashtags(product)
+    if direction["hook"]=="feature" and fact_line:
+        # The Gemini-selected writing approach changes the first line only;
+        # the supporting assertion stays verbatim from the manufacturer.
+        social=[fact_line]+[line for line in social if line!=fact_line]
+    elif direction["hook"]=="application" and focus=="application":
+        social[0]="Workshop application | "+short+"."
     social_caption="\n".join(social[:5])
     linkedin_post="\n\n".join(linkedin[:5])+"\n\n"+" ".join(tags[:4])
     subject=f"Laser Tools {part} | {product_name}"[:110] if part else product_name[:110]
