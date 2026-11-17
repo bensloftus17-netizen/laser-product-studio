@@ -640,11 +640,14 @@ $('campaignBtn').addEventListener('click',async()=>{
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
  const rawPrice=$('staffRrp').value.trim();
- if(rawPrice&&!$('staffReview').checked){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
+ // Capture staff review before lookup: load() resets inputs during first search.
+ const reviewedPrice=$('staffReview').checked,reviewedBasis=$('staffRrpBasis').value;
+ if(rawPrice&&!reviewedPrice){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
  button.disabled=true;button.textContent='Building full campaign…';
  clearCampaign();
  try{
    if(!active||active.part!==part){$('campaignStatus').textContent='Retrieving verified product details…';await load(part);}
+   if(rawPrice&&!$('staffRrp').value){$('staffRrp').value=rawPrice;$('staffReview').checked=reviewedPrice;$('staffRrpBasis').value=reviewedBasis;}
    if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
    $('campaignStatus').textContent='Creating three sales angles, seven artwork files, channel copy and a ZIP…';
    const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
@@ -652,8 +655,8 @@ $('campaignBtn').addEventListener('click',async()=>{
      body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
        distributor_brand:selectedDistributor(),
        staff_rrp_ex:rawPrice||staffApplied,
-       staff_rrp_reviewed:!!(rawPrice||staffApplied)&&$('staffReview').checked,
-       staff_rrp_basis:rawPrice?$('staffRrpBasis').value:staffBasis})
+       staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
+       staff_rrp_basis:rawPrice?reviewedBasis:staffBasis})
    });
    const data=await readApiJson(response);
    showCampaign(data);
