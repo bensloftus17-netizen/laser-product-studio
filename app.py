@@ -538,7 +538,7 @@ $('generateAI').addEventListener('click',async()=>{
  }catch(err){
    if(!active||active.part!==productPart)return;
    const message=String(err.message||'Unable to generate AI posters.');
-   const temporary=/\\b(?:HTTP\\s*50[0234]|temporarily unavailable|timed out|timeout|incomplete response)\\b/i.test(message);
+   const temporary=/HTTP 50[0234]|temporarily unavailable|timed out|timeout|incomplete response/i.test(message);
    const heading=temporary?'Gemini is unavailable right now':'AI generation could not be completed';
    const explanation=temporary
     ?'Google temporarily rejected the AI request. Your product lookup and standard marketing tools are still available.'
