@@ -78,7 +78,7 @@ V7_HOME_PAGE = r'''
  <label for="aiEditSceneFile">Optional genuine workshop background photo</label><input type="file" id="aiEditSceneFile" accept="image/png,image/jpeg,image/webp"><button type="button" id="aiSceneRemove" class="ai-text-button">Remove uploaded background</button><small id="aiSceneNote" class="ai-hint">Upload an approved photo (max 2 MB), or use the curated genuine workshop images. Background stock photography does not demonstrate the specific tool.</small>
  <label for="aiEditDisplay">Product photo treatment</label><select id="aiEditDisplay"><option value="shadow">Clean cutout + soft shadow</option><option value="cutout">Cutout only</option><option value="glow">Cutout + subtle glow</option><option value="panel">Framed official photo</option></select>
  <div class="ai-three-sliders"><div><label for="aiEditScale">Product scale <output id="aiEditScaleValue">100</output>%</label><input id="aiEditScale" type="range" min="70" max="160" step="5" value="100"></div><div><label for="aiEditX">Horizontal <output id="aiEditXValue">0</output></label><input id="aiEditX" type="range" min="-100" max="100" step="10" value="0"></div><div><label for="aiEditY">Vertical <output id="aiEditYValue">0</output></label><input id="aiEditY" type="range" min="-100" max="100" step="10" value="0"></div></div>
- <label for="aiEditPriceStyle">RRP badge style</label><select id="aiEditPriceStyle"><option value="bubble">Circular price bubble</option><option value="plaque">Premium outlined plaque</option><option value="banner">Bold price banner</option><option value="tag">Angled corner tag</option></select>
+ <label for="aiEditPriceStyle">RRP badge style</label><select id="aiEditPriceStyle"><option value="bubble">Circular price bubble</option><option value="plaque">Premium outlined plaque</option><option value="banner">Bold price banner</option><option value="tag">Angled price tag</option><option value="sticker">Promotional starburst sticker</option><option value="corner">Folded corner ticket</option><option value="panel">Large split-colour price panel</option></select>
  <label for="aiEditPricePosition">RRP placement</label><select id="aiEditPricePosition"><option value="standard">Original position</option><option value="opposite">Opposite side / alignment</option></select>
  <div class="ai-lock"><strong>Locked for accuracy</strong><span>Official tool photo · Part number · Product title · Verified RRP and VAT · Product features</span></div>
  <p id="aiEditStatus" class="ai-edit-status" aria-live="polite">Choose settings and apply your changes.</p>
@@ -1339,7 +1339,7 @@ def edit_ai_promo(part):
         price_style=edits.get('price_style',('bubble','plaque','banner')[idx])
         headline_size=edits.get('headline_size','normal')
         tone=edits.get('tone','trade')
-        if display_mode not in ('panel','cutout','shadow','glow') or price_style not in ('bubble','plaque','banner','tag'):
+        if display_mode not in ('panel','cutout','shadow','glow') or price_style not in ('bubble','plaque','banner','tag','sticker','corner','panel'):
             return jsonify(error='Unsupported product or price appearance.'),400
         if headline_size not in ('small','normal','large') or tone not in ('trade','technical','premium','sales'):
             return jsonify(error='Unsupported headline style or tone.'),400
