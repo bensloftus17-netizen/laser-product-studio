@@ -22,6 +22,16 @@ class Genuine8899WhiteGapTests(unittest.TestCase):
             self.skipTest("Public manufacturer image unavailable: "+str(exc)[:110])
         cutout,isolated=manufacturer_cutout(r.content)
         self.assertTrue(isolated,"Official 8899 JPG failed safe background separation")
+        # Save both the genuine source and transparent output as diagnostic
+        # artifacts so design review can inspect the *actual* supplier pixels.
+        import os
+        if os.getenv("CI"):
+            os.makedirs("test_artifacts",exist_ok=True)
+            with open("test_artifacts/8899_official_source.jpg","wb") as fp:fp.write(r.content)
+            cutout.save("test_artifacts/8899_cutout.png")
+            proof=Image.new("RGBA",cutout.size,"#0871B6")
+            proof.alpha_composite(cutout)
+            proof.convert("RGB").save("test_artifacts/8899_cutout_on_blue.jpg",quality=88)
         alpha=cutout.getchannel("A")
         rgb=cutout.convert("RGB")
         lo=ImageChops.darker(ImageChops.darker(rgb.getchannel("R"),
