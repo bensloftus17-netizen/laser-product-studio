@@ -128,3 +128,24 @@ Category selection is deterministic and reviewable in promo_scene_library.py. Di
 **Photo rights & reliability:** Curated genuine photos are from [Pexels](https://www.pexels.com/license/), which licenses images for commercial marketing, with use restrictions (including no implied personal/brand endorsement). The preview cards show which scene was chosen and link to its source. Stock image downloads are strictly restricted to hard-coded verified Pexels photo IDs and cached in process. If a background is unavailable, the system uses a clean navy photographic-style graphic rather than drawing a fake charger/vehicle/tool application. Backgrounds may be replaced with an authorised staff-supplied photo in the existing editor. User uploads are not stored on the server.
 
 No extra API subscription has been introduced: Gemini free tier remains for copy direction; real photos and all poster layout rendering use requests and Pillow. New code: ai_cinematic.py, promo_scene_library.py; tests: test_scene_library.py. External-photo calls are disabled only in CI via DISABLE_STOCK_PHOTOS=1, not in the live site.
+
+### V6 — product-aware photography and nine rotating creative layouts (November 2026)
+
+**Step 1 — Real workshop background direction** (promo_scene_library.py, app.py, ai_cinematic.py)
+
+- The tool's manufacturer title is classified before its longer description, protecting charger/battery tools from incorrect engine context.
+- Curated commercial-use photography now has category-specific scene pools. It uses factual contexts such as battery with leads, car brakes, suspension, engine repair and workshop maintenance, rather than inventing a photo of the tool in use.
+- Retail, Premium and Trade each get different crop focus, image brightness, desaturation and blur; part numbers independently rotate among the approved photographs.
+- Official Laser Tools in-situ photos are preferred for the Trade direction when available.
+- Image URLs come only from fixed approved Pexels photo IDs and are downloaded with file-size limits, timeouts and in-process caching. Staff can review the linked photo source. When no photo is available, a clean brand backdrop is used.
+- The manufacturer tool photograph and reviewed UK RRP are not altered or regenerated.
+
+**Step 2 — Three different sub-layouts in each creative family** (ai_variant_layouts.py, ai_cinematic.py)
+
+- Retail A: bright price-led campaign with circular RRP and central product. Retail B: strong diagonal split and price on left. Retail C: large real context photo with white headline ribbon and angular price tag.
+- Premium A: clean light editorial. Premium B: photo-gallery band and spacious headline. Premium C: full-height workshop picture on the left with a dedicated white information column.
+- Trade A: full-bleed workshop advert. Trade B: navy industrial split with photo on the right. Trade C: dramatic diagonal photograph and high-contrast headline ribbon.
+- Each Generate with AI press still produces three separate adverts, one from each family. Sub-layout variation changes between generations and part numbers; the original poster editor retains headline, colour, price and product placement controls.
+- Rendering uses genuine source photographs and locally produced graphics. No paid image generation is required.
+
+**Regression tests:** test_scene_variants.py exercises family-aware crop metadata, safe approved-photo selection, all nine 1200-by-1500 PNG layouts, their visual differences and editor compatibility. GitHub Actions runs it alongside the existing tests.
