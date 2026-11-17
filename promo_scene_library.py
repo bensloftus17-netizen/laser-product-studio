@@ -226,9 +226,19 @@ def find_scene(product:dict,variation=0,official_photo:bytes|None=None,
             "blur":style["blur"],"colour":style["colour"],
         }
     ref=scene_reference(category,variation,family=family)
-    loaded=_fetch_licensed_photo(ref["photo_id"])
-    if loaded:
-        return loaded,ref
+    # If the first approved source is unavailable, try the remaining real
+    # photographs in THIS category, retaining the true selected attribution.
+    # A failed third-party photo must not silently turn a battery campaign
+    # into a generic workshop scene.
+    tried=set()
+    for offset in range(min(3,len(SCENE_CANDIDATES[category]))):
+        alternative=scene_reference(category,variation+offset,family=family)
+        asset_id=alternative["photo_id"]
+        if asset_id in tried:continue
+        tried.add(asset_id)
+        loaded=_fetch_licensed_photo(asset_id)
+        if loaded:
+            return loaded,alternative
     # No false claims and no invented AI workshop photo if external photo is
     # unavailable. A verified manufacturer image is our safe fallback.
     if official_photo:
