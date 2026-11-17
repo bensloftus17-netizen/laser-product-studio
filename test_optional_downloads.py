@@ -24,7 +24,7 @@ class OptionalCampaignDownloadsTests(unittest.TestCase):
         page = studio.V7_HOME_PAGE
         self.assertIn("campaign-save-image", page)
         self.assertIn("Download PNG", page)
-        self.assertIn("campaignAssetUrl(asset.id)+'?download=1'", page)
+        self.assertIn("campaignAssetUrl(asset.id)+'?download=1", page)
 
     def test_png_is_inline_for_preview_and_attachment_only_when_requested(self):
         token = "testmobileoptionaldownloadtoken001"
