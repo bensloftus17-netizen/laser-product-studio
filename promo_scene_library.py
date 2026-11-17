@@ -74,7 +74,7 @@ def classify_product(product: dict) -> str:
 SCENE_CANDIDATES = {
     "battery": [
         (32282232, "Battery with leads in engine bay", .48, .52),
-        (32282233, "Close-up battery terminal connections", .57, .47),
+        (32282233, "Battery terminal connections close-up", .57, .47),
     ],
     "diagnostic": [
         (8985927, "Mechanic checking vehicle engine", .56, .50),
