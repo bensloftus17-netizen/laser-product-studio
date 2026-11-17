@@ -75,6 +75,7 @@ SCENE_CANDIDATES = {
     "battery": [
         (32282232, "Battery with leads in engine bay", .48, .52),
         (32282233, "Battery terminal connections close-up", .57, .47),
+        (6473244, "Car battery with connected jump leads", .52, .50),
     ],
     "diagnostic": [
         (8985448, "Mechanic using automotive diagnostic equipment", .52, .50),
@@ -82,11 +83,13 @@ SCENE_CANDIDATES = {
     ],
     "brakes": [
         (6870304, "Technician working on car brakes", .52, .47),
-        (8986101, "Technician beneath raised car", .40, .47),
+        (6870299, "Close-up mechanic servicing disc brake", .49, .50),
+        (6870300, "Mechanic working on brake assembly", .51, .49),
     ],
     "suspension": [
         (8986101, "Mechanic repairing vehicle undercarriage", .55, .50),
         (8985618, "Mechanic inspecting car underside", .54, .43),
+        (8986069, "Technician checking under a raised vehicle", .52, .50),
     ],
     "engine": [
         (8985517, "Mechanic lifting car engine", .57, .54),
