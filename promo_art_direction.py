@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 
 LAYOUTS=(0,1,2)
-PRICE_STYLES=("bubble","plaque","banner","tag","sticker","corner")
+PRICE_STYLES=("bubble","plaque","banner","tag")
 MOTIFS=("none","speed-lines","circles","industrial-grid","diagonal-bars")
 FOCUSES=("left","centre","right")
 MOODS=("bright","balanced","dramatic")
