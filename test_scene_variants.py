@@ -86,6 +86,20 @@ class SceneDirectionV6Tests(unittest.TestCase):
         self.assertIsNone(photo)
         fake.assert_not_called()
 
+    def test_missing_source_retries_another_photo_only_in_same_category(self):
+        product={"title":"12V Battery Charger with Leads","part":"CH1100"}
+        ids=[scene_reference("battery",i,"retail")["photo_id"]
+             for i in range(3)]
+        def available_after_first(asset_id):
+            return b"real_backdrop" if asset_id==ids[1] else None
+        with patch("promo_scene_library._fetch_licensed_photo",
+                   side_effect=available_after_first) as get:
+            chosen,source=find_scene(product,variation=0,family="retail")
+        self.assertEqual(chosen,b"real_backdrop")
+        self.assertEqual(source["photo_id"],ids[1])
+        self.assertEqual(get.call_count,2)
+        self.assertEqual(source["category"],"battery")
+
     def test_stable_part_category_not_confused_by_generic_description(self):
         p={"title":"12V Battery Maintainer","description":"Engine bay service and workshop use"}
         self.assertEqual(classify_product(p),"battery")
