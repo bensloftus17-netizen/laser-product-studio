@@ -194,7 +194,9 @@ def _rrp(d,price,box,style,accent,ink="#071F37"):
         _fit(d,label,(x0+30,y0+16,x1-27,y0+header_h-5),
              (29,25,21),ink,"bold",1)
         _fit(d,amount,(x0+27,y0+header_h+10,x1-27,y1-41),
-             (85,73,62,52,41), "#061F38","bold",2)
+             (54,48,43,38,34,29) if amount=="ON REQUEST"
+             else (85,73,62,52,41), "#061F38","bold",
+             1 if amount=="ON REQUEST" else 2)
         if vat:
             _fit(d,vat,(x0+30,y1-36,x1-27,y1-12),
                  (21,19),"#061F38","bold",1,"right")
