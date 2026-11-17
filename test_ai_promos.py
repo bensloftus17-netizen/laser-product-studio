@@ -109,6 +109,61 @@ class OneClickPromos(unittest.TestCase):
         self.assertEqual(request_mock.call_count,2)
         self.assertEqual(sleeper.call_count,1)
 
+
+    def test_gemini_retries_truncated_json(self):
+        import os
+        from ai_concepts import propose
+        class Response:
+            status_code = 200
+            def __init__(self, payload):
+                self.payload = payload
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return self.payload
+        incomplete = Response({"candidates":[{"finishReason":"MAX_TOKENS",
+                    "content":{"parts":[{"text":'{"concepts":['}]}}]})
+        completed = Response({"candidates":[{"finishReason":"STOP",
+                    "content":{"parts":[{"text":json.dumps({"concepts":[
+                        {"name":"Offer","headline":"Ratchet set","subline":"Three ratchets",
+                         "angle":"Trade sale","feature_ids":[0]}
+                        for _ in range(3)]})}]}}]})
+        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \\
+             patch("ai_concepts.requests.post",side_effect=[incomplete,completed]) as send:
+            result=propose({**self.product,"marketing_direction":{}})
+        self.assertEqual(len(result),3)
+        self.assertEqual(send.call_count,2)
+        self.assertEqual(send.call_args.kwargs["json"]["generationConfig"]["maxOutputTokens"],6000)
+
+    def test_gemini_explains_invalid_json_after_retry(self):
+        import os
+        from ai_concepts import propose
+        class Broken:
+            status_code=200
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"candidates":[{"content":{"parts":[{"text":'{"concepts": ['}]}}]}
+        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \\
+             patch("ai_concepts.requests.post",return_value=Broken()) as send:
+            with self.assertRaisesRegex(RuntimeError,"incomplete or invalid JSON"):
+                propose({**self.product,"marketing_direction":{}})
+        self.assertEqual(send.call_count,2)
+
+    def test_gemini_does_not_retry_authentication_failures(self):
+        import os
+        import requests
+        from ai_concepts import propose
+        class Denied:
+            status_code=403
+            def raise_for_status(self):
+                raise requests.HTTPError(response=self)
+        with patch.dict(os.environ, {"GEMINI_API_KEY":"test-key"}), \\
+             patch("ai_concepts.requests.post",return_value=Denied()) as send:
+            with self.assertRaisesRegex(RuntimeError,"Check GEMINI_API_KEY"):
+                propose({**self.product,"marketing_direction":{}})
+        self.assertEqual(send.call_count,1)
+
     def test_mocked_endpoint_generates_three_price_led_posters(self):
         import app as app_module
         self.assertNotIn('id="creativeBrief"',app_module.V7_HOME_PAGE)
