@@ -497,13 +497,19 @@ def render_promo(concept, photo, product, distributor=None, editor=None):
     for attempt in range(3):
         proposal=dict(concept)
         controls=dict(opts)
-        if attempt:
-            controls["product_scale"]=100 if attempt==1 else 95
+        if attempt==1:
+            # Preserve the user's composition where possible. Reduce zoom,
+            # cap offsets to safe ranges and first reflow typography.
+            controls["product_scale"]=min(90,int(opts.get("product_scale",100)))
+            controls["product_x"]=max(-30,min(30,int(opts.get("product_x",0))))
+            controls["product_y"]=max(-30,min(30,int(opts.get("product_y",0))))
+            controls["headline_size"]="small"
+        elif attempt==2:
+            controls["product_scale"]=90
             controls["product_x"]=0
             controls["product_y"]=0
             controls["headline_size"]="small"
-            if attempt==2:
-                proposal["variant"]=(variant+1)%3
+            proposal["variant"]=(variant+1)%3
         with capture() as tracked:
             canvas=render_campaign(proposal,photo,product,price,
                 int(proposal.get("variant",0)),controls,scene)
@@ -511,11 +517,13 @@ def render_promo(concept, photo, product, distributor=None, editor=None):
             out=io.BytesIO()
             canvas.convert("RGB").save(out,format="PNG",optimize=True)
             png=out.getvalue()
-        quality=review(png,tracked,price,proposal,
-                       photo if attempt==0 else None)
+        quality=review(png,tracked,price,proposal,photo)
         quality["attempts"]=attempt+1
         quality["auto_corrected"]=attempt>0
         quality["layout_variant"]=int(proposal.get("variant",0))%3
+        quality["effective_editor"]={key:controls[key] for key in (
+            "product_scale","product_x","product_y","headline_size")
+            if key in controls}
         if quality["passed"]:
             if isinstance(editor,dict) and isinstance(editor.get("_quality_report"),dict):
                 editor["_quality_report"].update(quality)
