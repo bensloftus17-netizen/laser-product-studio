@@ -1,5 +1,23 @@
 # Laser Product Studio
 
+## Marketing Hub dashboard (V33)
+
+The home page now follows the approved navy-and-yellow dashboard mock-up:
+- Branded top navigation, compact left sidebar and a campaign-first hero search.
+- **Generate Campaign** uses the original verified product lookup and complete ZIP builder.
+- Honest quick facts (**3** campaign angles, **7** core graphics, **1** complete ZIP),
+  with no invented user accounts, campaign totals, or saved records.
+- Side-by-side campaign asset previews and **one** shared channel-specific copy editor.
+- **Saved Promotions Library** is visible as **Coming soon**, not functional storage.
+  Download the ZIP for any campaign you want to keep in the meantime.
+- Original manual posters, detailed manufacturer record, reviewed-price controls and
+  optional AI poster editor remain available through **Product Studio & advanced poster tools**.
+- Responsive desktop, laptop, tablet and mobile layouts.
+
+No backend migration, database or publishing permission is required by this UI update.
+The hero sample photo is served through the genuine manufacturer-photo endpoint; it
+is not generated or modified using AI.
+
 ## One-click distributor marketing campaigns
 
 The landing page now includes a prominent **Generate Complete Campaign** action.

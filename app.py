@@ -30,20 +30,56 @@ from campaign_hub import build_campaign
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v32-copy-unified">
+<link rel="stylesheet" href="/static/styles.css?design=v33-dashboard-hub">
 </head><body>
-<header class="topbar"><div class="wrap nav">
-<div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
-<nav class="navright"><a href="#builder">Create campaigns</a><a href="#how">How it works</a><span class="tag">DEMO · REVIEW REQUIRED</span></nav></div></header>
-<main><section class="hero"><div class="wrap hero-inner">
-<div class="hero-copy"><div class="hero-kicker">LASER TOOLS · PRODUCT MARKETING STUDIO</div><h1>Create complete<br><span>marketing campaigns.</span></h1><p>One part number. A complete distributor marketing campaign. Genuine product images, source-checked claims, ready-to-edit copy and channel-specific graphics in one download.</p><div class="hero-qualities"><span>Official product imagery</span><span>Three poster styles</span><span>Download-ready drafts</span></div></div>
-<div class="hero-art" aria-hidden="true"><div class="art-sheet art-left"><b>LASER TOOLS</b><strong>TECHNICAL<br>INFORMATION</strong><i></i><i></i></div><div class="art-sheet art-right"><b>LASER TOOLS</b><strong>UK RRP</strong><em>£</em></div><div class="art-sheet art-center"><b>LASER TOOLS</b><strong>PRODUCT<br>SPOTLIGHT</strong><div class="art-circle"></div><small>ENGINEERED FOR THE JOB</small></div></div>
-</div></section>
+<svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
+ <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
+ <symbol id="hub-campaign" viewBox="0 0 24 24"><path d="M3 10 17 5v14L3 14zM7 15l2 6h3l-2-7M20 8v8"/></symbol>
+ <symbol id="hub-saved" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v10H3zM12 11l1.2 2.4 2.8.4-2 2 .5 2.7-2.5-1.5-2.5 1.5.5-2.7-2-2 2.8-.4z"/></symbol>
+ <symbol id="hub-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.4"/><path d="m3 18 5-5 4 4 3-3 6 6"/></symbol>
+ <symbol id="hub-stack" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+ <symbol id="hub-spark" viewBox="0 0 24 24"><path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/></symbol>
+ <symbol id="hub-chart" viewBox="0 0 24 24"><path d="M3 20V11h4v9M10 20V5h4v15M17 20v-8h4v8M2 20h20"/></symbol>
+ <symbol id="hub-copy" viewBox="0 0 24 24"><path d="M8 4h11a2 2 0 0 1 2 2v14H8zM3 8h3M3 12h3M3 16h3"/></symbol>
+ <symbol id="hub-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+</svg>
+<header class="studio-topbar">
+ <a class="studio-brand" href="#builder" aria-label="Laser Tools Marketing Hub home">
+  <span class="studio-mark">LASER<span>TOOLS</span></span>
+  <span class="studio-brand-accent" aria-hidden="true"></span>
+  <span class="studio-brand-title">Laser Product Studio<small>Marketing Hub for Laser Tools products</small></span>
+ </a>
+ <nav class="studio-top-links" aria-label="Primary navigation">
+  <a href="#builder" class="active"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Home</a><a href="#studioWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Campaigns</a><a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Assets</a>
+  <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions</a>
+  <span title="Reports are planned for a future release"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
+ </nav>
+ <span class="studio-pilot-tag">INTERNAL PILOT · REVIEW REQUIRED</span>
+</header>
+<aside class="studio-sidebar" aria-label="Workspace navigation">
+ <div class="sidebar-label">MARKETING WORKSPACE</div>
+ <nav class="sidebar-menu">
+  <a class="active" href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Dashboard</a>
+  <a href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Create Campaign</a>
+  <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions <small>Soon</small></a>
+  <button type="button" data-open-studio><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-stack"></use></svg> Product Studio</button>
+  <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a>
+  <button type="button" data-open-ai><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-spark"></use></svg> AI Generator</button>
+  <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
+ </nav>
+ <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · v1</span></div>
+</aside>
+<main class="studio-main">
 <div class="wrap app-shell" id="builder">
-<div class="steps-panel"><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
-<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">STEP 01 / PRODUCT LOOKUP</div><h2>Find a Laser Tools product</h2><p>Enter a part number to generate every asset needed for a distributor product campaign.</p></div><span class="lookup-chip">Quick product search</span></div>
-<form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create posters <b>→</b></button></div></form>
-<div class="campaign-oneclick"><div><span class="sectioncap">THE COMPLETE MARKETING PACK</span><h3>One part number. One click. One ready-to-review campaign.</h3><p>Three promotional posters, social graphics, a story, website and email banners, copy for every channel, official product facts and a ZIP download.</p></div><button type="button" id="campaignBtn" class="campaign-start">✦ Generate Complete Campaign</button><p id="campaignStatus" role="status" aria-live="polite">Uses original product photographs and verified specifications. No automatic publishing.</p></div>
+<div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
+<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Generate a Marketing Campaign</h2><p>Enter a Laser Tools part number and create a complete draft pack — posters, social graphics, email content and more.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
+<form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Generate Campaign</button></div></form>
+<div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
+<p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
+<details id="campaignSettings" class="campaign-settings">
+ <summary>Distributor branding, product lookup and pricing settings <span>Optional</span></summary>
+ <div class="campaign-settings-content">
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
  <div class="distributor-label"><label for="distributorBrand">Customer / distributor branding <span>(optional)</span></label><small>Show a customer's logo alongside Laser Tools on all three posters.</small></div>
@@ -61,7 +97,38 @@ V7_HOME_PAGE = r'''
 <details class="advanced-options"><summary>Need to enter a price or official product URL? <span>Advanced options</span></summary><div class="advanced-content">
 <div class="advanced-field"><label for="officialUrl">Official UK product URL (optional)</label><input id="officialUrl" type="url" placeholder="https://www.toolconnection.co.uk/products/..."><small>Use this when a product is difficult to find.</small></div>
 <div class="advanced-field"><label for="staffRrp">Staff-reviewed UK RRP</label><div class="price-entry"><input id="staffRrp" type="number" min="0.01" max="500000" step="0.01" placeholder="e.g. 114.70"><select id="staffRrpBasis" aria-label="VAT status"><option value="ex">Ex VAT</option><option value="inc">Inc VAT</option></select></div><label class="check-label"><input id="staffReview" type="checkbox"> I've checked this price</label><button type="button" class="secondary" id="applyRrp">Update poster prices</button><small>Staff-entered prices are drafts and need company approval.</small></div>
-</div></details><p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
+</div></details>
+<button class="studio-preview-trigger secondary" id="searchBtn" type="button">Find product &amp; preview standard posters</button>
+ </div>
+</details>
+<p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
+
+<section class="studio-quickbar" aria-label="Campaign formats and quick actions">
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Distinct sales angles</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>7</b><small>Core artwork files</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-download"></use></svg><b>1</b><small>Complete ZIP download</small></div>
+ <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
+  <a href="#assetWorkspace">View assets</a><button type="button" data-open-ai>Use AI Generator</button>
+ </div>
+</section>
+<section class="studio-workspace" id="studioWorkspace" aria-label="Campaign workspace">
+ <section class="asset-workspace" id="assetWorkspace" aria-label="Campaign asset previews">
+  <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Campaign Asset Preview</h2><p id="assetWorkspaceStatus">Your campaign graphics will appear here after you enter a part number.</p></div><a href="#productStudio" data-open-studio>Official product details</a></div>
+ </section>
+ <section class="copy-workspace" id="copyWorkspace" aria-label="Marketing copy editor">
+  <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-copy"></use></svg> Copy Editor</h2><p>Choose a channel, refine wording and copy it in one place.</p></div></div>
+  <div id="copyEmpty" class="studio-empty-copy"><span aria-hidden="true">✎</span><b>Marketing copy ready when you are</b><p>Generate a campaign to preview social, LinkedIn, email and web copy here.</p></div>
+ </section>
+</section>
+<section class="saved-promotions" id="savedPromotions" aria-label="Saved promotions future feature">
+ <div class="saved-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions Library <span>Coming soon</span></h2><p>Save, reopen, duplicate and organise promotions in a future release.</p></div></div>
+ <div class="saved-not-yet"><span aria-hidden="true">☆</span><div><b>Saved campaigns are not enabled yet</b><p>Your finished campaigns can be downloaded as ZIP files today. A searchable library will be added later — no campaigns are being stored by this demo.</p></div></div>
+</section>
+<details class="studio-deep-tools" id="productStudio">
+ <summary>Product Studio &amp; advanced poster tools <small>Official record · poster previews · AI poster editor · manual export</small></summary>
+ <div id="productRecordSlot" class="record-dock"></div>
+ <div id="advancedStudioSlot" class="advanced-dock"></div>
+</details>
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
@@ -123,9 +190,49 @@ V7_HOME_PAGE = r'''
 <script>
 const $=id=>document.getElementById(id);let campaignData=null;let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;let aiConcepts=[],aiOriginals=[],currentAiEditor=-1,aiEditing=false;
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
+
+function installMarketingHubLayout(){
+ // Relocate existing functional controls into the approved dashboard structure.
+ // IDs and event handlers remain unchanged; no duplicate editors or poster APIs.
+ const assets=$('assetWorkspace'),copy=$('copyWorkspace');
+ assets.appendChild($('previews'));
+ assets.appendChild($('campaignResults'));
+ copy.appendChild($('unifiedCopyStudio'));
+ const record=document.querySelector('.record-panel');
+ const advanced=document.querySelector('.right');
+ $('productRecordSlot').appendChild(record);
+ $('advancedStudioSlot').appendChild(advanced);
+ const previewDialog=$('aiPosterPreview');
+ if(previewDialog)document.body.appendChild(previewDialog);
+ const old=document.querySelector('.content');
+ if(old)old.hidden=true;
+}
+installMarketingHubLayout();
+function refreshWorkspaceHeading(product){
+ $('assetWorkspaceStatus').textContent=product
+  ?'Part '+String(product.part||'')+' · '+String(product.title||'')+' — review all artwork before publishing.'
+  :'Enter a product part number above to prepare the campaign assets.';
+ if(product&&product.part){
+  const image=$('heroProductPhoto');
+  image.hidden=false;
+  image.src='/api/photo/'+encodeURIComponent(product.part);
+ }
+}
+function showCopyEmpty(){
+ $('copyEmpty').hidden=!$('unifiedCopyStudio').hidden;
+}
+document.querySelectorAll('[data-open-studio]').forEach(control=>control.addEventListener('click',()=>{
+ $('productStudio').open=true;
+ $('productStudio').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventListener('click',()=>{
+ $('productStudio').open=true;
+ $('aiExplore').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;if(copyStudioData?.origin==='campaign'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}$('campaignStatus').textContent='Uses original product photos and verified specifications. Review everything before publishing.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;if(copyStudioData?.origin==='campaign'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  const id=selectedDistributor(),target=$('distributorPreview');
  const labels={gsf:'GSF Car Parts',euro:'Euro Car Parts',mpd:'Motor Parts Direct'};
@@ -139,7 +246,7 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('generateAI').disabled=true;clearAiDesigns();clearCampaign();setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
@@ -186,7 +293,7 @@ async function lookupWithWakeRetry(url){
  }
 }
 async function load(part){if(inflight)return;inflight=true;reset();const b=$('searchBtn');b.disabled=true;b.textContent='Retrieving official product…';setState('Looking up official product pages and product information sheets.','working');$('record').innerHTML='<div class="placeholder"><b>Searching official source…</b></div>';
-try{const override=$('officialUrl').value.trim();const data=await lookupWithWakeRetry(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`);active=data.product;activePhoto=data.photo_url;$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
+try{const override=$('officialUrl').value.trim();const data=await lookupWithWakeRetry(`/api/lookup/${encodeURIComponent(part)}${override?'?uk_url='+encodeURIComponent(override):''}`);active=data.product;activePhoto=data.photo_url;refreshWorkspaceHeading(active);$('generateAI').disabled=!data.photo_url;setProgress(2);$('record').innerHTML=productCard(active,data.photo_url);showPreviews(active,data.photo_url);$('reviewed').disabled=!data.photo_url;setState('Official product record retrieved. Review the details and tick the approval box to download the pack.','success');}
 catch(e){$('record').innerHTML='<div class="placeholder"><b>Product lookup unsuccessful</b><p>'+esc(e.message)+'</p></div>';$('previews').innerHTML='<div class="posterempty">No output generated because there is no verified manufacturer record.</div>';setState(e.message,'error');}finally{b.disabled=false;b.innerHTML='Find product &amp; create posters <b>→</b>';inflight=false;}}
 $('applyRrp').addEventListener('click',()=>{
     if(!active){setState('Find a product first.','error');return;}
@@ -226,6 +333,7 @@ function renderAiMarketingCopy(){
  }
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
+ showCopyEmpty();
 }
 
 let aiScenePhotos=[null,null,null];
@@ -235,7 +343,7 @@ const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'
 
 function clearAiDesigns(){
  aiConcepts=[];aiOriginals=[];currentAiEditor=-1;aiScenePhotos=[null,null,null];
- if(copyStudioData?.origin==='ai'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}
+ if(copyStudioData?.origin==='ai'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;showCopyEmpty();}
  $('aiIdeas').innerHTML='';
  $('aiEditor').hidden=true;
 }
@@ -450,8 +558,10 @@ function showCampaign(data){
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
+ showCopyEmpty();
+ $('previews').hidden=true;
  $('campaignResults').hidden=false;
- $('campaignResults').scrollIntoView({behavior:'smooth',block:'start'});
+ $('studioWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 let copyStudioData=null,campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
@@ -541,11 +651,14 @@ $('campaignBtn').addEventListener('click',async()=>{
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
  const rawPrice=$('staffRrp').value.trim();
- if(rawPrice&&!$('staffReview').checked){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
+ // Capture staff review before lookup: load() resets inputs during first search.
+ const reviewedPrice=$('staffReview').checked,reviewedBasis=$('staffRrpBasis').value;
+ if(rawPrice&&!reviewedPrice){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
  button.disabled=true;button.textContent='Building full campaign…';
  clearCampaign();
  try{
    if(!active||active.part!==part){$('campaignStatus').textContent='Retrieving verified product details…';await load(part);}
+   if(rawPrice&&!$('staffRrp').value){$('staffRrp').value=rawPrice;$('staffReview').checked=reviewedPrice;$('staffRrpBasis').value=reviewedBasis;}
    if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
    $('campaignStatus').textContent='Creating three sales angles, seven artwork files, channel copy and a ZIP…';
    const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
@@ -553,8 +666,8 @@ $('campaignBtn').addEventListener('click',async()=>{
      body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
        distributor_brand:selectedDistributor(),
        staff_rrp_ex:rawPrice||staffApplied,
-       staff_rrp_reviewed:!!(rawPrice||staffApplied)&&$('staffReview').checked,
-       staff_rrp_basis:rawPrice?$('staffRrpBasis').value:staffBasis})
+       staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
+       staff_rrp_basis:rawPrice?reviewedBasis:staffBasis})
    });
    const data=await readApiJson(response);
    showCampaign(data);
@@ -563,12 +676,12 @@ $('campaignBtn').addEventListener('click',async()=>{
    anchor.download='LASER_'+part+'_Complete_Campaign.zip';document.body.appendChild(anchor);
    anchor.click();anchor.remove();
  }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
- finally{button.disabled=false;button.textContent='✦ Generate Complete Campaign';}
+ finally{button.disabled=false;button.textContent='✦ Generate Campaign';}
 });
 
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 ['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
-$('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
+$('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
 </script></body></html>
 
