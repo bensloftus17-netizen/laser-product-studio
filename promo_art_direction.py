@@ -90,8 +90,11 @@ def draw_background_motif(photo,style):
     """Decorative motifs on the background only, NEVER on the product/copy."""
     from PIL import Image,ImageDraw
     motif=str((style or {}).get("graphic_motif") or "none")
-    if motif not in MOTIFS or motif=="none":return photo
     result=photo.convert("RGBA")
+    # Consistent RGBA even when the model requests "none"; Pillow's
+    # alpha_composite requires identical modes and previously crashed when
+    # a legacy concept provided no motif.
+    if motif not in MOTIFS or motif=="none":return result
     w,h=result.size
     overlay=Image.new("RGBA",(w,h),(0,0,0,0))
     d=ImageDraw.Draw(overlay,"RGBA")
