@@ -59,7 +59,11 @@ class Genuine8899WhiteGapTests(unittest.TestCase):
             bbox=component.getbbox()
             area=component.histogram()[255]
             if bbox and area>200:
-                components.append((area,bbox))
+                from PIL import ImageStat
+                stats=ImageStat.Stat(rgb,mask=component)
+                components.append((area,bbox,
+                    tuple(round(v,1) for v in stats.mean),
+                    tuple(round(v,1) for v in stats.stddev)))
         components.sort(reverse=True)
         print("REAL 8899 WHITE REGIONS:",components[:12])
         fraction=remaining/(cutout.width*cutout.height)
