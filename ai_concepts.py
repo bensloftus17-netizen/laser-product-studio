@@ -6,6 +6,89 @@ from promo_art_direction import normalise_art_direction
 from promo_copy import normalise_copy_direction
 from promo_selling_points import focus_concept
 
+def _gemini_json(payload, key, model):
+    """Read Gemini JSON with bounded retries and actionable, non-secret errors.
+
+    HTTP 200 does not guarantee that the model finished writing the JSON.
+    Gemini may end with MAX_TOKENS or produce empty/truncated candidate text.
+    """
+    url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent"
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                url,
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload,
+                timeout=28,
+            )
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else 0
+            if status in (500, 502, 503, 504) and attempt == 0:
+                time.sleep(1.5)
+                continue
+            if status in (400, 401, 403):
+                message = ("Google Gemini rejected the request or API key (HTTP "
+                           + str(status) + "). Check GEMINI_API_KEY, GEMINI_MODEL "
+                           "and model access in Google AI Studio.")
+            elif status == 429:
+                message = ("Gemini API quota or rate limit reached (HTTP 429). "
+                           "Check your free-tier limits in Google AI Studio.")
+            elif status == 404:
+                message = ("Gemini model unavailable (HTTP 404). Check GEMINI_MODEL "
+                           "and model access for your API key in Google AI Studio.")
+            elif status >= 500:
+                message = ("Google Gemini is temporarily unavailable (HTTP "
+                           + str(status) + "). Try again shortly.")
+            else:
+                message = "Gemini API request failed (HTTP " + str(status) + ")."
+            raise RuntimeError(message) from exc
+        except requests.Timeout as exc:
+            if attempt == 0:
+                continue
+            raise RuntimeError("Gemini timed out twice. Retry later or check Render logs.") from exc
+        except requests.ConnectionError as exc:
+            if attempt == 0:
+                continue
+            raise RuntimeError("The server could not reach Google's Gemini API. Check Render networking and DNS.") from exc
+        except requests.RequestException as exc:
+            raise RuntimeError("The Gemini API request failed. Check Render logs for network errors.") from exc
+
+        try:
+            body = response.json()
+            if not isinstance(body, dict):
+                raise ValueError("Expected a Gemini response object")
+            candidates = body.get("candidates") or []
+            candidate = candidates[0] if candidates and isinstance(candidates[0], dict) else {}
+            reason = candidate.get("finishReason", "")
+            if reason == "MAX_TOKENS":
+                if attempt == 0:
+                    continue
+                raise RuntimeError(
+                    "Gemini stopped before finishing its JSON response (MAX_TOKENS). "
+                    "Try again or increase the output limit."
+                )
+            if reason and reason not in ("STOP", "FINISH_REASON_UNSPECIFIED"):
+                raise RuntimeError("Gemini could not finish the response ("
+                                   + str(reason)[:40] + "). Check model access and input policy.")
+            parts = candidate.get("content", {}).get("parts", [])
+            generated = "".join(
+                part.get("text", "") for part in parts
+                if isinstance(part, dict) and isinstance(part.get("text", ""), str)
+            )
+            if not generated.strip():
+                raise ValueError("Gemini returned no JSON text")
+            return json.loads(generated)
+        except (ValueError, TypeError, KeyError, IndexError) as exc:
+            if attempt == 0:
+                continue
+            raise RuntimeError(
+                "Gemini returned incomplete or invalid JSON twice. "
+                "Check GEMINI_MODEL and the Render logs if the problem persists."
+            ) from exc
+    raise RuntimeError("Gemini did not return a usable response.")
+
+
 def propose(product, creative_brief="", only_family=None, tone="trade"):
     """Generate three ideas normally, or ONE new concept for a selected design."""
     if only_family is not None and only_family not in FAMILIES:
@@ -102,47 +185,15 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
     # Restrict model configuration to identifier characters, never arbitrary URLs.
     if not re.fullmatch(r"[a-zA-Z0-9._-]{3,80}",model):
         raise RuntimeError("Invalid GEMINI_MODEL configuration.")
-    url="https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent"
     payload={
         "systemInstruction":{"parts":[{"text":system}]},
         "contents":[{"role":"user","parts":[{"text":json.dumps(context,ensure_ascii=False)}]}],
-        "generationConfig":{"temperature":1.0,"responseMimeType":"application/json",
-                            "maxOutputTokens":2200}
+        # 2,200 tokens could exhaust the allowance before Gemini completes
+        # three multi-field concepts, including model thinking tokens.
+        "generationConfig":{"temperature":0.65,"responseMimeType":"application/json",
+                            "maxOutputTokens":2500 if only_family else 6000}
     }
-    try:
-        # Retry only brief Gemini server failures (500/502/503/504).
-        # Do not retry quota (429), authentication or missing model errors.
-        for attempt in range(3):
-            response=requests.post(url,headers={"x-goog-api-key":key,"Content-Type":"application/json"},json=payload,timeout=24)
-            if getattr(response,"status_code",200) in (500,502,503,504) and attempt<2:
-                time.sleep(1.5*(attempt+1))
-                continue
-            response.raise_for_status()
-            break
-        body=response.json()
-        candidates=body.get("candidates") or []
-        if not candidates:
-            raise RuntimeError("Gemini returned no poster ideas. Please retry.")
-        parts=candidates[0].get("content",{}).get("parts",[])
-        generated="".join(part.get("text","") for part in parts if isinstance(part,dict))
-        raw=json.loads(generated)
-    except requests.HTTPError as exc:
-        status=exc.response.status_code if exc.response is not None else 0
-        if status in (400,401,403):
-            message="Google Gemini rejected the request or API key. Check GEMINI_API_KEY and free-tier access in Google AI Studio."
-        elif status==429:
-            message="Gemini free-tier rate limit reached. Try again later; do not enable paid billing."
-        elif status==404:
-            message="Gemini model unavailable for this Google project. The default is gemini-3.5-flash-lite; check GEMINI_MODEL or your AI Studio project access."
-        elif status>=500:
-            message="Google Gemini is temporarily unavailable. Retry later."
-        else:
-            message="Gemini API request failed (HTTP "+str(status)+"). Check your Google AI Studio API key."
-        raise RuntimeError(message) from exc
-    except requests.Timeout as exc:
-        raise RuntimeError("Google Gemini timed out. Try again.") from exc
-    except (requests.RequestException, KeyError, ValueError, TypeError) as exc:
-        raise RuntimeError("Could not connect to or read the Gemini response. Please retry.") from exc
+    raw = _gemini_json(payload, key, model)
     # Gemini's JSON mode can return either the requested {"concepts": [...]}
     # object or the bare [...] array. Both represent valid generative output.
     if isinstance(raw,list):
@@ -251,24 +302,11 @@ def suggest_headlines(product, family, tone="trade", count=3):
             "NEVER say conquer, unlock, elevate, unleash, upgrade your, ultimate, "
             "game changer, precision engineering for, revolutionise, or dominate. "
             "Not poetry, not slogans: real product marketing for UK mechanics.")
-    url="https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent"
     payload={"systemInstruction":{"parts":[{"text":system}]},
              "contents":[{"role":"user","parts":[{"text":json.dumps(context,ensure_ascii=False)}]}],
-             "generationConfig":{"responseMimeType":"application/json","temperature":.8,
-                                 "maxOutputTokens":500}}
-    try:
-        for attempt in range(3):
-            response=requests.post(url,headers={"x-goog-api-key":key,
-                                   "Content-Type":"application/json"},json=payload,timeout=24)
-            if getattr(response,"status_code",200) in (500,502,503,504) and attempt<2:
-                time.sleep(1.5*(attempt+1));continue
-            response.raise_for_status()
-            break
-        response_body=response.json()
-        chunks=response_body.get("candidates",[])[0].get("content",{}).get("parts",[])
-        parsed=json.loads("".join(v.get("text","") for v in chunks))
-    except (requests.RequestException,IndexError,ValueError,KeyError) as exc:
-        raise RuntimeError("Gemini headline suggestions are unavailable. Retry later.") from exc
+             "generationConfig":{"responseMimeType":"application/json","temperature":0.65,
+                                 "maxOutputTokens":1600}}
+    parsed = _gemini_json(payload, key, model)
     raw=parsed.get("headlines") if isinstance(parsed,dict) else parsed
     if not isinstance(raw,list):
         raise RuntimeError("Gemini did not return headline choices.")
