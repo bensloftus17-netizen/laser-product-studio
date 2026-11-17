@@ -18,3 +18,12 @@ jobs:
         env:
           DISABLE_STOCK_PHOTOS: "1"
         run: python -m unittest -v test_studio.py test_ai_design.py test_ai_creative.py test_ai_promos.py test_ai_editor.py test_ai_v3.py test_scene_library.py test_ai_polish.py test_ai_white_gaps.py test_ai_campaign_layouts.py test_real_8899_photo.py
+
+      - name: Keep real 8899 cutout proof for visual inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genuine-8899-photo-verification
+          path: test_artifacts/
+          if-no-files-found: ignore
+          retention-days: 2
