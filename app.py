@@ -185,7 +185,7 @@ function clearAiDesigns(){
  $('aiEditor').hidden=true;
 }
 function renderAiGallery(){
- $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a></div></div></article>').join('');
+ $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.quality?.status?'<p class="ai-qa-note">Design check: '+esc(c.quality.status==='passed'?'Passed':c.quality.status==='review'?'Manual review advised':'Rejected')+(c.quality.auto_corrected?' · Layout automatically adjusted':'')+(c.quality.warnings?.length?' · '+esc(c.quality.warnings[0]):'')+'</p>':'')+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a></div></div></article>').join('');
 }
 function setAiPaletteOptions(index){
  const selector=$('aiEditPalette');
@@ -1231,7 +1231,16 @@ def ai_recommendations(part):
                      **editor_preferences(art)}
             poster=render_ai_promo(concept,image,product,distributor,editor=options)
             concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
-            if quality:concept['quality']=quality
+            if quality:
+                concept['quality']=quality
+                if quality.get('auto_corrected'):
+                    corrected=int(quality.get('layout_variant',concept['variant']))
+                    concept['variant']=corrected
+                    art['layout_variant']=corrected
+                    # The editor opens exactly the auto-repaired artwork.
+                    for key,value in [('product_scale',100),('product_x',0),
+                                      ('product_y',0),('headline_size','small')]:
+                        art[key]=value
             # Keep the image source visible to staff for licence and accuracy
             # review, but never embed large binary data in a JSON concept.
             concept['scene']={k:reference.get(k) for k in (
@@ -1419,7 +1428,15 @@ def edit_ai_promo(part):
         render_options['_quality_report']=quality
         rendered=render_ai_promo(concept,image,product,brand,editor=render_options)
         concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
-        if quality:concept['quality']=quality
+        if quality:
+            concept['quality']=quality
+            if quality.get('auto_corrected'):
+                corrected=int(quality.get('layout_variant',raw_palette))
+                concept['variant']=corrected
+                concept['editor'].update({
+                    'palette':corrected,'product_scale':100,
+                    'product_x':0,'product_y':0,'headline_size':'small'})
+                concept['art_direction']['layout_variant']=corrected
         if scene_reference:
             concept['scene']={k:scene_reference.get(k) for k in (
                 'category','description','source','page_url','license_url',
