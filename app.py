@@ -29,7 +29,7 @@ from promo_copy import compose_promotional_copy, normalise_copy_direction
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v30">
+<link rel="stylesheet" href="/static/styles.css?design=v31">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -63,7 +63,24 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
+<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
+<section id="aiMarketingCopy" class="ai-marketing-copy" hidden aria-label="AI promotional captions">
+  <div class="ai-copy-heading"><div><span class="sectioncap">CAMPAIGN CONTENT / READY-TO-EDIT DRAFTS</span><h3>Social posts, email and hashtags</h3>
+   <p>Generated alongside your posters using verified manufacturer details. Select a design, edit the wording and copy what you need. Review before publishing.</p></div></div>
+  <div id="aiCopyDesignTabs" class="ai-copy-design-tabs" role="group" aria-label="Poster to promote"></div>
+  <div id="aiCopyChannels" class="ai-copy-channels" role="group" aria-label="Marketing channel">
+   <button type="button" data-copy-channel="social">Social caption</button>
+   <button type="button" data-copy-channel="linkedin">LinkedIn post</button>
+   <button type="button" data-copy-channel="email">Product email</button>
+   <button type="button" data-copy-channel="hashtags">Hashtags</button>
+  </div>
+  <label for="aiCopyText" id="aiCopyLabel" class="ai-copy-label">Social caption</label>
+  <textarea id="aiCopyText" rows="8" spellcheck="true" aria-label="Editable promotional copy"></textarea>
+  <div class="ai-copy-actions"><button type="button" id="aiCopyCurrent" class="ai-secondary">Copy this text</button>
+   <button type="button" id="aiCopyAll" class="ai-secondary">Copy all four formats</button>
+   <span id="aiCopyStatus" role="status" aria-live="polite"></span></div>
+  <p class="ai-copy-disclaimer">Marketing draft only. Check current pricing, VAT, product suitability and approval before publishing.</p>
+</section></section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
 <div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
 <div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
 <form id="aiEditorForm" class="ai-editor-controls">
@@ -175,6 +192,44 @@ $('applyRrp').addEventListener('click',()=>{
     setState('Draft price applied. Review all posters before exporting.','success');
 });
 const aiFamilyNames=['Bold Retail Promo','Clean Premium Promo','Trade Campaign Promo'];
+let aiCopyIndex=0,aiCopyChannel='social',aiCopyOverrides={};
+const aiCopyLabels={social:'Social caption',linkedin:'LinkedIn post',email:'Product email',hashtags:'Hashtags'};
+function campaignCopyText(index,channel){
+ const data=aiConcepts[index]?.marketing_copy||{},key=String(index)+':'+channel;
+ if(Object.prototype.hasOwnProperty.call(aiCopyOverrides,key))return aiCopyOverrides[key];
+ if(channel==='social')return data.social_caption||'';
+ if(channel==='linkedin')return data.linkedin_post||'';
+ if(channel==='email')return 'Subject: '+(data.email_subject||'')+'\n\n'+(data.email_body||'');
+ if(channel==='hashtags')return Array.isArray(data.hashtags)?data.hashtags.join(' '):'';
+ return '';
+}
+function renderAiMarketingCopy(){
+ const section=$('aiMarketingCopy');
+ if(!aiConcepts.some(c=>c.marketing_copy)){
+  section.hidden=true;return;
+ }
+ section.hidden=false;
+ aiCopyIndex=Math.max(0,Math.min(aiConcepts.length-1,aiCopyIndex));
+ $('aiCopyDesignTabs').innerHTML=aiConcepts.map((c,i)=>
+  '<button type="button" data-copy-index="'+i+'" aria-pressed="'+String(i===aiCopyIndex)+'" class="'+(i===aiCopyIndex?'selected':'')+'">'+esc(aiFamilyNames[i])+'</button>').join('');
+ document.querySelectorAll('#aiCopyChannels button').forEach(b=>{
+   const selected=b.dataset.copyChannel===aiCopyChannel;
+   b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));
+ });
+ $('aiCopyLabel').textContent=aiFamilyNames[aiCopyIndex]+' · '+aiCopyLabels[aiCopyChannel];
+ $('aiCopyText').value=campaignCopyText(aiCopyIndex,aiCopyChannel);
+ $('aiCopyStatus').textContent='';
+}
+async function copyCampaignText(value){
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+   await navigator.clipboard.writeText(value);return true;
+ }
+ const field=$('aiCopyText'),old=field.value;
+ field.value=value;field.focus();field.select();
+ const copied=document.execCommand('copy');
+ field.value=old;return copied;
+}
+
 let aiScenePhotos=[null,null,null];
 const aiAccentPresets=[['#FFC82E','#FF9D3D','#C5EB58'],['#B28D52','#0D95CD','#418C9B'],['#FFAA32','#25C4EC','#D2E96B']];
 const aiBackgroundPresets=[['#056DB9','#0A65AF','#175CB0'],['#FCFBF8','#FBFDFF','#F9FBFC'],['#0E263C','#061E39','#202D3A']];
@@ -182,11 +237,14 @@ const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'
 
 function clearAiDesigns(){
  aiConcepts=[];aiOriginals=[];currentAiEditor=-1;aiScenePhotos=[null,null,null];
+ aiCopyIndex=0;aiCopyChannel='social';aiCopyOverrides={};
+ $('aiMarketingCopy').hidden=true;
  $('aiIdeas').innerHTML='';
  $('aiEditor').hidden=true;
 }
 function renderAiGallery(){
- $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.quality?.status?'<p class="ai-qa-note">Design check: '+esc(c.quality.status==='passed'?'Passed':c.quality.status==='review'?'Manual review advised':'Rejected')+(c.quality.auto_corrected?' · Layout automatically adjusted':'')+(c.quality.warnings?.length?' · '+esc(c.quality.warnings[0]):'')+'</p>':'')+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a></div></div></article>').join('');
+ $('aiIdeas').innerHTML=aiConcepts.map((c,i)=>'<article class="ai-idea"><img loading="lazy" src="'+c.preview+'" alt="'+esc(c.name)+' poster preview"><div class="ai-copy"><span class="ai-index">AI PROMO '+String(i+1).padStart(2,'0')+'</span><h4>'+esc(aiFamilyNames[i])+'</h4><p><b>'+esc(c.headline)+'</b></p><p>'+esc(c.angle)+'</p>'+(c.quality?.status?'<p class="ai-qa-note">Design check: '+esc(c.quality.status==='passed'?'Passed':c.quality.status==='review'?'Manual review advised':'Rejected')+(c.quality.auto_corrected?' · Layout automatically adjusted':'')+(c.quality.warnings?.length?' · '+esc(c.quality.warnings[0]):'')+'</p>':'')+(c.scene?.source&&c.scene.source!=='No external photograph used'?'<p class="ai-photo-credit">Background: '+esc(c.scene.description||c.scene.source)+(c.scene.page_url? ' · <a href="'+esc(c.scene.page_url)+'" target="_blank" rel="noopener noreferrer">Photo source</a>':'')+'</p>':'')+'<div class="ai-card-actions"><button type="button" class="ai-edit-trigger" data-ai-edit="'+i+'">✎ Edit this poster</button><button type="button" class="ai-zoom" data-ai-zoom="'+i+'">View full size ⤢</button><a href="'+c.preview+'" download="LASER_'+esc(active?.part||c.part)+'_AI_'+(i+1)+'.png">Download PNG ↓</a><button type="button" data-ai-copy="'+i+'">Captions &amp; email</button></div></div></article>').join('');
+ renderAiMarketingCopy();
 }
 function setAiPaletteOptions(index){
  const selector=$('aiEditPalette');
@@ -266,6 +324,7 @@ async function saveAiEdit(regenerate=false){
   const data=await readApiJson(response);
   if(!active||active.part!==productPart||currentAiEditor!==idx)return;
   aiConcepts[idx]=data.concept;
+  Object.keys(aiCopyOverrides).filter(key=>key.startsWith(String(idx)+':')).forEach(key=>delete aiCopyOverrides[key]);
   renderAiGallery();
   $('aiEditorPreview').src=data.concept.preview;
   $('aiEditorDownload').href=data.concept.preview;
@@ -350,7 +409,43 @@ $('generateAI').addEventListener('click',async()=>{
  }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
  finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
+$('aiCopyDesignTabs').addEventListener('click',event=>{
+ const btn=event.target.closest('button[data-copy-index]');
+ if(!btn)return;
+ aiCopyIndex=Number(btn.dataset.copyIndex);renderAiMarketingCopy();
+});
+$('aiCopyChannels').addEventListener('click',event=>{
+ const btn=event.target.closest('button[data-copy-channel]');
+ if(!btn)return;
+ aiCopyChannel=btn.dataset.copyChannel;renderAiMarketingCopy();
+});
+$('aiCopyText').addEventListener('input',()=>{
+ aiCopyOverrides[String(aiCopyIndex)+':'+aiCopyChannel]=$('aiCopyText').value;
+ $('aiCopyStatus').textContent='Draft changed locally. Copy to save it.';
+});
+$('aiCopyCurrent').addEventListener('click',async()=>{
+ try{
+  if(await copyCampaignText($('aiCopyText').value))
+   $('aiCopyStatus').textContent='Copied to clipboard.';
+  else $('aiCopyStatus').textContent='Select the text and copy it manually.';
+ }catch(e){$('aiCopyStatus').textContent='Copy unavailable. Select and copy the text.';}
+});
+$('aiCopyAll').addEventListener('click',async()=>{
+ const channels=['social','linkedin','email','hashtags'];
+ const text=channels.map(ch=>aiCopyLabels[ch]+'\n'+campaignCopyText(aiCopyIndex,ch)).join('\n\n----------\n\n');
+ try{
+  if(await copyCampaignText(text))$('aiCopyStatus').textContent='All four formats copied.';
+  else $('aiCopyStatus').textContent='Select and copy the text manually.';
+ }catch(e){$('aiCopyStatus').textContent='Copy unavailable. Copy each section manually.';}
+});
 $('aiIdeas').addEventListener('click',event=>{
+ const copyBtn=event.target.closest('button[data-ai-copy]');
+ if(copyBtn){
+  aiCopyIndex=Number(copyBtn.dataset.aiCopy);aiCopyChannel='social';
+  renderAiMarketingCopy();
+  $('aiMarketingCopy').scrollIntoView({behavior:'smooth',block:'start'});
+  return;
+ }
  const editBtn=event.target.closest('button[data-ai-edit]');
  if(editBtn){openAiEditor(Number(editBtn.dataset.aiEdit));return;}
  const btn=event.target.closest('button[data-ai-zoom]');
