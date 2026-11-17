@@ -187,85 +187,140 @@ def _readable_ink(accent,default="#061F38"):
         return default
 
 
+
+def _photo_stage(photo_bytes, region, darken=.12, blur=2.2):
+    """Crop REAL application/background photography to a given campaign region."""
+    x0,y0,x1,y1=map(int,region)
+    w,h=x1-x0,y1-y0
+    if not photo_bytes:
+        return Image.new("RGBA",(w,h),"#D3E1E8")
+    try:
+        source=ImageOps.exif_transpose(Image.open(io.BytesIO(photo_bytes))).convert("RGB")
+        source.thumbnail((2400,2400),Image.Resampling.LANCZOS)
+        img=ImageOps.fit(source,(w,h),method=Image.Resampling.LANCZOS)
+        img=ImageEnhance.Color(img).enhance(.7)
+        img=ImageEnhance.Brightness(img).enhance(max(.48,1-darken))
+        if blur:img=img.filter(ImageFilter.GaussianBlur(blur))
+        return img.convert("RGBA")
+    except (OSError,ValueError):
+        return Image.new("RGBA",(w,h),"#D3E1E8")
+
+
+def _small_label(d,label,box,colour=WHITE):
+    return _fit(d,label,box,(27,24,21,18),colour,"bold",1)
+
+
 def _retail(concept,photo,product,price,variation,editor,background):
+    """RETAIL: central floating product, horizontal headline and huge RRP burst.
+
+    Distinct from other campaign families: product centred in photography
+    and a circular callout, not a persistent left-hand title strip.
+    """
     p=COLOURS["retail"][variation%3];blue=p["primary"]
-    yellow=_accent(editor,p["accent"])
+    accent=_accent(editor,p["accent"])
     canvas=_scene_base(background,"retail",product,variation)
     d=ImageDraw.Draw(canvas,"RGBA")
-    # Broad asymmetric, photo-revealing angular header plate.
-    d.polygon([(0,0),(850,0),(641,800),(0,860)],fill=(3,23,45,231))
-    d.polygon([(752,0),(834,0),(646,752),(597,752)],fill=blue)
-    d.polygon([(0,742),(388,677),(388,1150),(0,1230)],fill=(2,30,57,185))
-    d.polygon([(0,1270),(1200,1187),(1200,1500),(0,1500)],fill=(3,23,45,242))
-    d.polygon([(0,1259),(1200,1176),(1200,1196),(0,1281)],fill=blue)
-    _product(canvas,photo,product,(328,452,1190,1302),editor)
+    d.rectangle((0,0,1200,263),fill=(2,23,43,240))
+    d.polygon([(0,249),(1200,222),(1200,270),(0,306)],fill=blue)
+    d.polygon([(0,467),(1200,420),(1200,500),(0,551)],fill=(7,60,101,105))
+    d.polygon([(0,1170),(1200,1075),(1200,1500),(0,1500)],fill=(2,22,40,246))
+    d.polygon([(0,1161),(1200,1066),(1200,1082),(0,1180)],fill=blue)
+    # The original manufacturer tool sits centre stage against real photo.
+    _product(canvas,photo,product,(94,505,1055,1202),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
-    # Headline is drawn AFTER the cutout, so no product can conceal copy.
-    d.polygon([(0,269),(705,265),(630,811),(0,856)],fill=(3,22,41,166))
+    # Strong solid headline above the product, never behind it.
+    d.rounded_rectangle((40,303,1160,511),radius=18,fill=(2,23,43,236))
     _brand(d,blue,product.get("part",""),family="retail")
-    _headline(d,concept,(58,312,663,611),(81,72,63,54,46),WHITE,4,editor)
+    _small_label(d,"TRADE COUNTER PROMOTION",(627,82,1128,135),accent)
+    _headline(d,concept,(73,336,1119,479),(86,77,68,59,52,45),WHITE,2,editor)
     if editor.get("show_subline"):
-        _fit(d,concept.get("subline"),(62,632,629,725),(31,27,24),PALE,"regular",2)
-    _features(d,concept,[(62,945,414,1090)],blue)
-    d=ImageDraw.Draw(canvas)
+        _fit(d,concept.get("subline"),(57,1190,785,1256),
+             (29,26,23,20),PALE,"regular",2)
+    _features(d,concept,[(62,1280,748,1394)],blue,WHITE)
     price_style=editor.get("price_style","bubble")
-    box=(822,1060,1168,1406) if editor.get("price_position")!="opposite" else (45,1070,391,1416)
-    if price_style!="bubble":
-        box=(190,1278,1110,1431) if editor.get("price_position")!="opposite" else (60,1278,975,1431)
-    _rrp(d,price,box,price_style,yellow,_readable_ink(yellow,p["ink"]))
-    _footer(d)
-    return canvas
-
-
-def _premium(concept,photo,product,price,variation,editor,background):
-    p=COLOURS["premium"][variation%3];blue=p["primary"]
-    accent=_accent(editor,blue)
-    canvas=_scene_base(background,"premium",product,variation)
-    d=ImageDraw.Draw(canvas,"RGBA")
-    # Long diagonal left column with actual photo visible behind product.
-    d.polygon([(0,0),(807,0),(541,1470),(0,1500)],fill=(4,25,44,239))
-    d.polygon([(723,0),(751,0),(492,1470),(460,1497)],fill=blue)
-    d.polygon([(0,1275),(1200,1138),(1200,1500),(0,1500)],fill=(3,22,39,220))
-    _product(canvas,photo,product,(470,355,1190,1245),editor)
-    d=ImageDraw.Draw(canvas,"RGBA")
-    d.polygon([(0,258),(657,245),(534,1130),(0,1193)],fill=(3,24,43,155))
-    _brand(d,blue,product.get("part",""),family="premium")
-    _headline(d,concept,(62,312,632,616),(81,71,62,55,45),WHITE,4,editor)
-    if editor.get("show_subline"):
-        _fit(d,concept.get("subline"),(62,643,600,723),(32,28,24),PALE,"regular",2)
-    d.rounded_rectangle((62,772,463,785),radius=4,fill=blue)
-    _features(d,concept,[(62,875,477,1035)],blue)
+    if price_style=="bubble":
+        box=(809,1066,1166,1423) if editor.get("price_position")!="opposite" else (36,1066,393,1423)
+    else:
+        box=(741,1234,1162,1430) if editor.get("price_position")!="opposite" else (42,1234,463,1430)
     d=ImageDraw.Draw(canvas)
-    price_style=editor.get("price_style","plaque")
-    box=(560,1203,1140,1417) if editor.get("price_position")!="opposite" else (65,1208,670,1417)
     _rrp(d,price,box,price_style,accent,_readable_ink(accent,p["ink"]))
     _footer(d)
     return canvas
 
 
+def _premium(concept,photo,product,price,variation,editor,background):
+    """PREMIUM: clean *light* editorial ad with a contained photo stage.
+
+    Its composition deliberately uses negative space, navy-on-white typography,
+    an uncluttered product hero and an outlined RRP plaque.
+    """
+    p=COLOURS["premium"][variation%3]
+    blue=p["primary"];accent=_accent(editor,blue)
+    paper=("#F8FBFC","#FAFBF7","#F6FAFA")[variation%3]
+    canvas=Image.new("RGBA",(W,H),paper)
+    stage=(532,468,1200,1234)
+    canvas.alpha_composite(_photo_stage(background,stage,darken=.30,blur=4),
+                           (stage[0],stage[1]))
+    d=ImageDraw.Draw(canvas,"RGBA")
+    d.rectangle((0,0,1200,19),fill=blue)
+    d.rectangle((0,466,532,1237),fill=("#EAF2F7","#F1F2EB","#E9F3F2")[variation%3])
+    d.rectangle((532,466,545,1237),fill=blue)
+    d.rectangle((0,1238,1200,1500),fill=paper)
+    # Product is composed BEFORE top copy so any oversize image cannot
+    # obscure the real text; hero appears on two different background zones.
+    _product(canvas,photo,product,(148,480,1100,1205),editor)
+    d=ImageDraw.Draw(canvas,"RGBA")
+    # Deliberate editorial brand masthead (not retail's dark diagonal).
+    from ai_promo_renderer import _laser
+    _laser(d,57,45,dark=True)
+    d.rounded_rectangle((57,205,337,264),radius=5,fill=blue)
+    _small_label(d,"PART  "+str(product.get("part","")),(75,215,320,257),WHITE)
+    _small_label(d,"PRODUCT SPOTLIGHT",(778,91,1146,151),blue)
+    d.line((56,304,1143,304),fill=blue,width=5)
+    _headline(d,concept,(55,335,1145,449),
+              (85,74,64,54,47),p["ink"],2,editor)
+    if editor.get("show_subline"):
+        _fit(d,concept.get("subline"),(57,1065,486,1183),
+             (32,28,24,21),p["ink"],"regular",3)
+    _features(d,concept,[(55,1268,593,1399)],blue,p["ink"])
+    price_style=editor.get("price_style","plaque")
+    box=(688,1247,1150,1423) if editor.get("price_position")!="opposite" else (56,1247,520,1423)
+    d=ImageDraw.Draw(canvas)
+    _rrp(d,price,box,price_style,accent,_readable_ink(accent,p["ink"]))
+    _footer(d,light=True)
+    return canvas
+
+
 def _trade(concept,photo,product,price,variation,editor,background):
-    p=COLOURS["trade"][variation%3];blue=p["primary"]
-    accent=_accent(editor,p["accent"])
+    """TRADE: split-screen workshop photograph and strong right-hand text.
+
+    The product occupies an entire LEFT hero image zone, while copy is in a
+    dedicated RIGHT column; the bottom contains a full-width price banner.
+    """
+    p=COLOURS["trade"][variation%3]
+    blue=p["primary"];accent=_accent(editor,p["accent"])
     canvas=_scene_base(background,"trade",product,variation)
     d=ImageDraw.Draw(canvas,"RGBA")
-    d.rectangle((0,0,1200,225),fill=(1,20,36,230))
-    d.polygon([(0,218),(910,178),(785,654),(0,740)],fill=(2,24,44,224))
-    d.polygon([(1140,0),(1200,0),(805,1250),(770,1250)],fill=blue)
-    d.polygon([(0,1176),(1200,1115),(1200,1500),(0,1500)],fill=(3,20,38,246))
-    d.polygon([(0,1165),(1200,1105),(1200,1124),(0,1184)],fill=blue)
-    _product(canvas,photo,product,(205,459,1185,1206),editor)
+    d.rectangle((0,0,1200,247),fill=(2,22,40,241))
+    d.polygon([(722,248),(1200,248),(1200,1190),(722,1190)],
+              fill=(3,23,40,238))
+    d.polygon([(705,246),(733,246),(733,1190),(705,1190)],fill=blue)
+    d.polygon([(0,1190),(1200,1190),(1200,1500),(0,1500)],fill=(3,21,39,248))
+    d.rectangle((0,1180,1200,1202),fill=blue)
+    _product(canvas,photo,product,(25,315,750,1180),editor)
     d=ImageDraw.Draw(canvas,"RGBA")
-    d.polygon([(0,252),(794,238),(727,663),(0,735)],fill=(3,22,40,160))
     _brand(d,blue,product.get("part",""),family="trade")
-    _headline(d,concept,(59,284,780,573),(89,78,68,59,51),WHITE,4,editor)
+    _small_label(d,"WORKSHOP CAMPAIGN",(798,93,1160,158),accent)
+    _small_label(d,"APPLICATION / TOOL",(758,307,1154,368),accent)
+    _headline(d,concept,(755,410,1155,770),
+              (75,67,59,52,45,38),WHITE,5,editor)
     if editor.get("show_subline"):
-        _fit(d,concept.get("subline"),(62,593,761,663),(29,25,22),PALE,"regular",2)
-    d=ImageDraw.Draw(canvas)
-    # Grounded short feature strips; no claims fabricated by renderer.
-    d.rounded_rectangle((55,884,400,1128),radius=15,fill=(5,30,49,225))
-    _features(d,concept,[(76,934,381,1097)],blue)
+        _fit(d,concept.get("subline"),(759,800,1153,922),
+             (30,26,23,20),PALE,"regular",3)
+    _features(d,concept,[(756,973,1152,1120)],blue,WHITE)
     price_style=editor.get("price_style","banner")
-    box=(475,1228,1142,1426) if editor.get("price_position")!="opposite" else (55,1228,805,1426)
+    box=(185,1240,1146,1434) if editor.get("price_position")!="opposite" else (57,1240,1017,1434)
+    d=ImageDraw.Draw(canvas)
     _rrp(d,price,box,price_style,accent,_readable_ink(accent,p["ink"]))
     _footer(d)
     return canvas
@@ -275,7 +330,6 @@ def render_campaign(concept,photo,product,price,variation,editor=None,scene_phot
     editor=dict(editor or {})
     family=concept.get("family","retail")
     if family not in ("retail","premium","trade"):
-        raise ValueError("Unknown cinematic campaign family.")
-    # Editor custom palette still works, via overlay-grade accent and warm price.
+        raise ValueError("Unknown photographic campaign family.")
     return {"retail":_retail,"premium":_premium,"trade":_trade}[family](
         concept,photo,product,price,variation,editor,scene_photo)
