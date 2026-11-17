@@ -135,10 +135,16 @@ class PromotionalCopyTests(unittest.TestCase):
 
     def test_browser_copy_tabs_buttons_and_javascript_syntax(self):
         html=studio.V7_HOME_PAGE
-        for control in ("aiMarketingCopy","aiCopyDesignTabs","aiCopyChannels",
-                        "aiCopyText","aiCopyCurrent","aiCopyAll","aiCopyStatus"):
-            self.assertIn('id="'+control+'"',html)
+        # Both the full campaign and individual AI posters share one editor.
+        for control in ("unifiedCopyStudio","campaignCopyAngles","campaignCopyChannels",
+                        "campaignCopyText","campaignCopyCurrent","campaignCopyAll",
+                        "campaignCopyStatus","campaignCopyReset"):
+            self.assertEqual(html.count('id="'+control+'"'),1)
+        self.assertNotIn('id="aiMarketingCopy"',html)
+        self.assertNotIn('id="aiCopyText"',html)
         self.assertIn("function renderAiMarketingCopy()",html)
+        self.assertIn("copyStudioData={",html)
+        self.assertIn("'unifiedCopyStudio').scrollIntoView",html)
         self.assertIn("navigator.clipboard.writeText",html)
         self.assertIn("data-ai-copy",html)
         if shutil.which("node"):
