@@ -30,7 +30,7 @@ from campaign_hub import build_campaign
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v31">
+<link rel="stylesheet" href="/static/styles.css?design=v32-copy-unified">
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
@@ -475,6 +475,8 @@ function renderCampaignCopyStudio(){
   '<button type="button" data-campaign-angle="'+index+'" class="'+(index===campaignCopyIndex?'selected':'')+
   '" aria-pressed="'+String(index===campaignCopyIndex)+'">'+esc(copy.campaign_angle||'Campaign '+(index+1))+'</button>').join('');
  document.querySelectorAll('#campaignCopyChannels button').forEach(button=>{
+  // Original AI poster concepts only supply the original four copy channels.
+  button.hidden=copyStudioData.origin==='ai'&&['website_listing','short_message'].includes(button.dataset.campaignChannel);
   const active=button.dataset.campaignChannel===campaignCopyChannel;
   button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));
  });
@@ -519,8 +521,10 @@ $('campaignCopyCurrent').addEventListener('click',async()=>{
 });
 $('campaignCopyAll').addEventListener('click',async()=>{
  if(!copyStudioData)return;
+ const channels=copyStudioData.origin==='ai'
+  ?['social_caption','linkedin_post','email_body','hashtags']:Object.keys(campaignChannelLabels);
  const text=(copyStudioData.copy||[]).map((copy,index)=>
-  (copy.campaign_angle||'Campaign '+(index+1))+'\n'+Object.keys(campaignChannelLabels).map(channel=>
+  (copy.campaign_angle||'Campaign '+(index+1))+'\n'+channels.map(channel=>
    campaignChannelLabels[channel]+'\n'+campaignDraft(index,channel)).join('\n\n')).join('\n\n-------------------------\n\n');
  try{
   const success=await copySelectedCampaignText(text);
