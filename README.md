@@ -1,5 +1,32 @@
 # Laser Product Studio
 
+## AI-assisted rewrite buttons (V34)
+
+The single shared marketing copy editor now includes five quick rewrite styles:
+**Make shorter**, **More professional**, **More persuasive**, **More technical**,
+and **Rewrite for Facebook**.
+
+Select an existing campaign direction and a written channel (Social, LinkedIn,
+Email, Website or Short promo). Click a style to show a separate preview.
+**Apply to text editor** replaces only the selected local draft. **Keep original**
+discards the suggestion; **Undo last rewrite** restores the previous wording.
+Edits survive tab switching until the user generates a new campaign or resets
+the draft. Hashtags remain source-generated and cannot be rewritten.
+
+The endpoint POST /api/copy/rewrite/<part> independently retrieves the
+manufacturer product record and optional staff-reviewed RRP. Gemini, when
+configured and reachable, selects only permitted presentation choices and
+indexes into confirmed manufacturer features: the final copy is assembled
+server-side from those approved factual elements. The existing draft is a
+style reference only, never evidence for a product claim.
+
+When Gemini is unavailable, the interface explicitly shows that it used
+verified-source copy templates rather than claiming an AI generation.
+A rewrite never silently overwrites the draft. Company review remains
+mandatory. Edits in the browser do not yet change the original ZIP export.
+
+Run: python -m unittest test_copy_rewriter.py
+
 ## Marketing Hub dashboard (V33)
 
 The home page now follows the approved navy-and-yellow dashboard mock-up:

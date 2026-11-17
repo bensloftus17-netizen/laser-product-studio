@@ -27,10 +27,11 @@ from promo_art_direction import normalise_art_direction, editor_preferences, sce
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
+from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v33-dashboard-hub">
+<link rel="stylesheet" href="/static/styles.css?design=v34-copy-rewrite">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -152,6 +153,27 @@ V7_HOME_PAGE = r'''
 </div>
 <label id="campaignCopyLabel" class="ai-copy-label" for="campaignCopyText">Social caption</label>
 <textarea id="campaignCopyText" rows="9" spellcheck="true" aria-label="Editable campaign copy text"></textarea>
+
+<div class="rewrite-tools" aria-label="Improve suggested marketing copy">
+ <div class="rewrite-tools-title"><b>✦ Improve this wording</b><span>AI-assisted · Verified product information only</span></div>
+ <div class="rewrite-options" id="rewriteOptions" role="group" aria-label="Copy rewrite styles">
+  <button type="button" data-rewrite-mode="shorter">Make shorter</button>
+  <button type="button" data-rewrite-mode="professional">More professional</button>
+  <button type="button" data-rewrite-mode="persuasive">More persuasive</button>
+  <button type="button" data-rewrite-mode="technical">More technical</button>
+  <button type="button" data-rewrite-mode="facebook">Rewrite for Facebook</button>
+ </div>
+ <div id="rewritePreview" class="rewrite-preview" hidden>
+  <div class="rewrite-preview-heading"><b>Suggested rewrite</b><small id="rewriteMethod">Review before applying</small></div>
+  <textarea id="rewritePreviewText" rows="6" readonly aria-label="Suggested rewrite preview"></textarea>
+  <div class="rewrite-preview-actions">
+   <button type="button" class="rewrite-apply" id="rewriteApply">Apply to text editor</button>
+   <button type="button" class="rewrite-discard" id="rewriteDiscard">Keep original</button>
+  </div>
+ </div>
+ <div class="rewrite-bottom"><button type="button" id="rewriteUndo" class="rewrite-undo" hidden>↶ Undo last rewrite</button>
+ <span id="rewriteStatus" role="status" aria-live="polite">Choose a style to preview a safer, more polished version.</span></div>
+</div>
 <div class="ai-copy-actions"><button type="button" id="campaignCopyCurrent" class="ai-secondary">Copy this text</button>
 <button type="button" id="campaignCopyAll" class="ai-secondary">Copy all campaign wording</button>
 <button type="button" id="campaignCopyReset" class="ai-secondary">Reset this draft</button>
@@ -232,7 +254,7 @@ document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventLis
 
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;if(copyStudioData?.origin==='campaign'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  const id=selectedDistributor(),target=$('distributorPreview');
  const labels={gsf:'GSF Car Parts',euro:'Euro Car Parts',mpd:'Motor Parts Direct'};
@@ -329,7 +351,7 @@ function renderAiMarketingCopy(){
  };
  if(!wasAi){
   campaignCopyIndex=0;campaignCopyChannel='social_caption';
-  campaignCopyEdits={};
+  campaignCopyEdits={};rewriteUndoHistory={};
  }
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
@@ -343,7 +365,7 @@ const aiPaletteNames=[['Laser blue / yellow','Blue / orange','Royal blue / lime'
 
 function clearAiDesigns(){
  aiConcepts=[];aiOriginals=[];currentAiEditor=-1;aiScenePhotos=[null,null,null];
- if(copyStudioData?.origin==='ai'){copyStudioData=null;$('unifiedCopyStudio').hidden=true;showCopyEmpty();}
+ if(copyStudioData?.origin==='ai'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;showCopyEmpty();}
  $('aiIdeas').innerHTML='';
  $('aiEditor').hidden=true;
 }
@@ -555,7 +577,7 @@ function showCampaign(data){
  $('campaignAssets').innerHTML=m.images.map(asset=>
   '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small></article>').join('');
  copyStudioData={origin:'campaign',copy:m.copy};
- campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};
+ campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};rewriteUndoHistory={};
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
  showCopyEmpty();
@@ -565,6 +587,7 @@ function showCampaign(data){
 }
 
 let copyStudioData=null,campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
+let pendingCopyRewrite=null,rewriteNonce=0,rewriteBusy=false,rewriteUndoHistory={};
 const campaignChannelLabels={
  social_caption:'Social caption',linkedin_post:'LinkedIn post',email_body:'Product email',
  hashtags:'Hashtags',website_listing:'Website listing',short_message:'Short promo'
@@ -579,6 +602,7 @@ function campaignDraft(index,channel){
 }
 function renderCampaignCopyStudio(){
  if(!copyStudioData)return;
+ resetRewriteSuggestion();
  const copies=copyStudioData.copy||[];
  campaignCopyIndex=Math.min(Math.max(0,campaignCopyIndex),Math.max(0,copies.length-1));
  $('campaignCopyAngles').innerHTML=copies.map((copy,index)=>
@@ -598,6 +622,12 @@ function renderCampaignCopyStudio(){
   :'Your edits remain while switching tabs and copying. The ZIP still includes the original drafts. Review everything before publishing.';
  $('campaignCopyText').value=campaignDraft(campaignCopyIndex,campaignCopyChannel);
  $('campaignCopyStatus').textContent='';
+ const available=campaignCopyChannel!=='hashtags';
+ $('rewriteOptions').hidden=!available;
+ $('rewriteStatus').textContent=available
+  ?'Choose a style to preview a new draft. Review product claims before publishing.'
+  :'Hashtags are generated from verified categories and cannot be rewritten.';
+ $('rewriteUndo').hidden=!available||!Object.prototype.hasOwnProperty.call(rewriteUndoHistory,rewriteKey());
 }
 $('campaignCopyAngles').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-angle]');
@@ -612,6 +642,8 @@ $('campaignCopyChannels').addEventListener('click',event=>{
 $('campaignCopyText').addEventListener('input',()=>{
  if(!copyStudioData)return;
  campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel]=$('campaignCopyText').value;
+ resetRewriteSuggestion();
+ delete rewriteUndoHistory[rewriteKey()];$('rewriteUndo').hidden=true;
  $('campaignCopyStatus').textContent=copyStudioData.origin==='campaign'?'Edited locally — ZIP still contains original wording.':'Edited draft saved in this page.';
 });
 async function copySelectedCampaignText(value){
@@ -622,6 +654,86 @@ async function copySelectedCampaignText(value){
  field.value=value;field.focus();field.select();
  const copied=document.execCommand('copy');field.value=prior;return copied;
 }
+
+function rewriteKey(){
+ return String(campaignCopyIndex)+':'+campaignCopyChannel;
+}
+function resetRewriteSuggestion(){
+ rewriteNonce++;
+ pendingCopyRewrite=null;
+ $('rewritePreview').hidden=true;
+ if(!rewriteBusy)$('rewriteOptions').querySelectorAll('button').forEach(button=>button.disabled=false);
+}
+function showRewriteBusy(isBusy){
+ rewriteBusy=isBusy;
+ $('rewriteOptions').querySelectorAll('button').forEach(button=>button.disabled=isBusy);
+}
+$('rewriteOptions').addEventListener('click',async event=>{
+ const button=event.target.closest('button[data-rewrite-mode]');
+ if(!button||rewriteBusy||!copyStudioData||!active||campaignCopyChannel==='hashtags')return;
+ const oldText=$('campaignCopyText').value;
+ if(!oldText.trim()){$('rewriteStatus').textContent='Add some copy before requesting a rewrite.';return;}
+ const currentData=copyStudioData,key=rewriteKey(),part=active.part;
+ const mode=button.dataset.rewriteMode;
+ resetRewriteSuggestion();
+ const requestId=rewriteNonce;
+ showRewriteBusy(true);
+ $('rewriteStatus').textContent='Preparing source-checked wording…';
+ const rawPrice=$('staffRrp').value.trim(),reviewedPrice=$('staffReview').checked;
+ if(rawPrice&&!reviewedPrice){
+  showRewriteBusy(false);
+  $('rewriteStatus').textContent='Review the staff-entered price before requesting a rewrite.';
+  return;
+ }
+ try{
+  const response=await fetch('/api/copy/rewrite/'+encodeURIComponent(part),{
+   method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+   body:JSON.stringify({mode,channel:campaignCopyChannel,angle:campaignCopyIndex,
+    current_text:oldText,official_url:$('officialUrl').value.trim()||null,
+    staff_rrp_ex:rawPrice||staffApplied,
+    staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
+    staff_rrp_basis:rawPrice?$('staffRrpBasis').value:staffBasis})
+  });
+  const result=await readApiJson(response);
+  if(requestId!==rewriteNonce||copyStudioData!==currentData||rewriteKey()!==key||active?.part!==part)return;
+  pendingCopyRewrite={key,text:result.text,original:oldText,source:currentData};
+  $('rewritePreviewText').value=result.text;
+  $('rewriteMethod').textContent=result.method==='gemini-assisted'
+    ?'Gemini-assisted · Official verified facts'
+    :'Verified-source rewrite · AI unavailable';
+  $('rewritePreview').hidden=false;
+  $('rewriteStatus').textContent=(result.warning?result.warning+' ':'')+
+   'Compare with your draft, then apply or keep the original.';
+ }catch(error){
+  if(requestId===rewriteNonce)$('rewriteStatus').textContent=error.message||'Unable to rewrite this draft.';
+ }finally{
+  showRewriteBusy(false);
+ }
+});
+$('rewriteApply').addEventListener('click',()=>{
+ const proposed=pendingCopyRewrite;
+ if(!proposed||!copyStudioData||proposed.source!==copyStudioData||proposed.key!==rewriteKey())return;
+ rewriteUndoHistory[proposed.key]=proposed.original;
+ campaignCopyEdits[proposed.key]=proposed.text;
+ $('campaignCopyText').value=proposed.text;
+ resetRewriteSuggestion();
+ $('rewriteUndo').hidden=false;
+ $('rewriteStatus').textContent='Rewrite applied to this draft. Copy it when ready; the ZIP still contains the original text.';
+ $('campaignCopyStatus').textContent='Rewrite applied locally — review before publishing.';
+});
+$('rewriteDiscard').addEventListener('click',()=>{
+ resetRewriteSuggestion();$('rewriteStatus').textContent='Original wording kept.';
+});
+$('rewriteUndo').addEventListener('click',()=>{
+ if(!copyStudioData||!Object.prototype.hasOwnProperty.call(rewriteUndoHistory,rewriteKey()))return;
+ const previous=rewriteUndoHistory[rewriteKey()];
+ delete rewriteUndoHistory[rewriteKey()];
+ campaignCopyEdits[rewriteKey()]=previous;
+ $('campaignCopyText').value=previous;
+ resetRewriteSuggestion();$('rewriteUndo').hidden=true;
+ $('rewriteStatus').textContent='Previous wording restored.';
+});
+
 $('campaignCopyCurrent').addEventListener('click',async()=>{
  if(!copyStudioData)return;
  try{
@@ -644,6 +756,7 @@ $('campaignCopyAll').addEventListener('click',async()=>{
 $('campaignCopyReset').addEventListener('click',()=>{
  if(!copyStudioData)return;
  delete campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel];
+ delete rewriteUndoHistory[rewriteKey()];
  renderCampaignCopyStudio();$('campaignCopyStatus').textContent='Original suggested wording restored.';
 });
 $('campaignBtn').addEventListener('click',async()=>{
@@ -1573,6 +1686,46 @@ def ai_recommendations(part):
     except Exception:
         app.logger.exception('AI concept generation failed')
         return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
+
+
+@app.post('/api/copy/rewrite/<part>')
+def rewrite_marketing_copy(part):
+    """One reviewed copy suggestion. Never accepts user/model factual claims."""
+    try:
+        body=request.get_json(silent=True)
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid rewrite request.'),400
+        mode=body.get('mode')
+        channel=body.get('channel')
+        angle=body.get('angle')
+        current_text=body.get('current_text')
+        # Validate before manufacturer lookup or any optional Gemini call.
+        if mode not in ('shorter','professional','persuasive','technical','facebook'):
+            return jsonify(error='Choose one of the five rewrite options.'),400
+        if channel not in ('social_caption','linkedin_post','email_body','website_listing','short_message'):
+            return jsonify(error='Select social, LinkedIn, email, web or short-promo copy.'),400
+        if type(angle) is not int or angle not in (0,1,2):
+            return jsonify(error='Choose a valid campaign direction.'),400
+        if not isinstance(current_text,str) or not current_text.strip() or len(current_text)>5000:
+            return jsonify(error='Select a draft of no more than 5,000 characters.'),400
+        product,_=lookup(part,uk_url=body.get('official_url') or None)
+        product=with_reviewed_price(
+            product,body.get('staff_rrp_ex'),
+            body.get('staff_rrp_reviewed') is True,
+            body.get('staff_rrp_basis','ex'))
+        rewritten=rewrite_copy(
+            product,mode=mode,channel=channel,current_text=current_text,angle=angle)
+        response=jsonify(rewritten)
+        response.headers['Cache-Control']='no-store, private'
+        return response
+    except LookupErrorPublic as exc:return jsonify(error=str(exc)),400
+    except ValueError as exc:return jsonify(error=str(exc)),400
+    except requests.RequestException:
+        return jsonify(error='Official manufacturer source could not be reached. Please retry.'),502
+    except Exception:
+        app.logger.exception('Marketing copy rewrite failed')
+        return jsonify(error='Unable to rewrite this copy. Please retry.'),500
+
 
 @app.post('/api/ai/headlines/<part>')
 def ai_headline_options(part):

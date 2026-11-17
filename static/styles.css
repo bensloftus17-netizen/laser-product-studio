@@ -732,3 +732,41 @@ body{background:#eef4fb;color:#102744;min-width:320px}
 .quickbar-item .hub-icon{width:23px;height:23px;color:#066ab4;stroke-width:2.2}
 .workspace-heading h2 .hub-icon,.saved-heading h2 .hub-icon{width:21px;height:21px;
  color:#0575c3;margin-right:5px;vertical-align:-4px}
+
+
+/* One editor, five source-checked rewrite actions (V34). */
+.copy-workspace .rewrite-tools{margin:14px 0 4px;padding:13px 0 0;border-top:1px solid #dce9f2}
+.rewrite-tools-title{display:flex;gap:7px 12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;margin-bottom:9px}
+.rewrite-tools-title b{font-size:12px;font-weight:830;color:#123b61}
+.rewrite-tools-title span{font-size:10px;color:#5c7d95}
+.rewrite-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.rewrite-options button{font:inherit;text-align:left;font-size:10.5px;font-weight:780;border-radius:8px;
+ background:#ecf5ff;color:#15527c;border:1px solid #c6dded;line-height:1.25;padding:10px 11px}
+.rewrite-options button:last-child{grid-column:1/-1}
+.rewrite-options button:hover:not(:disabled){background:#d9edfc;border-color:#89bcdd}
+.rewrite-options button:disabled{opacity:.5;cursor:wait}
+.rewrite-preview{padding:13px;margin-top:12px;border:1px solid #bcd9eb;background:#f6fbff;border-radius:10px}
+.rewrite-preview-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.rewrite-preview-heading b{font-size:12px;color:#0b466d}
+.rewrite-preview-heading small{font-size:10px;color:#537b98}
+#rewritePreviewText{font:inherit;font-size:12px;line-height:1.6;width:100%;
+ border:1px solid #c5d9e8;border-radius:8px;padding:11px;resize:vertical;background:#fff;color:#17354f;
+ min-height:130px;box-sizing:border-box}
+.rewrite-preview-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+.rewrite-preview-actions button{font:inherit;font-size:11px;font-weight:820;border-radius:8px;padding:9px 12px}
+.rewrite-apply{background:#076eb6;color:#fff;border:1px solid #076eb6}
+.rewrite-apply:hover{background:#05568d}
+.rewrite-discard{background:#fff;color:#1d5275;border:1px solid #c1d8e7}
+.rewrite-discard:hover{background:#e8f4fb}
+.rewrite-bottom{margin-top:9px;display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap}
+.rewrite-undo{font:inherit;font-size:11px;font-weight:800;color:#095d91;
+ background:#fff;border:1px solid #b9d8e9;border-radius:8px;padding:8px 10px;white-space:nowrap}
+.rewrite-undo:hover{background:#eef8fe}
+#rewriteStatus{color:#648097;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:480px){
+ .rewrite-options{grid-template-columns:1fr}
+ .rewrite-options button:last-child{grid-column:auto}
+ .rewrite-tools-title{display:block}
+ .rewrite-tools-title span{display:block;margin-top:4px}
+ .rewrite-preview-actions button{flex:1}
+}
