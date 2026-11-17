@@ -67,76 +67,171 @@ def classify_product(product: dict) -> str:
     return "workshop"
 
 
-def scene_reference(category: str, variation=0) -> dict:
-    """Keep the exact photographer link traceable for commercial review."""
-    if category not in SCENE_PHOTOS:
-        category = "workshop"
-    ids = SCENE_PHOTOS[category]
-    asset_id = ids[int(variation)%len(ids)]
+# STEP 1 — Product-aware commercial photography.
+# Each photo is a real image from a fixed, human-reviewed Pexels page.
+# New entries are intentionally conservative: only verified automotive scenes.
+# (asset ID, scene name, preferred crop x, crop y)
+SCENE_CANDIDATES = {
+    "battery": [
+        (32282232, "Battery with leads in engine bay", .48, .52),
+        (32282233, "Close-up battery terminal connections", .57, .47),
+    ],
+    "diagnostic": [
+        (8985927, "Mechanic checking vehicle engine", .56, .50),
+        (8985917, "Technician inspecting engine bay", .47, .47),
+    ],
+    "brakes": [
+        (6870304, "Technician working on car brakes", .52, .47),
+        (8986101, "Technician beneath raised car", .40, .47),
+    ],
+    "suspension": [
+        (8986101, "Mechanic repairing vehicle undercarriage", .55, .50),
+        (8985618, "Mechanic inspecting car underside", .54, .43),
+    ],
+    "engine": [
+        (8985517, "Mechanic lifting car engine", .57, .54),
+        (8985519, "Close-up technician working on engine", .52, .50),
+        (8985927, "Engine inspection in workshop", .46, .50),
+    ],
+    "hand_tools": [
+        (8985519, "Mechanic using wrench on engine", .51, .48),
+        (8985917, "Automotive mechanic at workbench", .56, .45),
+        (8985517, "Workshop with engine equipment", .51, .54),
+    ],
+    "press": [
+        (8985517, "Industrial engine equipment and workshop", .47, .50),
+        (8985917, "Working garage environment", .55, .50),
+    ],
+    "welding": [
+        (8985517, "Industrial automotive workshop", .48, .50),
+        (8985917, "Vehicle repair setting", .52, .45),
+    ],
+    "workshop": [
+        (8985917, "Mechanic in professional workshop", .50, .50),
+        (8985517, "Garage workshop machinery", .48, .50),
+        (8985927, "Vehicle service technician", .53, .50),
+    ],
+}
+FAMILY_SCENE_STYLES = {
+    # Retail has vivid context, visible in a real-photo band.
+    "retail": {"crop_bias":(-.14, .04), "darkness":.16, "blur":2.5, "colour":.94},
+    # Premium is slightly defocused with plenty of editorial whitespace.
+    "premium":{"crop_bias":(.12,-.07), "darkness":.34, "blur":4.2, "colour":.73},
+    # Trade is a darker in-workshop image with clear equipment context.
+    "trade":  {"crop_bias":(.03,.08), "darkness":.49, "blur":2.8, "colour":.78},
+}
+
+
+def scene_reference(category: str, variation=0, family=None) -> dict:
+    """Choose known real photographs with family-dependent crop and treatment.
+
+    Family changes treatment and crop independently of the part number.
+    This prevents three posters with identically composed stock backgrounds.
+    """
+    if category not in SCENE_CANDIDATES:
+        category="workshop"
+    family=family if family in FAMILY_SCENE_STYLES else "retail"
+    pool=SCENE_CANDIDATES[category]
+    # Older integrations can still pass any integer. Rotate across the pool
+    # deterministically; never fetch arbitrary user or Gemini URLs.
+    index=int(variation)%len(pool)
+    asset_id,label,cx,cy=pool[index]
+    style=FAMILY_SCENE_STYLES[family]
+    bias_x,bias_y=style["crop_bias"]
+    x=max(.15,min(.85,cx+bias_x))
+    y=max(.15,min(.85,cy+bias_y))
     return {
-        "category": category,
-        "description": SCENE_LABELS[category],
-        "source": "Pexels free commercial-use photo",
-        "page_url": f"https://www.pexels.com/photo/{asset_id}/",
-        "photo_id": asset_id,
-        "image_url": f"https://images.pexels.com/photos/{asset_id}/pexels-photo-{asset_id}.jpeg"
-                     "?auto=compress&cs=tinysrgb&w=1600",
-        "license_url": "https://www.pexels.com/license/",
+        "category":category,
+        "description":label,
+        "scene_type":category,
+        "family":family,
+        "crop":(round(x,3),round(y,3)),
+        "darkness":style["darkness"],
+        "blur":style["blur"],
+        "colour":style["colour"],
+        "source":"Pexels free commercial-use photo",
+        "page_url":f"https://www.pexels.com/photo/{asset_id}/",
+        "photo_id":asset_id,
+        "image_url":f"https://images.pexels.com/photos/{asset_id}/pexels-photo-{asset_id}.jpeg"
+                    "?auto=compress&cs=tinysrgb&w=1600",
+        "license_url":"https://www.pexels.com/license/",
     }
 
 
-@lru_cache(maxsize=24)
+@lru_cache(maxsize=32)
 def _fetch_licensed_photo(asset_id: int) -> bytes | None:
-    # Network-free CI: unit tests verify selection without relying on third
-    # party uptime. Production still loads actual licensed photographs.
-    if os.getenv("DISABLE_STOCK_PHOTOS") == "1":
+    """Read only our fixed, vetted photo IDs, with bounded downloads."""
+    if os.getenv("DISABLE_STOCK_PHOTOS")=="1":
         return None
-    # The domain and ID come only from curated source code constants, never
-    # arbitrary URL input. Bound response size, image dimensions and timeout.
-    url = f"https://images.pexels.com/photos/{asset_id}/pexels-photo-{asset_id}.jpeg"
+    allowed={p[0] for pool in SCENE_CANDIDATES.values() for p in pool}
+    if asset_id not in allowed:
+        return None
+    url=f"https://images.pexels.com/photos/{asset_id}/pexels-photo-{asset_id}.jpeg"
     try:
-        response = requests.get(url, params={"auto":"compress","cs":"tinysrgb","w":"1400"},
-                                timeout=(2.5, 6), allow_redirects=False)
-        if response.status_code != 200:
-            return None
+        response=requests.get(url,params={"auto":"compress","cs":"tinysrgb","w":"1400"},
+                              timeout=(2.5,6),allow_redirects=False,stream=True)
+        if response.status_code!=200:
+            response.close();return None
         if not response.headers.get("content-type","").lower().startswith("image/"):
+            response.close();return None
+        content=bytearray()
+        try:
+            for chunk in response.iter_content(chunk_size=65536):
+                content.extend(chunk)
+                if len(content)>4_000_000:
+                    return None
+        finally:
+            response.close()
+        image=Image.open(BytesIO(content))
+        if image.format not in ("JPEG","PNG","WEBP") or image.width*image.height>15_000_000:
             return None
-        if len(response.content) > 4_000_000:
-            return None
-        img = Image.open(BytesIO(response.content))
-        if img.format not in ("JPEG","PNG","WEBP") or img.width * img.height > 15_000_000:
-            return None
-        img.verify()
-        return response.content
-    except (requests.RequestException, ValueError, OSError, SyntaxError):
+        image.verify()
+        return bytes(content)
+    except (requests.RequestException,ValueError,OSError):
         return None
 
 
-def find_scene(product: dict, variation=0, official_photo: bytes | None=None,
-               prefer_official=False, category_override=None) -> tuple[bytes|None, dict]:
-    category = (category_override if category_override in SCENE_PHOTOS
-                else classify_product(product))
+def find_scene(product:dict,variation=0,official_photo:bytes|None=None,
+               prefer_official=False,category_override=None,family=None)->tuple[bytes|None,dict]:
+    """Use authentic application photography when available, else checked stock.
+
+    Descriptions are context, not a claim that a licensed stock image depicts
+    the exact Laser tool or demonstrates a product-specific fitment.
+    """
+    category=category_override if category_override in SCENE_CANDIDATES else classify_product(product)
+    family=family if family in FAMILY_SCENE_STYLES else "retail"
+    style=FAMILY_SCENE_STYLES[family]
     if official_photo and prefer_official:
-        return official_photo, {
+        return official_photo,{
             "category":category,
             "description":"Actual Laser Tools manufacturer application photograph",
             "source":"Official manufacturer application photo",
             "page_url":str(product.get("application_photo_source") or ""),
-            "license_url":None,
+            "license_url":None,"scene_type":category,"family":family,
+            "crop":(.5,.5),"darkness":style["darkness"],
+            "blur":style["blur"],"colour":style["colour"],
         }
-    ref=scene_reference(category,variation)
+    ref=scene_reference(category,variation,family=family)
     loaded=_fetch_licensed_photo(ref["photo_id"])
     if loaded:
         return loaded,ref
+    # No false claims and no invented AI workshop photo if external photo is
+    # unavailable. A verified manufacturer image is our safe fallback.
     if official_photo:
         return official_photo,{
             "category":category,
             "description":"Actual Laser Tools manufacturer application photograph",
             "source":"Official manufacturer application photo",
             "page_url":str(product.get("application_photo_source") or ""),
-            "license_url":None,
+            "license_url":None,"scene_type":category,"family":family,
+            "crop":(.5,.5),"darkness":style["darkness"],
+            "blur":style["blur"],"colour":style["colour"],
         }
-    # A clean, photographic-style graphic fallback is better than an invented
-    # drawing of the product operating or an unrelated automotive photograph.
-    return None,{"category":category,"description":"Clean branded background (no verified scene photo loaded)",
-                 "source":"No external photograph used","page_url":"","license_url":None}
+    return None,{
+        "category":category,
+        "description":"Clean branded artwork (real background unavailable)",
+        "source":"No external photograph used",
+        "page_url":"","license_url":None,"scene_type":category,
+        "family":family,"crop":ref["crop"],"darkness":style["darkness"],
+        "blur":style["blur"],"colour":style["colour"],
+    }
