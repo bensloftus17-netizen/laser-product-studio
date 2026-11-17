@@ -3,6 +3,7 @@ import os, json, re, secrets, time
 import requests
 from ai_promo_renderer import FAMILIES
 from promo_art_direction import normalise_art_direction
+from promo_selling_points import focus_concept
 
 def propose(product, creative_brief="", only_family=None, tone="trade"):
     """Generate three ideas normally, or ONE new concept for a selected design."""
@@ -21,9 +22,13 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "All three are SALES POSTERS, NEVER technical specification sheets, blueprint diagrams or educational posters. "
             "Posters already display original product photography, exact part number, official product name and the verified RRP "
             "(or PRICE ON REQUEST where no official UK price is available). "
-            "Concept 1 is a colourful BOLD RETAIL PROMOTION with a standout circular price burst. "
-            "Concept 2 is a CLEAN PREMIUM PRODUCT PROMOTION with elegant typography and a boxed RRP. "
-            "Concept 3 is an ENERGETIC TRADE COUNTER PROMOTION with dramatic angular shapes and a wide price banner. "
+            "Concept 1 is a colourful BOLD RETAIL PROMOTION focused on the source-confirmed UK RRP "
+            "(or price on request), without suggesting an unsupported discount. "
+            "Concept 2 is a CLEAN PREMIUM PRODUCT PROMOTION focused on one real practical "
+            "benefit in the manufacturer's verified features, with elegant typography. "
+            "Concept 3 is a TRADE WORKSHOP PROMOTION focused on the tool's confirmed "
+            "vehicle fitments and workshop applications. If there is no verified "
+            "vehicle compatibility, focus on the source-backed task, not a guessed vehicle. "
             "Write concise, natural UK trade headlines with the TOOL TYPE as the main subject: "
             "e.g. 'Ball Joint Separator for JLR' rather than 'JLR Ball Joint Separation', "
             "'Glow Plug Removal Kit' rather than 'Conquer Sheared Glow Plugs'. "
@@ -166,7 +171,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             return " ".join(str(c.get(field,"")).split())[:maxlen]
         variant=secrets.randbelow(3)
         direction=normalise_art_direction(c.get("art_direction"),FAMILIES[family_index],variant)
-        cleaned.append({"id":family_index,
+        cleaned.append(focus_concept(product,{"id":family_index,
             "name":safe("name",30) or ("Promotional Option "+str(family_index+1)),
             "headline":professional_headline(safe("headline",48),product,features),
             "subline":safe("subline",82) or str(product.get("title",""))[:82],
@@ -176,7 +181,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "art_direction":direction,
             "features":selected,
             "part":str(product.get("part","")),
-            "title":str(product.get("title",""))[:125]})
+            "title":str(product.get("title",""))[:125]},family_index))
     return cleaned
 
 
