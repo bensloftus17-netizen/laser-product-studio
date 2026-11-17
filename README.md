@@ -1,5 +1,30 @@
 # Laser Product Studio
 
+## One-click distributor marketing campaigns
+
+The landing page now includes a prominent **Generate Complete Campaign** action.
+Enter a part number (for example `9395`) to create, in one request:
+
+- 3 distinct price-, benefit- and application-led promotional posters using the
+  genuine manufacturer product photo and verified specifications.
+- Native Facebook/Instagram square graphic, vertical story, website banner and
+  email header.
+- Social caption, LinkedIn post, customer email, hashtags, website listing copy
+  and a short customer message — with 3 source-grounded campaign directions.
+- PDF summary, source record and official-product-page QR (when a trusted source
+  URL exists) in a **single complete ZIP**.
+- On-page graphic previews and copy buttons, with a repeat-download link.
+
+Gemini chooses concepts when configured and accessible. If the AI API is unavailable,
+the app **still builds an honest source-verified fallback campaign** instead of
+failing the whole action. All assets are **drafts requiring company review**; the
+app never sends or publishes anything automatically. Session preview/download links
+expire after 15 minutes on the current single-worker Render free service.
+
+See [MARKETING_CAMPAIGN_HUB.md](MARKETING_CAMPAIGN_HUB.md) for the UI map, outputs,
+architecture, approval checklist and next development phases.
+
+
 Free-tier Render web app. Enter a Laser Tools part number; the app looks up official product data from lasertools.co.uk / Tool Connection, validates source/part number, uses official product images, and generates 4 PNG marketing graphics, a technical PDF and a ZIP.
 
 **Limitations:** The actual live lookup must be tested from the deployed Render service. Some product pages may block automated access, and not every part has an official PIS or retrievable image. Do not publish unreviewed marketing claims. The app is a prototype, not affiliated with the public Laser Tools website.
