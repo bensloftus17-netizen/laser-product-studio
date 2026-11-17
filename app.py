@@ -2,7 +2,7 @@
 Public-site pilot. Not affiliated with the official Laser Tools website.
 """
 from __future__ import annotations
-import io, re, json, time, zipfile, hashlib, logging, html, base64
+import io, re, json, time, zipfile, hashlib, logging, html, base64, secrets, threading
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
@@ -26,6 +26,7 @@ from promo_scene_library import find_scene, classify_product, scene_reference as
 from promo_art_direction import normalise_art_direction, editor_preferences, scene_treatment
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
+from campaign_hub import build_campaign
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -33,15 +34,16 @@ V7_HOME_PAGE = r'''
 </head><body>
 <header class="topbar"><div class="wrap nav">
 <div class="brand-lockup"><div class="logo">LASER<small>TOOLS</small></div><span class="brand-rule"></span><div class="brand-name">Product Studio<small>Professional marketing, simplified</small></div></div>
-<nav class="navright"><a href="#builder">Create posters</a><a href="#how">How it works</a><span class="tag">DEMO · REVIEW REQUIRED</span></nav></div></header>
+<nav class="navright"><a href="#builder">Create campaigns</a><a href="#how">How it works</a><span class="tag">DEMO · REVIEW REQUIRED</span></nav></div></header>
 <main><section class="hero"><div class="wrap hero-inner">
-<div class="hero-copy"><div class="hero-kicker">LASER TOOLS · PRODUCT MARKETING STUDIO</div><h1>Create professional<br><span>product posters.</span></h1><p>One part number. Three professional marketing designs. Genuine product photography and manufacturer information, ready for your review.</p><div class="hero-qualities"><span>Official product imagery</span><span>Three poster styles</span><span>Download-ready drafts</span></div></div>
+<div class="hero-copy"><div class="hero-kicker">LASER TOOLS · PRODUCT MARKETING STUDIO</div><h1>Create complete<br><span>marketing campaigns.</span></h1><p>One part number. A complete distributor marketing campaign. Genuine product images, source-checked claims, ready-to-edit copy and channel-specific graphics in one download.</p><div class="hero-qualities"><span>Official product imagery</span><span>Three poster styles</span><span>Download-ready drafts</span></div></div>
 <div class="hero-art" aria-hidden="true"><div class="art-sheet art-left"><b>LASER TOOLS</b><strong>TECHNICAL<br>INFORMATION</strong><i></i><i></i></div><div class="art-sheet art-right"><b>LASER TOOLS</b><strong>UK RRP</strong><em>£</em></div><div class="art-sheet art-center"><b>LASER TOOLS</b><strong>PRODUCT<br>SPOTLIGHT</strong><div class="art-circle"></div><small>ENGINEERED FOR THE JOB</small></div></div>
 </div></section>
 <div class="wrap app-shell" id="builder">
 <div class="steps-panel"><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
-<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">STEP 01 / PRODUCT LOOKUP</div><h2>Find a Laser Tools product</h2><p>Enter a part number to retrieve the official record and create three poster designs.</p></div><span class="lookup-chip">Quick product search</span></div>
+<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">STEP 01 / PRODUCT LOOKUP</div><h2>Find a Laser Tools product</h2><p>Enter a part number to generate every asset needed for a distributor product campaign.</p></div><span class="lookup-chip">Quick product search</span></div>
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="primary" id="searchBtn" type="submit">Find product &amp; create posters <b>→</b></button></div></form>
+<div class="campaign-oneclick"><div><span class="sectioncap">THE COMPLETE MARKETING PACK</span><h3>One part number. One click. One ready-to-review campaign.</h3><p>Three promotional posters, social graphics, a story, website and email banners, copy for every channel, official product facts and a ZIP download.</p></div><button type="button" id="campaignBtn" class="campaign-start">✦ Generate Complete Campaign</button><p id="campaignStatus" role="status" aria-live="polite">Uses original product photographs and verified specifications. No automatic publishing.</p></div>
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
  <div class="distributor-label"><label for="distributorBrand">Customer / distributor branding <span>(optional)</span></label><small>Show a customer's logo alongside Laser Tools on all three posters.</small></div>
@@ -63,6 +65,13 @@ V7_HOME_PAGE = r'''
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
+<section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
+<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><a id="campaignDownload" class="campaign-download" href="#" download>Download full ZIP ↓</a></div>
+<div class="campaign-angle-cards" id="campaignAngles"></div>
+<h4>Campaign graphics — built for each channel</h4><div class="campaign-asset-grid" id="campaignAssets"></div>
+<h4>Copy, ready to use after review</h4><div class="campaign-copy-grid" id="campaignCopies"></div>
+<p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
+</section>
 <section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
 <section id="aiMarketingCopy" class="ai-marketing-copy" hidden aria-label="AI promotional captions">
   <div class="ai-copy-heading"><div><span class="sectioncap">CAMPAIGN CONTENT / READY-TO-EDIT DRAFTS</span><h3>Social posts, email and hashtags</h3>
@@ -109,10 +118,11 @@ V7_HOME_PAGE = r'''
 <footer><p>Independent internal pilot. Public Laser Tools / Tool Connection information is used with source attribution. Prices, product claims, artwork and imagery require approval before external release.</p></footer>
 </div></main>
 <script>
-const $=id=>document.getElementById(id);let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;let aiConcepts=[],aiOriginals=[],currentAiEditor=-1,aiEditing=false;
+const $=id=>document.getElementById(id);let campaignData=null;let active=null;let activePhoto=null;let staffApplied=null;let staffBasis='ex';let inflight=false;let aiConcepts=[],aiOriginals=[],currentAiEditor=-1,aiEditing=false;
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));}
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('campaignStatus').textContent='Uses original product photos and verified specifications. Review everything before publishing.';}
 function updateDistributorPreview(){
  const id=selectedDistributor(),target=$('distributorPreview');
  const labels={gsf:'GSF Car Parts',euro:'Euro Car Parts',mpd:'Motor Parts Direct'};
@@ -121,12 +131,12 @@ function updateDistributorPreview(){
  target.setAttribute('aria-label',id==='none'?'No customer branding':(labels[id]||'Selected customer logo'));
  if(active){
    $('reviewed').checked=false;$('download').disabled=true;
-   setProgress(2);showPreviews(active,activePhoto);clearAiDesigns();
+   setProgress(2);showPreviews(active,activePhoto);clearAiDesigns();clearCampaign();
    setState(id==='none'?'Laser Tools-only posters selected. Review the previews.':
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('generateAI').disabled=true;clearAiDesigns();setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('generateAI').disabled=true;clearAiDesigns();clearCampaign();setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a></div></article>';}).join('');}
@@ -187,7 +197,7 @@ $('applyRrp').addEventListener('click',()=>{
     active.price_source='Staff entry';
     $('record').innerHTML=productCard(active,activePhoto);
     showPreviews(active,activePhoto);
-    clearAiDesigns();
+    clearAiDesigns();clearCampaign();
     $('reviewed').checked=false;$('download').disabled=true;
     setState('Draft price applied. Review all posters before exporting.','success');
 });
@@ -458,7 +468,73 @@ $('aiIdeas').addEventListener('click',event=>{
 });
 $('aiPosterClose').addEventListener('click',()=>$('aiPosterPreview').close());
 $('aiPosterPreview').addEventListener('click',e=>{if(e.target.id==='aiPosterPreview')e.target.close();});
+
+function campaignAssetUrl(id){return '/api/campaign/assets/'+encodeURIComponent(campaignData.token)+'/'+encodeURIComponent(id);}
+function showCampaign(data){
+ campaignData=data;
+ const m=data.manifest;
+ $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
+ $('campaignSummary').textContent=(m.generation_method==='gemini-assisted'?'Gemini-directed campaign using source-verified facts. ':'Verified-source fallback campaign (Gemini unavailable). ')
+     +m.files.length+' files in the ZIP. All materials still require approval.';
+ $('campaignDownload').href='/api/campaign/download/'+encodeURIComponent(data.token);
+ $('campaignDownload').setAttribute('download','LASER_'+m.part+'_Complete_Campaign.zip');
+ $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
+  '<div class="campaign-angle"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+'</span><b>'+esc(angle.headline)+'</b><p>'+esc(angle.selling_point)+'</p></div>').join('');
+ const names={poster_price:'Price-led Poster',poster_benefit:'Benefit-led Poster',poster_application:'Application-led Poster',
+ social_square:'Facebook / Instagram Square',social_story:'Story / Vertical',website_banner:'Website Banner',
+ email_header:'Email Header',source_qr:'Official Product QR'};
+ $('campaignAssets').innerHTML=m.images.map(asset=>
+  '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small></article>').join('');
+ $('campaignCopies').innerHTML=m.copy.map((copy,index)=>
+  '<article class="campaign-copy-card"><h5>'+esc(copy.campaign_angle)+' campaign copy</h5>'
+  +'<p>'+esc(copy.social_caption).replace(/\n/g,'<br>')+'</p>'
+  +'<div class="campaign-copy-buttons"><button type="button" data-campaign-copy="'+index+'" data-channel="social_caption">Copy social</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="linkedin_post">Copy LinkedIn</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="email_body">Copy email</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="website_listing">Copy web listing</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="short_message">Copy short promo</button></div></article>').join('');
+ $('campaignResults').hidden=false;
+ $('campaignResults').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('campaignCopies').addEventListener('click',async(event)=>{
+ const b=event.target.closest('button[data-campaign-copy]');
+ if(!b||!campaignData)return;
+ const copy=campaignData.manifest.copy[Number(b.dataset.campaignCopy)]||{};
+ const text=b.dataset.channel==='email_body'?'Subject: '+(copy.email_subject||'')+'\n\n'+(copy.email_body||''):copy[b.dataset.channel]||'';
+ try{await copyCampaignText(text);b.textContent='Copied ✓';}catch(e){b.textContent='Copy failed';}
+});
+$('campaignBtn').addEventListener('click',async()=>{
+ if(inflight)return;
+ const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
+ if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
+ const rawPrice=$('staffRrp').value.trim();
+ if(rawPrice&&!$('staffReview').checked){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
+ button.disabled=true;button.textContent='Building full campaign…';
+ clearCampaign();
+ try{
+   if(!active||active.part!==part){$('campaignStatus').textContent='Retrieving verified product details…';await load(part);}
+   if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
+   $('campaignStatus').textContent='Creating three sales angles, seven artwork files, channel copy and a ZIP…';
+   const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
+     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+     body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
+       distributor_brand:selectedDistributor(),
+       staff_rrp_ex:rawPrice||staffApplied,
+       staff_rrp_reviewed:!!(rawPrice||staffApplied)&&$('staffReview').checked,
+       staff_rrp_basis:rawPrice?$('staffRrpBasis').value:staffBasis})
+   });
+   const data=await readApiJson(response);
+   showCampaign(data);
+   $('campaignStatus').textContent='Complete campaign generated. The download link is available for 15 minutes; review all materials before publication.';
+   const anchor=document.createElement('a');anchor.href=$('campaignDownload').href;
+   anchor.download='LASER_'+part+'_Complete_Campaign.zip';document.body.appendChild(anchor);
+   anchor.click();anchor.remove();
+ }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
+ finally{button.disabled=false;button.textContent='✦ Generate Complete Campaign';}
+});
+
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
+['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
 </script></body></html>
@@ -1554,6 +1630,96 @@ def edit_ai_promo(part):
         app.logger.exception('AI poster edit failed')
         return jsonify(error='Unable to update the poster. Please retry.'),500
 
+
+
+# Temporary single-worker pack storage. Random tokens prevent unrelated visitors
+# from downloading other distributor drafts; expiry bounds memory on free Render.
+CAMPAIGN_PACKS = {}
+CAMPAIGN_PACK_LOCK = threading.Lock()
+CAMPAIGN_PACK_TTL = 15 * 60
+
+
+def _get_campaign_pack(token):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return None
+    with CAMPAIGN_PACK_LOCK:
+        now = time.time()
+        for key in list(CAMPAIGN_PACKS):
+            if CAMPAIGN_PACKS[key]['expires'] < now:
+                CAMPAIGN_PACKS.pop(key, None)
+        entry = CAMPAIGN_PACKS.get(token)
+        return entry['bundle'] if entry and entry['expires'] >= now else None
+
+
+@app.post('/api/campaign/<part>')
+def one_click_campaign(part):
+    """One click creates a full campaign, previews and a complete ZIP.
+
+    Generate draft material only; no automatic social posts or publishing.
+    The browser cannot replace verified product photos, technical claims or RRP.
+    """
+    try:
+        part = sku_clean(part)
+        body = request.get_json(silent=True) or {}
+        if not isinstance(body, dict):
+            return jsonify(error='Invalid campaign settings.'), 400
+        product, image = lookup(part, uk_url=body.get('official_url') or None)
+        if not image:
+            return jsonify(error='A genuine official product photograph is required.'), 422
+        product = with_reviewed_price(
+            product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
+            body.get('staff_rrp_basis', 'ex')
+        )
+        distributor = selected_distributor(body.get('distributor_brand', 'none'))
+        bundle = build_campaign(product, image, distributor)
+        token = secrets.token_urlsafe(24)
+        with CAMPAIGN_PACK_LOCK:
+            now = time.time()
+            for key in list(CAMPAIGN_PACKS):
+                if CAMPAIGN_PACKS[key]['expires'] < now:
+                    CAMPAIGN_PACKS.pop(key, None)
+            while len(CAMPAIGN_PACKS) >= 4:
+                CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
+            CAMPAIGN_PACKS[token] = {'expires': now + CAMPAIGN_PACK_TTL, 'bundle': bundle}
+        response = jsonify(token=token, manifest=bundle['manifest'])
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)), 400
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    except RuntimeError as exc:
+        app.logger.exception('Campaign rendering failed')
+        return jsonify(error='Campaign could not be completed: ' + str(exc)), 503
+    except Exception:
+        app.logger.exception('One-click campaign error')
+        return jsonify(error='Unable to build the marketing campaign. Please check the application logs.'), 500
+
+
+@app.get('/api/campaign/download/<token>')
+def download_campaign(token):
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='Campaign link expired. Generate the campaign again.'), 404
+    part = re.sub(r'[^A-Za-z0-9_-]', '', str(bundle['manifest'].get('part') or 'Product'))
+    response = send_file(io.BytesIO(bundle['archive']), mimetype='application/zip',
+                         as_attachment=True,
+                         download_name='LASER_' + part + '_Complete_Campaign.zip')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
+@app.get('/api/campaign/assets/<token>/<asset_id>')
+def preview_campaign_asset(token, asset_id):
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='Campaign preview expired. Generate it again.'), 404
+    asset = bundle['images'].get(asset_id)
+    if asset is None:
+        return jsonify(error='Campaign asset not found.'), 404
+    response = send_file(io.BytesIO(asset), mimetype='image/png')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
 
 @app.get('/api/photo/<part>')
 def photo(part):
