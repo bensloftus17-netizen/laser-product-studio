@@ -31,7 +31,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v34-copy-rewrite">
+<link rel="stylesheet" href="/static/styles.css?design=v35-gemini-recovery">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -535,10 +535,28 @@ $('generateAI').addEventListener('click',async()=>{
    aiOriginals=data.concepts.map(c=>({...c}));
    renderAiGallery();
    setState('Three AI promotional posters generated. Check the verified RRP and copy before sharing.','success');
- }catch(err){$('aiIdeas').innerHTML='<p class="ai-error">'+esc(err.message)+'</p>';setState(err.message,'error');}
+ }catch(err){
+   if(!active||active.part!==productPart)return;
+   const message=String(err.message||'Unable to generate AI posters.');
+   const temporary=/HTTP 50[0234]|temporarily unavailable|timed out|timeout|incomplete response/i.test(message);
+   const heading=temporary?'Gemini is unavailable right now':'AI generation could not be completed';
+   const explanation=temporary
+    ?'Google temporarily rejected the AI request. Your product lookup and standard marketing tools are still available.'
+    :'Check the error below. If the AI service cannot generate posters, you can still create a complete source-verified campaign.';
+   $('aiIdeas').innerHTML='<div class="ai-recovery" role="alert"><strong>'+esc(heading)+
+      '</strong><p>'+esc(explanation)+'</p><p class="ai-recovery-reason">'+esc(message)+
+      '</p><div class="ai-recovery-actions"><button type="button" class="ai-secondary" data-ai-retry="1">Retry AI posters</button>'+
+      '<button type="button" class="ai-secondary" data-ai-fallback="1">Generate full campaign instead</button></div>'+
+      '<small>The alternative campaign uses verified manufacturer facts and is labelled as a template fallback if Gemini is unavailable.</small></div>';
+   setState(message,'error');
+ }
  finally{button.disabled=!activePhoto;button.textContent='✦ Generate with AI';}
 });
 $('aiIdeas').addEventListener('click',event=>{
+ const retry=event.target.closest('button[data-ai-retry]');
+ if(retry){$('generateAI').click();return;}
+ const fallback=event.target.closest('button[data-ai-fallback]');
+ if(fallback){$('campaignBtn').click();return;}
  const copyBtn=event.target.closest('button[data-ai-copy]');
  if(copyBtn){
   renderAiMarketingCopy();
