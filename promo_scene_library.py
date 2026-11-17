@@ -24,6 +24,7 @@ SCENE_PHOTOS = {
     "diagnostic": (8985448, 8986138),
     "brakes": (6870304, 6870299),
     "suspension": (8986101, 31097241),
+    "wheel_hub": (13010580, 17429096, 7367864),
     "engine": (8985517, 8986138),
     "hand_tools": (8985918, 8985615),
     "press": (5962644, 8985517),
@@ -35,6 +36,7 @@ SCENE_LABELS = {
     "diagnostic": "Vehicle diagnostics",
     "brakes": "Brake maintenance",
     "suspension": "Suspension / undercar service",
+    "wheel_hub": "Wheel hub / bearing replacement",
     "engine": "Engine service / access",
     "hand_tools": "Hand tools / workshop bench",
     "press": "Workshop machinery",
@@ -48,6 +50,7 @@ RULES = (
     ("battery", r"\b(?:battery|batteries|charger|charging|jump[\s-]?start(?:er)?|booster|maintainer|trickle)\b"),
     ("diagnostic", r"\b(?:diagnostic|obd|scanner|code[\s-]?reader|scan tool|multimeter|tester)\b"),
     ("brakes", r"\b(?:brake|caliper|disc|rotor|bleed(?:er|ing)?|clutch[\s&-]+brake)\b"),
+    ("wheel_hub", r"\b(?:wheel[\s-]?bearing|hub[\s-]?(?:bearing|puller|spreader|assembly|tool)|wheel[\s-]?hub|bearing[\s-]?(?:kit|tool|puller|installation|removal)|knuckle)\b"),
     ("suspension", r"\b(?:suspension|strut|shock[\s-]?absorber|hub|bearing|ball joint|tie[\s-]?rod|wheel)\b"),
     ("press", r"\b(?:hydraulic[\s-]?press|workshop[\s-]?press|arbour[\s-]?press|press[\s-]?frame)\b"),
     ("welding", r"\b(?:weld(?:er|ing)?|solder|spot[\s-]?weld|mig|tig)\b"),
@@ -74,11 +77,14 @@ def classify_product(product: dict) -> str:
 SCENE_CANDIDATES = {
     "battery": [
         (32282232, "Battery with leads in engine bay", .48, .52),
+        (5572260, "Real car battery charging clamps attached", .50, .50),
+        (6473244, "Car battery with jump leads in the engine bay", .52, .50),
         (32282233, "Battery terminal connections close-up", .57, .47),
-        (6473244, "Car battery with connected jump leads", .52, .50),
     ],
     "diagnostic": [
         (8985448, "Mechanic using automotive diagnostic equipment", .52, .50),
+        (12271948, "Handheld vehicle diagnostic scanner in use", .50, .50),
+        (13083209, "Technician working with diagnostic laptop", .50, .47),
         (13065692, "Technician diagnosing vehicle engine", .51, .50),
     ],
     "brakes": [
@@ -90,6 +96,11 @@ SCENE_CANDIDATES = {
         (8986101, "Mechanic repairing vehicle undercarriage", .55, .50),
         (8985618, "Mechanic inspecting car underside", .54, .43),
         (8986069, "Technician checking under a raised vehicle", .52, .50),
+    ],
+    "wheel_hub": [
+        (13010580, "Wheel removed showing hub and brake disc", .50, .50),
+        (17429096, "Mechanic servicing the vehicle wheel area", .53, .49),
+        (7367864, "Car wheel maintenance in a real workshop", .52, .50),
     ],
     "engine": [
         (8985517, "Mechanic lifting car engine", .57, .54),
