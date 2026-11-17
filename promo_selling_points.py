@@ -63,7 +63,13 @@ def focus_concept(product, concept, index, used_points=None):
     focus=FOCUS_BY_FAMILY.get(family,("price","benefit","application")[index%3])
     source=_clean_features(product)
     preferred=choose_feature(product,focus,used_points or ())
-    other=[x for x in source if x!=preferred]
+    if focus=="price":
+        # Gemini can select any real manufacturer fact alongside the RRP.
+        # Preserve that evidenced choice rather than imposing a generic one.
+        user_candidates=concept.get("features") or []
+        if isinstance(user_candidates,list):
+            chosen=next((v for v in user_candidates if v in source),None)
+            if chosen:preferred=chosen
     if preferred:
         # A one-point visible callout, not the same three cluttered bullet lists.
         result["features"]=[preferred]
