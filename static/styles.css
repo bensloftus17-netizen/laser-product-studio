@@ -381,3 +381,35 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 /* V7: unobtrusive verification note; warning copy stays visible for manual review. */
 .ai-qa-note{font-size:11px;line-height:1.5;color:#35566e;border-top:1px solid #d5e4ed;margin:6px 0 0;padding-top:7px}
 .ai-qa-note strong{font-weight:750}
+
+
+/* Automatically generated marketing copy, kept secondary to the poster gallery. */
+.ai-marketing-copy{margin-top:24px;border:1px solid #d3e5f1;border-radius:18px;
+ background:linear-gradient(145deg,#fff,#f5fafe);padding:24px;box-shadow:0 9px 28px rgba(19,55,82,.07)}
+.ai-copy-heading h3{margin:5px 0;font-size:22px;color:#092f4c;line-height:1.2}
+.ai-copy-heading p{margin:6px 0 20px;color:#55748b;font-size:13px;line-height:1.55;max-width:790px}
+.ai-copy-design-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0 18px}
+.ai-copy-design-tabs button{font:inherit;font-size:12px;font-weight:780;border-radius:10px;
+ padding:12px 9px;color:#254c68;background:#f7fbff;border:1px solid #cbdde8;cursor:pointer}
+.ai-copy-design-tabs button.selected{background:#075f9f;color:#fff;border-color:#075f9f}
+.ai-copy-channels{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.ai-copy-channels button{font:inherit;font-size:12px;font-weight:750;cursor:pointer;
+ border-radius:20px;padding:9px 15px;background:#edf3f8;color:#24536e;border:1px solid #cddfea}
+.ai-copy-channels button.selected{background:#d3edfe;border-color:#1680bb;color:#07528a}
+.ai-copy-label{display:block;font-size:13px;font-weight:850;margin:0 0 7px;color:#153a55}
+#aiCopyText{width:100%;box-sizing:border-box;resize:vertical;min-height:142px;
+ border-radius:12px;border:1px solid #b6d3e4;background:#fff;color:#183449;
+ padding:16px;font:inherit;font-size:13px;line-height:1.62}
+#aiCopyText:focus{outline:2px solid #1189c4;outline-offset:1px}
+.ai-copy-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px}
+.ai-copy-actions button{white-space:normal;text-align:center}
+#aiCopyStatus{font-size:12px;color:#116a8c;font-weight:720}
+.ai-copy-disclaimer{margin:15px 0 0;font-size:11px;line-height:1.5;color:#617d91}
+.ai-card-actions button[data-ai-copy]{background:#eaf5ff;border:1px solid #a8d6f2;
+ color:#07558a;font-size:12px;font-weight:760;border-radius:8px;padding:9px 11px;cursor:pointer}
+.ai-card-actions button[data-ai-copy]:hover{background:#d5ebff}
+@media(max-width:680px){
+ .ai-marketing-copy{padding:17px}
+ .ai-copy-design-tabs{grid-template-columns:1fr;gap:6px}
+ .ai-copy-channels button{flex:1;min-width:40%;padding:9px 6px}
+}
