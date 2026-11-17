@@ -136,7 +136,12 @@ class CampaignHubTests(unittest.TestCase):
         page = studio.V7_HOME_PAGE
         # The previous card buttons copied immediately without showing wording.
         self.assertNotIn('id="campaignCopies"', page)
-        self.assertIn('id="campaignCopyText"', page)
+        self.assertEqual(page.count('id="campaignCopyText"'), 1)
+        self.assertEqual(page.count('id="unifiedCopyStudio"'), 1)
+        self.assertNotIn('id="aiCopyText"', page)
+        self.assertNotIn('id="aiMarketingCopy"', page)
+        self.assertIn("origin:'ai'", page)
+        self.assertIn("origin:'campaign'", page)
         self.assertIn('id="campaignCopyAngles"', page)
         self.assertIn('id="campaignCopyChannels"', page)
         self.assertIn('data-campaign-channel="linkedin_post"', page)
