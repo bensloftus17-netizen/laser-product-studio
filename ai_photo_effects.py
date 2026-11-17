@@ -56,7 +56,12 @@ def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
         bb=component_core.getbbox()
         if not bb:continue
         bw,bh=bb[2]-bb[0],bb[3]-bb[1]
-        if bw*bh < min_area or max(bw,bh)/max(1,min(bw,bh)) < 1.4:
+        ratio=max(bw,bh)/max(1,min(bw,bh))
+        # Real 8899 is an enclosed WHITE PARALLELOGRAM. Its bounding box
+        # is nearly square (aspect ~1.29) despite the diagonal metal jaws.
+        # Permit such an opening only if it is a sizeable, uniform area.
+        large_paper=(bw*bh>w*h*.06 and ratio>1.12)
+        if bw*bh<min_area or (ratio<1.4 and not large_paper):
             continue
         if bw < w*.09 or bh < h*.025:
             continue
@@ -73,13 +78,15 @@ def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
         if bbox[0]<=2 or bbox[1]<=2 or bbox[2]>=w-2 or bbox[3]>=h-2:
             continue
         from PIL import ImageStat
-        means=ImageStat.Stat(rgb,mask=region).mean
-        if min(means)<225 or max(means)-min(means)>23:
-            continue
-        # Large broad rectangles are intentional labels/white components more
-        # often than mechanical openings. Gaps are elongated or diagonally
-        # clipped and can safely be isolated from a dark-colour tool.
-        if max(bbox[2]-bbox[0],bbox[3]-bbox[1])/max(1,min(bbox[2]-bbox[0],bbox[3]-bbox[1]))<1.42:
+        statistics=ImageStat.Stat(rgb,mask=region)
+        means,spread=statistics.mean,statistics.stddev
+        if large_paper:
+            # The real 8899 white opening is almost pure neutral paper
+            # (RGB ~254, std <4); an actual white moulded component has
+            # shading, texture and substantially higher local variation.
+            if area<w*h*.02 or min(means)<248 or max(spread)>9:
+                continue
+        elif min(means)<237 or max(means)-min(means)>23 or max(spread)>16:
             continue
         eligible=ImageChops.lighter(eligible,region)
     if eligible.getbbox() is None:
