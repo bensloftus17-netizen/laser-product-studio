@@ -121,10 +121,8 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     # Feather the exterior AND the verified interior background holes.
     # The actual white metal/labels stay opaque and keep their source pixels.
     connected_background = exterior
-    # Expand the connected background by just one pixel then anti-alias the
-    # silhouette. This removes the bright JPG antialias border while leaving
-    # real white product surfaces opaque. Don't darken the product interior.
-    connected_background = candidates.point(lambda p: 255 if p == 128 else 0)
+    # Feather the merged exterior background and interior white gaps as one
+    # mask; do not overwrite it with the original edge-only flood result.
     expanded_background = connected_background.filter(ImageFilter.MaxFilter(3))
     alpha = ImageOps.invert(expanded_background).filter(
         ImageFilter.GaussianBlur(.55))
