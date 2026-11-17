@@ -721,3 +721,14 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .quickbar-item small{max-width:65px}
  .asset-workspace,.copy-workspace{padding:12px}
 }
+
+/* Inline, dependency-free line icons used by the dashboard navigation. */
+.hub-icon-sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.hub-icon{display:inline-block;flex:none;width:19px;height:19px;vertical-align:-4px;
+ fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.studio-top-links .hub-icon{width:17px;height:17px;vertical-align:-4px;margin-right:3px}
+.studio-sidebar .hub-icon{width:21px;height:21px;flex:none;margin-right:3px}
+.sidebar-menu>a,.sidebar-menu>button,.sidebar-future{gap:10px}
+.quickbar-item .hub-icon{width:23px;height:23px;color:#066ab4;stroke-width:2.2}
+.workspace-heading h2 .hub-icon,.saved-heading h2 .hub-icon{width:21px;height:21px;
+ color:#0575c3;margin-right:5px;vertical-align:-4px}
