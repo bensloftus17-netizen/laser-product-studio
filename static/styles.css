@@ -469,3 +469,15 @@ footer{border-top:1px solid #dce7f0;padding:19px 0 30px;color:#778ba0;font-size:
 .campaign-start{width:100%;max-width:none}.campaign-oneclick #campaignStatus{grid-column:1}
 .campaign-dashboard{padding:15px}.campaign-angle-cards{grid-template-columns:1fr}
 .campaign-asset-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Reuse the original, calmer copy-review interaction in campaign packs. */
+.campaign-copy-studio{margin-top:22px;padding:23px;border:1px solid #d3e5f1;
+ border-radius:16px;background:linear-gradient(145deg,#fff,#f5fafe)}
+.campaign-copy-studio .ai-copy-heading h3{font-size:21px}
+.campaign-copy-studio .ai-copy-design-tabs{margin-top:16px}
+#campaignCopyText{display:block;width:100%;box-sizing:border-box;resize:vertical;
+ min-height:180px;border-radius:12px;border:1px solid #b6d3e4;background:#fff;
+ color:#183449;padding:16px;font:inherit;font-size:13px;line-height:1.65}
+#campaignCopyText:focus{outline:2px solid #1189c4;outline-offset:1px}
+#campaignCopyStatus{font-size:12px;color:#116a8c;font-weight:720}
+@media(max-width:680px){.campaign-copy-studio{padding:16px}}

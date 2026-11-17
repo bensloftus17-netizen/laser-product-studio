@@ -69,7 +69,25 @@ V7_HOME_PAGE = r'''
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><a id="campaignDownload" class="campaign-download" href="#" download>Download full ZIP ↓</a></div>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
 <h4>Campaign graphics — built for each channel</h4><div class="campaign-asset-grid" id="campaignAssets"></div>
-<h4>Copy, ready to use after review</h4><div class="campaign-copy-grid" id="campaignCopies"></div>
+<section class="campaign-copy-studio" aria-label="Campaign wording editor">
+<div class="ai-copy-heading"><div><span class="sectioncap">CAMPAIGN COPY / READY-TO-EDIT DRAFTS</span><h3>Choose your marketing text</h3><p>Select a campaign angle and marketing channel to see the full suggested wording. Edit the draft, then copy the text you want to use.</p></div></div>
+<div id="campaignCopyAngles" class="ai-copy-design-tabs" role="group" aria-label="Campaign selling angle"></div>
+<div id="campaignCopyChannels" class="ai-copy-channels" role="group" aria-label="Marketing content type">
+ <button type="button" data-campaign-channel="social_caption">Social caption</button>
+ <button type="button" data-campaign-channel="linkedin_post">LinkedIn post</button>
+ <button type="button" data-campaign-channel="email_body">Product email</button>
+ <button type="button" data-campaign-channel="hashtags">Hashtags</button>
+ <button type="button" data-campaign-channel="website_listing">Website listing</button>
+ <button type="button" data-campaign-channel="short_message">Short promo</button>
+</div>
+<label id="campaignCopyLabel" class="ai-copy-label" for="campaignCopyText">Social caption</label>
+<textarea id="campaignCopyText" rows="9" spellcheck="true" aria-label="Editable campaign copy text"></textarea>
+<div class="ai-copy-actions"><button type="button" id="campaignCopyCurrent" class="ai-secondary">Copy this text</button>
+<button type="button" id="campaignCopyAll" class="ai-secondary">Copy all campaign wording</button>
+<button type="button" id="campaignCopyReset" class="ai-secondary">Reset this draft</button>
+<span id="campaignCopyStatus" role="status" aria-live="polite"></span></div>
+<p class="ai-copy-disclaimer">Your edits are kept while switching tabs in this page and used when copying. The downloaded ZIP still contains the original drafts. Review all wording before publishing.</p>
+</section>
 <p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
 </section>
 <section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
@@ -485,23 +503,85 @@ function showCampaign(data){
  email_header:'Email Header',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
   '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small></article>').join('');
- $('campaignCopies').innerHTML=m.copy.map((copy,index)=>
-  '<article class="campaign-copy-card"><h5>'+esc(copy.campaign_angle)+' campaign copy</h5>'
-  +'<p>'+esc(copy.social_caption).replace(/\n/g,'<br>')+'</p>'
-  +'<div class="campaign-copy-buttons"><button type="button" data-campaign-copy="'+index+'" data-channel="social_caption">Copy social</button>'
-  +'<button type="button" data-campaign-copy="'+index+'" data-channel="linkedin_post">Copy LinkedIn</button>'
-  +'<button type="button" data-campaign-copy="'+index+'" data-channel="email_body">Copy email</button>'
-  +'<button type="button" data-campaign-copy="'+index+'" data-channel="website_listing">Copy web listing</button>'
-  +'<button type="button" data-campaign-copy="'+index+'" data-channel="short_message">Copy short promo</button></div></article>').join('');
+ campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};
+ renderCampaignCopyStudio();
  $('campaignResults').hidden=false;
  $('campaignResults').scrollIntoView({behavior:'smooth',block:'start'});
 }
-$('campaignCopies').addEventListener('click',async(event)=>{
- const b=event.target.closest('button[data-campaign-copy]');
- if(!b||!campaignData)return;
- const copy=campaignData.manifest.copy[Number(b.dataset.campaignCopy)]||{};
- const text=b.dataset.channel==='email_body'?'Subject: '+(copy.email_subject||'')+'\n\n'+(copy.email_body||''):copy[b.dataset.channel]||'';
- try{await copyCampaignText(text);b.textContent='Copied ✓';}catch(e){b.textContent='Copy failed';}
+
+let campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
+const campaignChannelLabels={
+ social_caption:'Social caption',linkedin_post:'LinkedIn post',email_body:'Product email',
+ hashtags:'Hashtags',website_listing:'Website listing',short_message:'Short promo'
+};
+function campaignDraft(index,channel){
+ const key=String(index)+':'+channel;
+ if(Object.prototype.hasOwnProperty.call(campaignCopyEdits,key))return campaignCopyEdits[key];
+ const copy=campaignData?.manifest?.copy?.[index]||{};
+ if(channel==='email_body')return 'Subject: '+(copy.email_subject||'')+'\n\n'+(copy.email_body||'');
+ if(channel==='hashtags')return Array.isArray(copy.hashtags)?copy.hashtags.join(' '):'';
+ return copy[channel]||'';
+}
+function renderCampaignCopyStudio(){
+ if(!campaignData)return;
+ const copies=campaignData.manifest.copy||[];
+ campaignCopyIndex=Math.min(Math.max(0,campaignCopyIndex),Math.max(0,copies.length-1));
+ $('campaignCopyAngles').innerHTML=copies.map((copy,index)=>
+  '<button type="button" data-campaign-angle="'+index+'" class="'+(index===campaignCopyIndex?'selected':'')+
+  '" aria-pressed="'+String(index===campaignCopyIndex)+'">'+esc(copy.campaign_angle||'Campaign '+(index+1))+'</button>').join('');
+ document.querySelectorAll('#campaignCopyChannels button').forEach(button=>{
+  const active=button.dataset.campaignChannel===campaignCopyChannel;
+  button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));
+ });
+ const name=copies[campaignCopyIndex]?.campaign_angle||'Campaign';
+ $('campaignCopyLabel').textContent=name+' · '+campaignChannelLabels[campaignCopyChannel];
+ $('campaignCopyText').value=campaignDraft(campaignCopyIndex,campaignCopyChannel);
+ $('campaignCopyStatus').textContent='';
+}
+$('campaignCopyAngles').addEventListener('click',event=>{
+ const button=event.target.closest('button[data-campaign-angle]');
+ if(!button||!campaignData)return;
+ campaignCopyIndex=Number(button.dataset.campaignAngle);renderCampaignCopyStudio();
+});
+$('campaignCopyChannels').addEventListener('click',event=>{
+ const button=event.target.closest('button[data-campaign-channel]');
+ if(!button||!campaignData)return;
+ campaignCopyChannel=button.dataset.campaignChannel;renderCampaignCopyStudio();
+});
+$('campaignCopyText').addEventListener('input',()=>{
+ if(!campaignData)return;
+ campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel]=$('campaignCopyText').value;
+ $('campaignCopyStatus').textContent='Edited draft — not yet included in downloaded ZIP.';
+});
+async function copySelectedCampaignText(value){
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+  await navigator.clipboard.writeText(value);return true;
+ }
+ const field=$('campaignCopyText'),prior=field.value;
+ field.value=value;field.focus();field.select();
+ const copied=document.execCommand('copy');field.value=prior;return copied;
+}
+$('campaignCopyCurrent').addEventListener('click',async()=>{
+ if(!campaignData)return;
+ try{
+  const success=await copySelectedCampaignText(campaignDraft(campaignCopyIndex,campaignCopyChannel));
+  $('campaignCopyStatus').textContent=success?'Text copied.':'Select and copy the text manually.';
+ }catch(e){$('campaignCopyStatus').textContent='Clipboard unavailable. Select the text and copy it manually.';}
+});
+$('campaignCopyAll').addEventListener('click',async()=>{
+ if(!campaignData)return;
+ const text=(campaignData.manifest.copy||[]).map((copy,index)=>
+  (copy.campaign_angle||'Campaign '+(index+1))+'\n'+Object.keys(campaignChannelLabels).map(channel=>
+   campaignChannelLabels[channel]+'\n'+campaignDraft(index,channel)).join('\n\n')).join('\n\n-------------------------\n\n');
+ try{
+  const success=await copySelectedCampaignText(text);
+  $('campaignCopyStatus').textContent=success?'All campaign wording copied.':'Select and copy the text manually.';
+ }catch(e){$('campaignCopyStatus').textContent='Clipboard unavailable. Copy each section individually.';}
+});
+$('campaignCopyReset').addEventListener('click',()=>{
+ if(!campaignData)return;
+ delete campaignCopyEdits[String(campaignCopyIndex)+':'+campaignCopyChannel];
+ renderCampaignCopyStudio();$('campaignCopyStatus').textContent='Original suggested wording restored.';
 });
 $('campaignBtn').addEventListener('click',async()=>{
  if(inflight)return;

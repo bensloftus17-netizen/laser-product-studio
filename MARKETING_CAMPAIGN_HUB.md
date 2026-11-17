@@ -28,7 +28,8 @@ It does **not** automatically post, email, schedule or publish content.
 3. **Campaign overview**
    - Part number, product title, three verified marketing angles, warning/review notes.
    - Downloadable preview gallery of all channel graphics.
-   - Three channel-specific copy cards with copy actions.
+   - The original selectable copy-preview experience: choose **Price-led / Benefit-led / Application-led**, then **Social / LinkedIn / Email / Hashtags / Website / Short promo** to display the full suggested text in one editable field.
+   - **Copy this text**, **Copy all campaign wording** and **Reset this draft** controls; browser edits persist while switching tabs but are not included in the downloaded original ZIP.
    - **Download full ZIP** and automatic ZIP download after the original click.
 4. **External publication**
    - Human review of every graphic, claim, image right, fitment, RRP/VAT and
