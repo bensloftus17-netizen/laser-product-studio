@@ -468,6 +468,71 @@ $('aiIdeas').addEventListener('click',event=>{
 });
 $('aiPosterClose').addEventListener('click',()=>$('aiPosterPreview').close());
 $('aiPosterPreview').addEventListener('click',e=>{if(e.target.id==='aiPosterPreview')e.target.close();});
+
+function campaignAssetUrl(id){return '/api/campaign/assets/'+encodeURIComponent(campaignData.token)+'/'+encodeURIComponent(id);}
+function showCampaign(data){
+ campaignData=data;
+ const m=data.manifest;
+ $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
+ $('campaignSummary').textContent=(m.generation_method==='gemini-assisted'?'Gemini-directed campaign using source-verified facts. ':'Verified-source fallback campaign (Gemini unavailable). ')
+     +m.files.length+' files in the ZIP. All materials still require approval.';
+ $('campaignDownload').href='/api/campaign/download/'+encodeURIComponent(data.token);
+ $('campaignDownload').setAttribute('download','LASER_'+m.part+'_Complete_Campaign.zip');
+ $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
+  '<div class="campaign-angle"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+'</span><b>'+esc(angle.headline)+'</b><p>'+esc(angle.selling_point)+'</p></div>').join('');
+ const names={poster_price:'Price-led Poster',poster_benefit:'Benefit-led Poster',poster_application:'Application-led Poster',
+ social_square:'Facebook / Instagram Square',social_story:'Story / Vertical',website_banner:'Website Banner',
+ email_header:'Email Header',source_qr:'Official Product QR'};
+ $('campaignAssets').innerHTML=m.images.map(asset=>
+  '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small></article>').join('');
+ $('campaignCopies').innerHTML=m.copy.map((copy,index)=>
+  '<article class="campaign-copy-card"><h5>'+esc(copy.campaign_angle)+' campaign copy</h5>'
+  +'<p>'+esc(copy.social_caption).replace(/\n/g,'<br>')+'</p>'
+  +'<div class="campaign-copy-buttons"><button type="button" data-campaign-copy="'+index+'" data-channel="social_caption">Copy social</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="linkedin_post">Copy LinkedIn</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="email_body">Copy email</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="website_listing">Copy web listing</button>'
+  +'<button type="button" data-campaign-copy="'+index+'" data-channel="short_message">Copy short promo</button></div></article>').join('');
+ $('campaignResults').hidden=false;
+ $('campaignResults').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('campaignCopies').addEventListener('click',async(event)=>{
+ const b=event.target.closest('button[data-campaign-copy]');
+ if(!b||!campaignData)return;
+ const copy=campaignData.manifest.copy[Number(b.dataset.campaignCopy)]||{};
+ const text=b.dataset.channel==='email_body'?'Subject: '+(copy.email_subject||'')+'\n\n'+(copy.email_body||''):copy[b.dataset.channel]||'';
+ try{await copyCampaignText(text);b.textContent='Copied ✓';}catch(e){b.textContent='Copy failed';}
+});
+$('campaignBtn').addEventListener('click',async()=>{
+ if(inflight)return;
+ const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
+ if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
+ const rawPrice=$('staffRrp').value.trim();
+ if(rawPrice&&!$('staffReview').checked){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
+ button.disabled=true;button.textContent='Building full campaign…';
+ clearCampaign();
+ try{
+   if(!active||active.part!==part){$('campaignStatus').textContent='Retrieving verified product details…';await load(part);}
+   if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
+   $('campaignStatus').textContent='Creating three sales angles, seven artwork files, channel copy and a ZIP…';
+   const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
+     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+     body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
+       distributor_brand:selectedDistributor(),
+       staff_rrp_ex:rawPrice||staffApplied,
+       staff_rrp_reviewed:!!(rawPrice||staffApplied)&&$('staffReview').checked,
+       staff_rrp_basis:rawPrice?$('staffRrpBasis').value:staffBasis})
+   });
+   const data=await readApiJson(response);
+   showCampaign(data);
+   $('campaignStatus').textContent='Complete campaign generated. The pack is ready; review all materials before publication.';
+   const anchor=document.createElement('a');anchor.href=$('campaignDownload').href;
+   anchor.download='LASER_'+part+'_Complete_Campaign.zip';document.body.appendChild(anchor);
+   anchor.click();anchor.remove();
+ }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
+ finally{button.disabled=false;button.textContent='✦ Generate Complete Campaign';}
+});
+
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();load($('part').value.trim().toUpperCase())});document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`LASER_${active.part}_Marketing_Pack.zip`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
