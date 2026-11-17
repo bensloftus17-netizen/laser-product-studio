@@ -831,3 +831,28 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .legacy-export-actions{width:100%}
  .legacy-export-actions button{flex:1}
 }
+
+/* Make sharing discoverable and useful on iPhone, without Files detours. */
+.share-primary{background:#0769b1!important;color:#fff!important;border-color:#0769b1!important;
+ font-weight:850!important;box-shadow:0 2px 6px rgba(4,63,111,.12)}
+.share-primary:hover:not(:disabled){background:#064a82!important;border-color:#064a82!important}
+.campaign-download-choice .share-primary{order:-3;min-height:44px;font-size:12px}
+.campaign-download-choice .share-app-targets{order:-2;display:block;max-width:none;
+ font-size:10px;color:#426d8f;text-align:center;line-height:1.5;padding:0 2px 6px}
+.campaign-download-choice #campaignDownload{order:0;background:#f0f7fc;color:#0a588a;
+ border:1px solid #b6d4e7}
+.campaign-download-choice #campaignDownload:hover{background:#e1f1fd}
+.campaign-download-choice #campaignShareZip{order:1}
+.campaign-download-choice small:last-child{order:2}
+.share-lead{font-size:11px;line-height:1.6;color:#3f6b86;margin:0 0 12px}
+.asset-workspace .campaign-asset-actions{align-items:stretch}
+.campaign-asset-actions .share-primary{order:-1;min-width:100%;min-height:34px}
+.campaign-asset-actions .campaign-save-image{order:1;width:100%;text-align:center;padding:6px 0;
+ font-size:10px;text-decoration:underline}
+.asset-workspace .posteritemfoot .asset-links .share-primary{width:100%;min-height:36px}
+@media(max-width:720px){
+ .campaign-results-heading .campaign-download-choice{width:100%}
+ .campaign-download-choice .share-primary{width:100%}
+ .asset-workspace .campaign-asset-actions .share-primary{width:100%}
+ .asset-workspace .posteritemfoot .asset-links{align-items:stretch;width:100%}
+}
