@@ -105,6 +105,18 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
         region_area = region.histogram()[255]
         if not minimum_area <= region_area <= maximum_area:
             continue
+        # Genuine white reservoir caps, round ceramic components, and pale
+        # moulded parts are often enclosed by dark metal. A tool-frame gap
+        # generally forms an elongated slit, not a rounded white component.
+        # Reject roughly square/circular regions rather than erasing them.
+        region_box = region.getbbox()
+        if not region_box:
+            continue
+        region_w = region_box[2] - region_box[0]
+        region_h = region_box[3] - region_box[1]
+        elongation = max(region_w, region_h) / max(1, min(region_w, region_h))
+        if elongation < 1.42:
+            continue
         # Include even mildly grey/compressed edges if most of the candidate
         # region matches the original paper-white photo background.
         high_confidence = ImageChops.multiply(region,
