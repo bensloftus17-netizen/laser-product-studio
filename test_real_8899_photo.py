@@ -33,6 +33,25 @@ class Genuine8899WhiteGapTests(unittest.TestCase):
              ImageChops.subtract(hi,lo).point(lambda v:255 if v<=31 else 0))
         white=ImageChops.multiply(white,alpha.point(lambda a:255 if a>=200 else 0))
         remaining=white.histogram()[255]
+        # Report the largest remaining near-white contiguous regions. This
+        # distinguishes a single white photo gap from harmless LASER lettering.
+        from PIL import ImageDraw
+        working=white.copy()
+        components=[]
+        for iteration in range(90):
+            raw=working.tobytes()
+            idx=raw.find(b"\\xff")
+            if idx<0:break
+            seed=(idx%working.width,idx//working.width)
+            ImageDraw.floodfill(working,seed,128,thresh=0)
+            component=working.point(lambda q:255 if q==128 else 0)
+            working.paste(0,mask=component)
+            bbox=component.getbbox()
+            area=component.histogram()[255]
+            if bbox and area>200:
+                components.append((area,bbox))
+        components.sort(reverse=True)
+        print("REAL 8899 WHITE REGIONS:",components[:12])
         fraction=remaining/(cutout.width*cutout.height)
         print("Official 8899 cutout dimensions:",cutout.size,
               "remaining opaque paper-white fraction:",round(fraction,4),
