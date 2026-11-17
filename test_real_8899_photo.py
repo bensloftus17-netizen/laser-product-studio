@@ -32,6 +32,19 @@ class Genuine8899WhiteGapTests(unittest.TestCase):
             proof=Image.new("RGBA",cutout.size,"#0871B6")
             proof.alpha_composite(cutout)
             proof.convert("RGB").save("test_artifacts/8899_cutout_on_blue.jpg",quality=88)
+            from ai_promo_renderer import render_promo
+            product={"part":"8899","title":"Ball Joint Separator - for JLR",
+                     "price":"£144.16 excluding VAT",
+                     "features":["Heavy-duty scissor-type ball joint separator"]}
+            for family in ("retail","premium","trade"):
+                concept={"family":family,"variant":0,
+                         "headline":"Ball Joint Separator for JLR",
+                         "subline":"For Land Rover & Jaguar applications",
+                         "features":product["features"]}
+                png=render_promo(concept,r.content,product,editor={
+                    "background":"context","show_subline":True})
+                rendered=Image.open(io.BytesIO(png)).convert("RGB")
+                rendered.save("test_artifacts/8899_preview_"+family+".jpg",quality=87)
         alpha=cutout.getchannel("A")
         rgb=cutout.convert("RGB")
         lo=ImageChops.darker(ImageChops.darker(rgb.getchannel("R"),
