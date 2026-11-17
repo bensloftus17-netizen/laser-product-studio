@@ -493,7 +493,8 @@ class MarketingStudioSmokeTests(unittest.TestCase):
         # campaign-first dashboard and a genuine manufacturer photo.
         self.assertEqual(len(document.select('.studio-hero-art #heroProductPhoto')),1)
         self.assertEqual(len(document.select('.studio-sidebar')),1)
-        self.assertEqual(len(document.select('#unifiedCopyStudio textarea')),1)
+        self.assertEqual(len(document.select('#unifiedCopyStudio #campaignCopyText')),1)
+        self.assertEqual(len(document.select('#unifiedCopyStudio #rewritePreviewText[readonly]')),1)
         self.assertIsNotNone(document.find(id='savedPromotions'))
         self.assertIn('design=v19',V7_HOME_PAGE)
         self.assertIn('function setProgress(stage)',V7_HOME_PAGE)
