@@ -22,7 +22,7 @@ class NativeShareTests(unittest.TestCase):
         self.assertIn("prepareShareButton(socialButton)", html)
         self.assertIn("const socialAsset=m.images.find(item=>item.id==='social_square')", html)
         self.assertIn("Share complete ZIP", html)
-        self.assertIn("Share edited PNG", html)
+        self.assertIn("Share edited image to apps", html)
         self.assertIn("Share prepared ZIP", html)
         self.assertIn("Download complete ZIP", html)
         self.assertIn("Download PNG", html)
@@ -30,7 +30,7 @@ class NativeShareTests(unittest.TestCase):
         self.assertIn("navigator.canShare({files:[file]})", html)
         self.assertIn("function prepareShareButtons(root)", html)
         self.assertIn("function shareDataImage(dataUrl,filename)", html)
-        self.assertIn("Copy the suggested caption separately", html)
+        self.assertIn("Suggested captions are in the Copy Editor", html)
         # Generated campaign must render the gallery, NOT launch the share
         # sheet or a ZIP download without another deliberate user click.
         start=html.index("$('campaignBtn').addEventListener('click',async()=>{")
