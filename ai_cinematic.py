@@ -255,7 +255,7 @@ def _retail(concept,photo,product,price,variation,editor,background):
     d.polygon([(0,288),(1140,288),(1070,492),(0,492)],fill=(255,255,255,248))
     d.polygon([(0,498),(1082,498),(1082,514),(0,514)],fill=accent)
     _brand(d,p["primary"],product.get("part",""),family="retail")
-    _fit(d,"TRADE COUNTER OFFER",(690,98,1139,152),
+    _fit(d,concept.get("focus_label","TRADE COUNTER OFFER"),(690,98,1139,152),
          (29,25,23),accent,"bold",1,"right")
     _headline(d,concept,(61,321,1035,465),(89,80,69,61,53),
               "#062D4D",2,editor)
@@ -300,7 +300,7 @@ def _premium(concept,photo,product,price,variation,editor,background):
     d=ImageDraw.Draw(canvas,"RGBA")
     from ai_promo_renderer import _laser
     _laser(d,55,40,dark=True)
-    _fit(d,"LASER / PRODUCT SPOTLIGHT",(703,107,1141,151),
+    _fit(d,concept.get("focus_label","LASER / PRODUCT SPOTLIGHT"),(703,107,1141,151),
          (28,25,21),blue,"bold",1,"right")
     _fit(d,"PART  "+str(product.get("part","")),(56,201,720,256),
          (40,36,31),blue,"bold",1)
@@ -340,7 +340,7 @@ def _trade(concept,photo,product,price,variation,editor,background):
               fill=(3,20,37,247))
     d.polygon([(0,987),(1200,929),(1200,948),(0,1006)],fill=blue)
     _brand(d,blue,product.get("part",""),family="trade")
-    _fit(d,"WORKSHOP ESSENTIALS",(728,90,1138,146),
+    _fit(d,concept.get("focus_label","WORKSHOP ESSENTIALS"),(728,90,1138,146),
          (29,26,22),accent,"bold",1,"right")
     _headline(d,concept,(51,1042,1145,1201),
               (91,81,71,61,53),WHITE,2,editor)
