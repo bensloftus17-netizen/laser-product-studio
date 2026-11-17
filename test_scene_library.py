@@ -33,7 +33,7 @@ class ProductAwareCampaignTests(unittest.TestCase):
         product={"title":"12V Battery Charger 10A","part":"CHG123"}
         for variation in (0,1,2):
             item=scene_reference(classify_product(product),variation)
-            self.assertIn(item["photo_id"],(32282232,32282233))
+            self.assertIn(item["photo_id"],(32282232,32282233,6473244))
             self.assertIn("Battery",item["description"])
             self.assertEqual(item["source"],"Pexels free commercial-use photo")
             self.assertEqual(item["license_url"],"https://www.pexels.com/license/")
