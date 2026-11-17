@@ -77,8 +77,8 @@ SCENE_CANDIDATES = {
         (32282233, "Battery terminal connections close-up", .57, .47),
     ],
     "diagnostic": [
-        (8985927, "Mechanic checking vehicle engine", .56, .50),
-        (8985917, "Technician inspecting engine bay", .47, .47),
+        (8985448, "Mechanic using automotive diagnostic equipment", .52, .50),
+        (13065692, "Technician diagnosing vehicle engine", .51, .50),
     ],
     "brakes": [
         (6870304, "Technician working on car brakes", .52, .47),
@@ -94,22 +94,22 @@ SCENE_CANDIDATES = {
         (8985927, "Engine inspection in workshop", .46, .50),
     ],
     "hand_tools": [
-        (8985519, "Mechanic using wrench on engine", .51, .48),
-        (8985917, "Automotive mechanic at workbench", .56, .45),
-        (8985517, "Workshop with engine equipment", .51, .54),
+        (3855223, "Mechanic selecting sockets from workshop kit", .50, .51),
+        (3855334, "Mechanic using socket and ratchet", .51, .49),
+        (8985918, "Real automotive tool set on a workbench", .50, .47),
     ],
     "press": [
-        (8985517, "Industrial engine equipment and workshop", .47, .50),
-        (8985917, "Working garage environment", .55, .50),
+        (5962644, "Industrial hydraulic press equipment", .49, .48),
+        (8985517, "Heavy equipment in automotive workshop", .48, .50),
     ],
     "welding": [
-        (8985517, "Industrial automotive workshop", .48, .50),
-        (8985917, "Vehicle repair setting", .52, .45),
+        (10551343, "Mechanic welding automotive components", .50, .51),
+        (4489714, "Automotive repair and welding workshop", .52, .47),
     ],
     "workshop": [
+        (15489247, "Mechanics at a professional car garage", .51, .50),
         (8985917, "Mechanic in professional workshop", .50, .50),
         (8985517, "Garage workshop machinery", .48, .50),
-        (8985927, "Vehicle service technician", .53, .50),
     ],
 }
 FAMILY_SCENE_STYLES = {
