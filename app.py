@@ -27,6 +27,7 @@ from promo_art_direction import normalise_art_direction, editor_preferences, sce
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
+from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -1573,6 +1574,46 @@ def ai_recommendations(part):
     except Exception:
         app.logger.exception('AI concept generation failed')
         return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
+
+
+@app.post('/api/copy/rewrite/<part>')
+def rewrite_marketing_copy(part):
+    """One reviewed copy suggestion. Never accepts user/model factual claims."""
+    try:
+        body=request.get_json(silent=True)
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid rewrite request.'),400
+        mode=body.get('mode')
+        channel=body.get('channel')
+        angle=body.get('angle')
+        current_text=body.get('current_text')
+        # Validate before manufacturer lookup or any optional Gemini call.
+        if mode not in ('shorter','professional','persuasive','technical','facebook'):
+            return jsonify(error='Choose one of the five rewrite options.'),400
+        if channel not in ('social_caption','linkedin_post','email_body','website_listing','short_message'):
+            return jsonify(error='Select social, LinkedIn, email, web or short-promo copy.'),400
+        if type(angle) is not int or angle not in (0,1,2):
+            return jsonify(error='Choose a valid campaign direction.'),400
+        if not isinstance(current_text,str) or not current_text.strip() or len(current_text)>5000:
+            return jsonify(error='Select a draft of no more than 5,000 characters.'),400
+        product,_=lookup(part,uk_url=body.get('official_url') or None)
+        product=with_reviewed_price(
+            product,body.get('staff_rrp_ex'),
+            body.get('staff_rrp_reviewed') is True,
+            body.get('staff_rrp_basis','ex'))
+        rewritten=rewrite_copy(
+            product,mode=mode,channel=channel,current_text=current_text,angle=angle)
+        response=jsonify(rewritten)
+        response.headers['Cache-Control']='no-store, private'
+        return response
+    except LookupErrorPublic as exc:return jsonify(error=str(exc)),400
+    except ValueError as exc:return jsonify(error=str(exc)),400
+    except requests.RequestException:
+        return jsonify(error='Official manufacturer source could not be reached. Please retry.'),502
+    except Exception:
+        app.logger.exception('Marketing copy rewrite failed')
+        return jsonify(error='Unable to rewrite this copy. Please retry.'),500
+
 
 @app.post('/api/ai/headlines/<part>')
 def ai_headline_options(part):
