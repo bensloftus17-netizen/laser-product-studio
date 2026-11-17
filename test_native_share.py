@@ -87,6 +87,15 @@ const clickTarget=(button)=>({target:{closest(selector){
   assert.equal(shareCalls[0].files[0].name,'test.png');
   assert.equal(fetchCalls,0);
 
+  // WebKit variants with share() but without canShare() can still receive
+  // the actual image in their native share sheet from one direct tap.
+  const originalCanShare=sandbox.navigator.canShare;
+  delete sandbox.navigator.canShare;
+  sandbox.shareDataImage('data:image/png;base64,aGVsbG8=', 'safari.png');
+  assert.equal(shareCalls.length,2);
+  assert.equal(shareCalls.at(-1).files[0].name,'safari.png');
+  sandbox.navigator.canShare=originalCanShare;
+
   // A remote PNG is preloaded first and shared on a later user click,
   // without an asynchronous network call between click and share().
   const button={dataset:{shareUrl:'/api/campaign/assets/token/social_square',
@@ -108,7 +117,7 @@ const clickTarget=(button)=>({target:{closest(selector){
   const noShare=shareCalls.length;
   sandbox.shareNativeFile(new sandbox.File(['zip'],'campaign.zip',{type:'application/zip'}));
   assert.equal(shareCalls.length,noShare);
-  assert.match(el('shareNoticeText').textContent,/ZIP directly/);
+  assert.match(el('shareNoticeText').textContent,/ZIP files directly/);
   assert.equal(el('shareNotice').hidden,false);
 })().catch(e=>{console.error(e);process.exit(1);});
 """
