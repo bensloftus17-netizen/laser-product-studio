@@ -228,8 +228,7 @@ const preparedShareFiles=new WeakMap();
 let legacyShareFile=null;
 let shareNoticeTimer=null;
 function canNativeShareFiles(){
- return typeof File==='function'&&typeof navigator.share==='function'
-  &&typeof navigator.canShare==='function';
+ return typeof File==='function'&&typeof navigator.share==='function';
 }
 function showShareNotice(message){
  const notice=$('shareNotice');
@@ -244,12 +243,14 @@ function shareNativeFile(file){
   showShareNotice('This browser cannot share files directly. Use Download PNG/ZIP, then share the saved file from Photos or Files.');
   return;
  }
- let shareable=false;
- try{shareable=navigator.canShare({files:[file]});}catch(error){}
+ let shareable=true;
+ if(typeof navigator.canShare==='function'){
+  try{shareable=navigator.canShare({files:[file]});}catch(error){shareable=false;}
+ }
  if(!shareable){
   showShareNotice(file.type==='application/zip'
-   ?'Your phone does not support sharing a ZIP directly. Download it, then share it from the Files app. Instagram normally needs an image instead.'
-   :'Direct image sharing is not supported here. Download the PNG and share it from Photos or Files.');
+   ?'Your phone does not support sharing ZIP files directly. Try an individual image or download the ZIP instead.'
+   :'This browser will not send this image to other apps. Open the website in Safari or Chrome and use Share to apps there.');
   return;
  }
  // CRITICAL: call share() right in this tap handler, without awaits.
@@ -293,8 +294,10 @@ function prepareShareButton(button){
  }).then(blob=>{
   if(button.dataset.shareUrl!==url)return;
   const file=new File([blob],name,{type:kind});
-  // ZIP may not be supported as a native share file; keep download as fallback.
-  if(navigator.canShare({files:[file]}))preparedShareFiles.set(button,file);
+  // Cache for a direct tap. Never wait for fetch inside the share tap.
+  // Some WebKit builds expose share() without canShare(); share() itself
+  // will report unsupported file types, so keep download as the fallback.
+  preparedShareFiles.set(button,file);
   button.disabled=false;button.textContent=originalLabel;
  }).catch(error=>{
   if(button.dataset.shareUrl!==url)return;
@@ -311,10 +314,10 @@ document.addEventListener('click',event=>{
  const file=preparedShareFiles.get(button);
  if(file){shareNativeFile(file);return;}
  if(!canNativeShareFiles()){
-  showShareNotice('Your browser does not offer native file sharing. Download the PNG/ZIP, then share it from Photos or Files.');
+  showShareNotice('This browser does not support sharing images directly. Open Laser Product Studio in Safari or Chrome to use the phone share sheet.');
   return;
  }
- showShareNotice('The share file is not ready or this file type is unsupported. Use its Download button instead.');
+ showShareNotice('Preparing this image for sharing. Tap Share to apps again when preparation finishes — no download required.');
  // A failed preload can be retried without navigating away.
  if(button.dataset.shareLoading!=='1')prepareShareButton(button);
 });
