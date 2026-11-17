@@ -48,7 +48,12 @@ def choose_feature(product, focus, exclude=()):
         candidates=[v for v in available if APPLICATION_TERMS.search(v)]
         return (candidates or available)[0]
     if focus=="benefit":
-        candidates=[v for v in available if BENEFIT_TERMS.search(v)]
+        # A practical workshop advantage takes precedence over a fitment list,
+        # even when an application sentence also says "includes".
+        candidates=[v for v in available if BENEFIT_TERMS.search(v)
+                    and not APPLICATION_TERMS.search(v)]
+        if not candidates:
+            candidates=[v for v in available if BENEFIT_TERMS.search(v)]
         return (candidates or available)[0]
     return available[0]
 
