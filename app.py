@@ -847,6 +847,88 @@ $('campaignAssets').addEventListener('click',event=>{
  img.src=base+'?retry='+Date.now();
 });
 
+
+// Safari may close or suspend the page while a full set of artwork is being
+// generated. Store only the short-lived bearer token for this draft in the
+// browser session; never store product photos, customer data or API keys.
+const CAMPAIGN_RESUME_KEY='laser-campaign-resume-v47';
+function getRecoverableCampaign(){
+ try{
+  const state=JSON.parse(sessionStorage.getItem(CAMPAIGN_RESUME_KEY)||'null');
+  if(!state||Date.now()-state.savedAt>14*60*1000)return null;
+  if(state.status==='running'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.job_id))return state;
+  if(state.status==='ready'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.token))return state;
+ }catch(error){}
+ return null;
+}
+function updateCampaignRecovery(){
+ const state=getRecoverableCampaign();
+ const panel=$('campaignRecovery');
+ panel.hidden=!state;
+ if(state){
+  $('campaignRecoveryText').textContent=
+    (state.status==='running'?'Campaign still preparing':'Finished campaign available')+
+    ' · LASER '+state.part;
+  $('campaignResume').textContent=state.status==='running'?'Check campaign status':'Reopen all artwork';
+ }
+}
+function rememberMobileJob(job_id,part){
+ try{sessionStorage.setItem(CAMPAIGN_RESUME_KEY,
+  JSON.stringify({job_id,part,status:'running',savedAt:Date.now()}));}catch(error){}
+ updateCampaignRecovery();
+}
+function rememberFinishedCampaign(data){
+ try{sessionStorage.setItem(CAMPAIGN_RESUME_KEY,
+  JSON.stringify({token:data.token,part:data.manifest.part,
+                  status:'ready',savedAt:Date.now()}));}catch(error){}
+ updateCampaignRecovery();
+}
+async function pollMobileCampaign(job_id){
+ // A finished campaign is looked up by a short-lived job ID, not regenerated.
+ // Normal tab suspension pauses JS polling but does not cancel server work.
+ for(let attempt=0;attempt<125;attempt++){
+  const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
+                             {cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await readApiJson(response);
+  if(data.status==='ready'&&data.manifest&&data.token)return data;
+  if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
+  $('campaignStatus').textContent='Creating your complete campaign: 3 posters and 6 more original marketing formats. Please keep this tab open, or reopen your campaign when you return.';
+  await new Promise(resolve=>setTimeout(resolve,2400));
+ }
+ throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
+}
+async function resumeLastMobileCampaign(){
+ const state=getRecoverableCampaign();
+ if(!state||inflight)return;
+ const button=$('campaignResume');
+ button.disabled=true;
+ try{
+  $('campaignStatus').textContent='Recovering your finished campaign without regenerating artwork…';
+  const data=state.status==='running'
+   ?await pollMobileCampaign(state.job_id)
+   :await readApiJson(await fetch('/api/campaign/manifest/'+encodeURIComponent(state.token),
+        {cache:'no-store',headers:{Accept:'application/json'}}));
+  rememberFinishedCampaign(data);
+  $('part').value=data.manifest.part;
+  if(!active||active.part!==data.manifest.part){
+    active={part:data.manifest.part,title:data.manifest.title};
+    activePhoto='/api/photo/'+encodeURIComponent(data.manifest.part);
+  }
+  showCampaign(data);
+  $('campaignStatus').textContent='Recovered your complete campaign. Scroll through the artwork and use Download complete ZIP for every format.';
+ }catch(error){
+  $('campaignStatus').textContent=error.message||'Could not reopen the last campaign.';
+  if(!String(error.message||'').toLowerCase().includes('still processing')){
+   try{sessionStorage.removeItem(CAMPAIGN_RESUME_KEY);}catch(e){}
+  }
+ }finally{
+  button.disabled=false;
+  updateCampaignRecovery();
+ }
+}
+$('campaignResume').addEventListener('click',resumeLastMobileCampaign);
+updateCampaignRecovery();
+
 function showCampaign(data){
  campaignData=data;
  renderCampaignGallery(data);
@@ -1122,18 +1204,39 @@ $('campaignBtn').addEventListener('click',async()=>{
    if(rawPrice&&!$('staffRrp').value){$('staffRrp').value=rawPrice;$('staffReview').checked=reviewedPrice;$('staffRrpBasis').value=reviewedBasis;}
    if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
    $('campaignStatus').textContent='Understanding the tool, selecting three different poster layouts, sourcing approved application imagery and writing channel copy…';
-   const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
-     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-     body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
+   const body={official_url:$('officialUrl').value.trim()||null,
        distributor_brand:selectedDistributor(),
        staff_rrp_ex:rawPrice||staffApplied,
        staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
-       staff_rrp_basis:rawPrice?reviewedBasis:staffBasis})
-   });
-   const data=await readApiJson(response);
+       staff_rrp_basis:rawPrice?reviewedBasis:staffBasis};
+   const onPhone=(window.matchMedia&&window.matchMedia('(max-width:760px)').matches)||
+       /iPhone|iPad|Android/i.test(navigator.userAgent);
+   let data;
+   if(onPhone){
+     // The old one-minute POST can be interrupted when iOS locks or suspends
+     // Safari. Instead the phone receives a job ID immediately and can resume.
+     $('previews').hidden=true;
+     $('assetWorkspaceStatus').textContent='Generating all 9 campaign graphics — preview posters are not the finished campaign.';
+     const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
+       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+       body:JSON.stringify(body)}));
+     rememberMobileJob(started.job_id,part);
+     data=await pollMobileCampaign(started.job_id);
+   }else{
+     data=await readApiJson(await fetch('/api/campaign/'+encodeURIComponent(part),{
+       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+       body:JSON.stringify(body)}));
+   }
+   rememberFinishedCampaign(data);
    showCampaign(data);
-   $('campaignStatus').textContent='Campaign ready to review. Nothing has downloaded — use Download complete ZIP or choose individual PNGs if you want to save them. The links expire after 15 minutes.';
- }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
+   $('campaignStatus').textContent='All 9 campaign graphics are ready. Scroll through every format below or Download complete ZIP. Links expire after 15 minutes.';
+ }catch(error){
+   $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
+     ' The three basic previews are not a complete AI campaign.';
+   setState(error.message||'Campaign generation failed','error');
+   $('previews').hidden=false;
+   updateCampaignRecovery();
+ }
  finally{button.disabled=false;button.textContent='✦ Build Campaign';}
 });
 
