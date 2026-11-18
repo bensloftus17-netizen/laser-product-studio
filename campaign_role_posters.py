@@ -8,6 +8,7 @@ photography and is labelled as illustrative context in export metadata.
 from __future__ import annotations
 
 import io
+import re
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 from poster import font
 from brand_assets import get_brand_image
@@ -238,9 +239,9 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
     fact=_story_copy(concept)
     # A dimensional or weight spec is technical data, not an application:
     # label it correctly instead of claiming an unverified use case.
-    spec_label=bool(__import__("re").match(
+    spec_label=bool(re.match(
         r"^(?:Dimensions|Weight|Length|Width|Height|Power|Voltage|Brightness|Charging time)\s*:",
-        fact,flags=__import__("re").I))
+        fact,flags=re.I))
     fitted(d,"KEY SPECIFICATIONS" if spec_label else "THE APPLICATION",
            (105,856,345,917),(23,21,19),accent,2)
     if fact:
