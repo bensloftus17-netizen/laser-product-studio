@@ -19,7 +19,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
                            'download','reviewed'):
             self.assertEqual(html.count('id="'+identifier+'"'),1,identifier)
         self.assertIn('class="studio-sidebar"',html)
-        self.assertIn('Generate a Marketing Campaign',html)
+        self.assertIn('Build a Unique Product Campaign',html)
         self.assertIn('Saved Promotions Library',html)
         self.assertIn('Coming soon',html)
         self.assertNotIn('24 Saved Promotions',html)
