@@ -219,7 +219,7 @@ def _contextual_base(scene,variant=0,tone="#07243C",art=None):
 
 def _export(canvas):
     buffer=io.BytesIO()
-    canvas.convert("RGB").save(buffer,"PNG",optimize=True)
+    canvas.convert("RGB").save(buffer,"PNG",optimize=False,compress_level=3)
     return buffer.getvalue()
 
 

@@ -363,7 +363,7 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
               base=max(24,round(h*.05)),minsize=max(14,round(h*.025)),
               maxlines=3,role="price")
     out=io.BytesIO()
-    canvas.convert("RGB").save(out,"PNG",optimize=True)
+    canvas.convert("RGB").save(out,"PNG",optimize=False,compress_level=3)
     return out.getvalue()
 
 

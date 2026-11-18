@@ -78,7 +78,7 @@ def _approved_source(product):
 
 def _render_png(image):
     buffer = io.BytesIO()
-    image.convert("RGB").save(buffer, format="PNG", optimize=True)
+    image.convert("RGB").save(buffer, format="PNG", optimize=False,compress_level=3)
     return buffer.getvalue()
 
 

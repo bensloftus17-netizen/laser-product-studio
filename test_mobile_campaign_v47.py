@@ -81,6 +81,8 @@ class MobileCampaignRecoveryTests(unittest.TestCase):
             queued=self.client.get("/api/campaign/jobs/"+job)
             self.assertEqual(queued.status_code,200)
             self.assertEqual(queued.get_json()["status"],"queued")
+            self.assertGreaterEqual(queued.get_json()["elapsed_seconds"],0)
+            self.assertGreaterEqual(queued.get_json()["stage_age_seconds"],0)
             self.assertNotIn("manifest",queued.get_json())
             work(*args)
             self.assertEqual(render.call_count,1)
@@ -118,12 +120,11 @@ class MobileCampaignRecoveryTests(unittest.TestCase):
             payload={"distributor_brand":"none"}
             self.assertEqual(self.client.post(
                 "/api/campaign/start/6330",json=payload).status_code,202)
-            self.assertEqual(self.client.post(
-                "/api/campaign/start/6728",json=payload).status_code,202)
-            blocked=self.client.post("/api/campaign/start/9395",json=payload)
+            blocked=self.client.post("/api/campaign/start/6728",json=payload)
             self.assertEqual(blocked.status_code,429)
-            self.assertIn("already",blocked.get_json()["error"])
-            self.assertEqual(fake.call_count,2)
+            self.assertIn("one at a time",blocked.get_json()["error"])
+            self.assertEqual(blocked.headers.get("Retry-After"),"45")
+            self.assertEqual(fake.call_count,1)
 
     def test_mobile_job_and_completed_token_are_not_guessable(self):
         for path in ("/api/campaign/jobs/not-real",

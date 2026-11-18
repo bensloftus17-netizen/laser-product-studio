@@ -515,7 +515,7 @@ def render_promo(concept, photo, product, distributor=None, editor=None):
                 int(proposal.get("variant",0)),controls,scene)
             _co_brand(canvas,distributor)
             out=io.BytesIO()
-            canvas.convert("RGB").save(out,format="PNG",optimize=True)
+            canvas.convert("RGB").save(out,format="PNG",optimize=False,compress_level=3)
             png=out.getvalue()
         quality=review(png,tracked,price,proposal,photo)
         quality["attempts"]=attempt+1
