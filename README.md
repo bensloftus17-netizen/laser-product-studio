@@ -1,5 +1,44 @@
 # Laser Product Studio
 
+## Premium product-specific campaign artwork and automatic QA (V42)
+
+The one-click campaign now generates multiple **genuine** artwork candidates
+per role (technical, price promotion and product-selected) and selects the
+best passing variant using objective image and geometry checks.
+
+- **No giant white product cards:** Technical and product-selected posters
+  now composite original manufacturer tool pixels onto polished, dark,
+  category-relevant workshop art. Square social images, Stories and
+  web/email banners use the same manufacturer cutout engine instead of
+  pasting an unprocessed white product photo.
+- **Cutout quality:** Uses the existing conservative manufacturer_cutout
+  engine (connected-white background removal, antialiasing and halo
+  cleanup, white product components preserved). If a white-background
+  photograph cannot be isolated with confidence, the campaign is blocked
+  from publication rather than inventing product pixels or exporting a
+  misleading white rectangle. Supply a cleaner official photograph.
+- **More restrained price posters:** Short manufacturer-sourced headlines,
+  one prominent real product image, verified price, reduced/repeated
+  copy and multiple balanced price treatments. Never invent an RRP.
+- **Role- and product-aware layouts:** Technical layouts differ from price
+  promotions and the smart third creative, while candidate layouts vary
+  by manufacturer product category and part number.
+- **Real workshop context:** The three posters use category-specific
+  photos from the existing real/licensed context library, with source
+  and licence attribution preserved in the campaign manifest.
+- **Automatic QA:** Reject invalid dimensions, large near-white dead
+  areas, flat/low-contrast posters, overflowing text, unsafe cutouts
+  and duplicate campaign roles/facts. Three candidates per role are
+  scored and the strongest acceptable one is included in the pack.
+  The dashboard shows the QA outcome, warnings and candidate count.
+  QA is an objective guardrail, not a guarantee of professional design
+  or automatic verification of any fact/vehicle application.
+
+The genuine manufacturer photo, reviewed price data, source citations,
+single copy editor, stories, individual social sharing and optional ZIP
+download are retained. Human approval is still required before external
+use. Tests: `python -m unittest test_campaign_visual_quality.py`.
+
 ## One Build Campaign: three different posters (V41)
 
 The public website exposes ONE campaign generator, Build Campaign. The
