@@ -33,7 +33,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v40-catalogue-hierarchy">
+<link rel="stylesheet" href="/static/styles.css?design=v41-unified-campaign">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -65,9 +65,9 @@ V7_HOME_PAGE = r'''
   <a class="active" href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Dashboard</a>
   <a href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Create Campaign</a>
   <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions <small>Soon</small></a>
-  <button type="button" data-open-studio><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-stack"></use></svg> Product Studio</button>
+  
   <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a>
-  <button type="button" data-open-ai><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-spark"></use></svg> AI Generator</button>
+  
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
@@ -76,8 +76,8 @@ V7_HOME_PAGE = r'''
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
 <div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
-<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Generate a Marketing Campaign</h2><p>Enter a Laser Tools part number and create a complete draft pack — posters, social graphics, email content and more.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
-<form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Generate Campaign</button></div></form>
+<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Build a Unique Product Campaign</h2><p>Enter a part number. AI plans three different, product-specific posters, real workshop imagery, story suggestions and editable copy.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
+<form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
 <div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
 <details id="campaignSettings" class="campaign-settings">
@@ -101,22 +101,22 @@ V7_HOME_PAGE = r'''
 <div class="advanced-field"><label for="officialUrl">Official UK product URL (optional)</label><input id="officialUrl" type="url" placeholder="https://www.toolconnection.co.uk/products/..."><small>Use this when a product is difficult to find.</small></div>
 <div class="advanced-field"><label for="staffRrp">Staff-reviewed UK RRP</label><div class="price-entry"><input id="staffRrp" type="number" min="0.01" max="500000" step="0.01" placeholder="e.g. 114.70"><select id="staffRrpBasis" aria-label="VAT status"><option value="ex">Ex VAT</option><option value="inc">Inc VAT</option></select></div><label class="check-label"><input id="staffReview" type="checkbox"> I've checked this price</label><button type="button" class="secondary" id="applyRrp">Update poster prices</button><small>Staff-entered prices are drafts and need company approval.</small></div>
 </div></details>
-<button class="studio-preview-trigger secondary" id="searchBtn" type="button">Find product &amp; preview standard posters</button>
+<button class="studio-preview-trigger secondary" id="searchBtn" type="button" hidden>Look up manufacturer details</button>
  </div>
 </details>
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
- <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Distinct sales angles</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Technical · Price · Product-selected</small></div>
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>7</b><small>Core artwork files</small></div>
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-download"></use></svg><b>1</b><small>Complete ZIP download</small></div>
  <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
-  <a href="#assetWorkspace">View assets</a><button type="button" data-open-ai>Use AI Generator</button>
+  <a href="#assetWorkspace">View campaign assets</a><a href="#copyWorkspace">Edit campaign copy</a>
  </div>
 </section>
 <section class="studio-workspace" id="studioWorkspace" aria-label="Campaign workspace">
  <section class="asset-workspace" id="assetWorkspace" aria-label="Campaign asset previews">
-  <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Campaign Asset Preview</h2><p id="assetWorkspaceStatus">Your campaign graphics will appear here after you enter a part number.</p></div><a href="#productStudio" data-open-studio>Official product details</a></div>
+  <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Campaign Asset Preview</h2><p id="assetWorkspaceStatus">Three unique posters, Instagram Story and banners will appear after Build Campaign.</p></div><span class="workspace-secondary-note">One campaign builder</span></div>
  </section>
  <section class="copy-workspace" id="copyWorkspace" aria-label="Marketing copy editor">
   <div class="workspace-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-copy"></use></svg> Copy Editor</h2><p>Choose a channel, refine wording and copy it in one place.</p></div></div>
@@ -139,13 +139,13 @@ V7_HOME_PAGE = r'''
   <p class="taxonomy-accuracy">Category names are a dated snapshot of the official Laser navigation. A part number is only shown as website-classified when its exact official product URL confirms that path. Suggested audiences and channels need sales-team review.</p>
  </div>
 </details>
-<details class="studio-deep-tools" id="productStudio">
- <summary>Product Studio &amp; advanced poster tools <small>Official record · poster previews · AI poster editor · manual export</small></summary>
+<details class="studio-deep-tools" id="productStudio" hidden aria-hidden="true">
+ <summary>Legacy product poster tools (not part of unified campaign flow)</summary>
  <div id="productRecordSlot" class="record-dock"></div>
  <div id="advancedStudioSlot" class="advanced-dock"></div>
 </details>
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
-<section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Generated poster designs</h2><p>Three designs for three different sales uses.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
+<section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Campaign posters</h2><p>Three different roles, layouts and verified selling points for this specific tool.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><div class="campaign-download-choice">
@@ -167,8 +167,15 @@ V7_HOME_PAGE = r'''
  <p class="strategy-warning">Audience and channel recommendations are marketing hypotheses, not verified prospects. The team must approve the approach and all manufacturer claims before publication.</p>
 </section>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
-<h4>Campaign graphics — built for each channel</h4><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
+<div class="campaign-role-note">These posters serve different purposes: technical/application, price promotion and a third category-specific marketing angle. The actual Laser Tools product photo is always genuine.</div>
+<h4>Three posters · Story · Social · Banners</h4><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
 
+<section class="campaign-social-ideas" id="campaignSocialIdeas" hidden aria-label="Instagram Story and social suggestions">
+ <h4>Instagram Story &amp; sharing suggestions</h4>
+ <p>Use the suggested story sequence alongside the individual shareable graphics. All wording needs review.</p>
+ <div id="storySuggestions" class="story-suggestion-cards"></div>
+ <div id="campaignSocialTip" class="campaign-social-tip"></div>
+ </section>
 <p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
 </section>
 <section id="unifiedCopyStudio" class="campaign-copy-studio" hidden aria-label="Single marketing copy editor">
@@ -211,7 +218,7 @@ V7_HOME_PAGE = r'''
 <span id="campaignCopyStatus" role="status" aria-live="polite"></span></div>
 <p id="copyStudioNote" class="ai-copy-disclaimer">Your edits are kept when changing tabs. Review all wording before publishing.</p>
 </section>
-<section class="ai-explore" id="aiExplore"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
+<section class="ai-explore" id="aiExplore" hidden aria-hidden="true"><div class="ai-explore-top"><div><span class="sectioncap">OPTIONAL / GENERATIVE AI</span><h3>Three AI promotional designs</h3><p>One click makes three photographic promotional campaigns matched to the actual tool: battery chargers with car-battery service scenes, engine tools with engine workshops, and more. Real manufacturer product photos, licensed background photography and verified prices. No prompts needed.</p></div><button type="button" class="primary" id="generateAI" disabled>✦ Generate with AI</button></div><div id="aiIdeas" class="ai-ideas" aria-live="polite"></div>
 </section><section id="aiEditor" class="ai-editor" hidden aria-label="Edit selected AI promotional poster">
 <div class="ai-editor-heading"><div><span class="sectioncap">DESIGN EDITOR / SELECTED POSTER</span><h3 id="aiEditorTitle">Edit AI poster</h3><p>Personalise this poster without affecting the other two. The genuine product photo and verified RRP stay locked.</p></div><button type="button" id="aiEditorClose" class="ai-close">Close editor ✕</button></div>
 <div class="ai-editor-main"><div class="ai-editor-visual"><img id="aiEditorPreview" alt="Live selected AI poster artwork preview" src=""><a id="aiEditorDownload" download="Laser_AI_edited_poster.png" href="#">Download edited PNG ↓</a><button type="button" id="aiEditorShare" class="asset-share-button share-primary">↗ Share edited image to apps</button><small>Your edits update this poster in the gallery. Download to keep a copy.</small></div>
@@ -812,16 +819,23 @@ function showCampaign(data){
  socialButton.hidden=!socialAsset;
  if(socialAsset)prepareShareButton(socialButton);
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
-  '<div class="campaign-angle'+(strategy&&strategy.primary_focus===angle.focus?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
-  (strategy&&strategy.primary_focus===angle.focus?' · RECOMMENDED':'')+'</span><b>'+esc(angle.headline)+'</b><p>'+esc(angle.selling_point)+'</p></div>').join('');
- const names={poster_price:'Price-led Poster',poster_benefit:'Benefit-led Poster',poster_application:'Application-led Poster',
- social_square:'Facebook / Instagram Square',social_story:'Story / Vertical',website_banner:'Website Banner',
+  '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
+  (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
+ const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
+ social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
  email_header:'Email Header',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
   '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
   '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button></div></article>').join('');
  prepareShareButtons($('campaignResults'));
+ const social=m.social_suggestions||{};
+ const frames=Array.isArray(social.instagram_story)?social.instagram_story:[];
+ $('campaignSocialIdeas').hidden=!frames.length;
+ $('storySuggestions').innerHTML=frames.map(item=>
+  '<div class="story-suggestion"><b>STORY '+esc(item.slide)+' · '+esc(item.suggestion)+'</b><p>'+esc(item.text)+'</p></div>').join('');
+ $('campaignSocialTip').textContent='WhatsApp suggestion: '+(social.whatsapp||'Review product details before ordering.')+
+  ' · Captions and other channel text can be edited in the single Copy Editor.';
  copyStudioData={origin:'campaign',copy:m.copy};
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};rewriteUndoHistory={};
  renderCampaignCopyStudio();
@@ -1019,7 +1033,7 @@ $('campaignBtn').addEventListener('click',async()=>{
    if(!active||active.part!==part){$('campaignStatus').textContent='Retrieving verified product details…';await load(part);}
    if(rawPrice&&!$('staffRrp').value){$('staffRrp').value=rawPrice;$('staffReview').checked=reviewedPrice;$('staffRrpBasis').value=reviewedBasis;}
    if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
-   $('campaignStatus').textContent='Creating three sales angles, seven artwork files, channel copy and a ZIP…';
+   $('campaignStatus').textContent='Understanding the tool, selecting three different poster layouts, sourcing approved application imagery and writing channel copy…';
    const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
      method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
      body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
@@ -1032,7 +1046,7 @@ $('campaignBtn').addEventListener('click',async()=>{
    showCampaign(data);
    $('campaignStatus').textContent='Campaign ready to review. Nothing has downloaded — use Download complete ZIP or choose individual PNGs if you want to save them. The links expire after 15 minutes.';
  }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
- finally{button.disabled=false;button.textContent='✦ Generate Campaign';}
+ finally{button.disabled=false;button.textContent='✦ Build Campaign';}
 });
 
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
@@ -2224,7 +2238,14 @@ def one_click_campaign(part):
             body.get('staff_rrp_basis', 'ex')
         )
         distributor = selected_distributor(body.get('distributor_brand', 'none'))
-        bundle = build_campaign(product, image, distributor)
+        official_context = (
+            APPLICATION_IMAGE_CACHE.get(part)
+            if product.get('application_photo_source')
+            and product.get('application_photo_source') != product.get('photo_source')
+            else None
+        )
+        bundle = build_campaign(product, image, distributor,
+                                application_photo=official_context)
         token = secrets.token_urlsafe(24)
         with CAMPAIGN_PACK_LOCK:
             now = time.time()
