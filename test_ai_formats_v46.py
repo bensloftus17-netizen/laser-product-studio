@@ -90,7 +90,7 @@ def cutout_stub(blob):
 
 
 class OriginalFormatCampaignTests(unittest.TestCase):
-    def test_all_four_have_genuinely_separate_design_and_native_sizes(self):
+    def test_all_six_have_genuinely_separate_design_and_native_sizes(self):
         self.assertEqual(len(FORMATS),6)
         self.assertIn("NEVER copy/scale",format_instruction())
         shapes=[]
