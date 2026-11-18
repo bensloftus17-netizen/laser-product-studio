@@ -127,15 +127,33 @@ def _fitted(draw, text, box, sizes, fill, max_lines=3, bold=True):
 
 
 def _product_panel(canvas, photo, box):
-    x1, y1, x2, y2 = box
-    draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle(box, radius=20, fill=WHITE)
-    image = ImageOps.exif_transpose(Image.open(io.BytesIO(photo))).convert("RGBA")
-    # Manufacturer pixels stay intact; contain rather than crop or AI-redraw.
-    image.thumbnail((max(1, x2 - x1 - 52), max(1, y2 - y1 - 52)), Image.Resampling.LANCZOS)
-    px = x1 + (x2 - x1 - image.width) // 2
-    py = y1 + (y2 - y1 - image.height) // 2
-    canvas.paste(image, (px, py), image)
+    """Use the genuine product cutout in every Story, banner and social image.
+
+    Prior versions inserted the uncut white packshot in a giant white card.
+    The image now sits directly on the coloured/real-photo composition.
+    """
+    from campaign_art_quality import inspected_product
+    from PIL import ImageFilter
+    x1,y1,x2,y2=box
+    details=inspected_product(photo)
+    image=details["rgba"].copy()
+    max_w=max(1,x2-x1-36)
+    max_h=max(1,y2-y1-36)
+    scale=min(max_w/max(1,image.width),max_h/max(1,image.height))
+    image=image.resize((max(1,round(image.width*scale)),
+                        max(1,round(image.height*scale))),Image.Resampling.LANCZOS)
+    px=x1+(x2-x1-image.width)//2
+    py=y1+(y2-y1-image.height)//2
+    if not details["isolated"]:
+        d=ImageDraw.Draw(canvas)
+        d.rounded_rectangle((px-11,py-11,px+image.width+11,py+image.height+11),
+                            radius=13,fill="#133A59",outline="#5596B7",width=2)
+    else:
+        shadow=Image.new("RGBA",image.size,(1,16,32,0))
+        shadow.putalpha(image.getchannel("A").filter(
+            ImageFilter.GaussianBlur(13)).point(lambda v:int(v*.31)))
+        canvas.alpha_composite(shadow,(px+6,py+9))
+    canvas.alpha_composite(image,(px,py))
 
 
 def _brand(canvas, part, distributor=None, compact=False):
@@ -206,8 +224,10 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         _brand(canvas, part, distributor)
         _fitted(d, title, (50, 200, 1025, 370), (64, 56, 48, 42, 36), WHITE, 3)
         _product_panel(canvas, photo, (100, 390, 980, 855))
-        d.rounded_rectangle((62, 896, 1015, 1020), radius=10, fill=WHITE)
-        _fitted(d, price, (90, 918, 980, 1001), (47, 41, 35, 28, 23), TEXT, 2)
+        d.rounded_rectangle((62, 896, 1015, 1020), radius=13,
+                            fill="#092C4A",outline="#42ABD9",width=3)
+        _fitted(d, price, (90, 918, 980, 1001),
+                (47, 41, 35, 28, 23), WHITE, 2)
     elif kind == "social_story":
         if not scene:d.rectangle((0, 200, width, height), fill=BLUE)
         d.polygon([(0, 1620), (1080, 1400), (1080, 1920), (0, 1920)], fill=NAVY)
@@ -215,8 +235,10 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         _fitted(d, title, (58, 258, 1022, 515), (81, 72, 60, 52, 44), WHITE, 4)
         _product_panel(canvas, photo, (62, 558, 1018, 1360))
         _fitted(d, fact, (66, 1394, 1007, 1612), (41, 36, 31, 27, 24), WHITE, 4, bold=False)
-        d.rounded_rectangle((64, 1655, 1012, 1830), radius=16, fill=WHITE)
-        _fitted(d, price, (89, 1702, 990, 1798), (55, 48, 42, 34, 28), TEXT, 2)
+        d.rounded_rectangle((64, 1655, 1012, 1830), radius=16,
+                            fill="#092C4A",outline="#5CCBE8",width=4)
+        _fitted(d, price, (89, 1702, 990, 1798),
+                (55, 48, 42, 34, 28), WHITE, 2)
         _fitted(d, "DRAFT  /  CHECK PRODUCT DETAILS BEFORE PUBLISHING",
                 (72, 1854, 1000, 1893), (21, 18, 16), "#DBE9F2", 1, bold=False)
     else:
