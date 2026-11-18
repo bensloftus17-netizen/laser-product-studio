@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import re
 
-from marketing_intelligence import rank_verified_features
+from marketing_intelligence import (rank_verified_features, detect_category,
+                                   is_related_product_reference)
 from ai_promo_renderer import verified_price
 
 FOCUS_BY_FAMILY={"retail":"price","premium":"benefit","trade":"application"}
@@ -30,8 +31,10 @@ BENEFIT_TERMS=re.compile(
 
 
 def _clean_features(product):
+    timing=detect_category(product)[0]=="engine_timing"
     original=[str(x).strip() for x in product.get("features",[])
-              if isinstance(x,str) and str(x).strip()]
+              if isinstance(x,str) and str(x).strip()
+              and not (timing and is_related_product_reference(x))]
     ordered=rank_verified_features(product,limit=10)
     result=[]
     for text in ordered+original:

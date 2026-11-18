@@ -1,5 +1,19 @@
 # Laser Product Studio
 
+## Engine timing tool recognition (part 6200)
+
+The official Engine Timing Kit 6200 is classified as **Engine timing & locking
+tools**, not generic hand tools. Title matching also covers camshaft locking,
+crankshaft holding, cambelt tool kits and timing belt/chain locking products.
+
+For this category, marketing strategy recommends relevant engine/timing repair
+workshops and specialist distributors, prioritising documented applications,
+timing operations and tool kit contents. Accessory cross-references such as
+"see Laser Part No. 7595" are retained in the original manufacturer data but
+excluded from primary poster selling points and Gemini's allowed evidence
+choices. Technical specs, engine fitment and campaign claims remain sourced
+and require review. Regression tests use the official 6200 product wording.
+
 ## Product-specific AI marketing strategy (V39)
 
 The campaign builder now produces an explainable strategy, not just generic

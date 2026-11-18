@@ -8,7 +8,8 @@ not to introduce arbitrary factual wording.
 """
 from __future__ import annotations
 
-from marketing_intelligence import PROFILES, detect_category, rank_verified_features
+from marketing_intelligence import (PROFILES, detect_category, rank_verified_features,
+                                   is_related_product_reference)
 from promo_selling_points import choose_feature
 
 CHANNELS = {
@@ -24,6 +25,14 @@ FOCUSES = {
 }
 # These are possible sales audiences, not actual qualified prospect records.
 AUDIENCE_OPTIONS = {
+    "engine_timing": (
+        ("engine_repair_workshops", "Engine repair and timing-belt workshops",
+         "Engine timing tools address the documented locking and timing procedure."),
+        ("marque_specialists", "Workshops specialising in relevant engine families",
+         "Confirmed engine codes and vehicle applications matter for this specialist kit."),
+        ("tool_distributors", "Automotive tool distributors",
+         "Application-led materials help trade buyers check the correct timing kit."),
+    ),
     "bearing_suspension": (
         ("commercial_workshops", "Commercial-vehicle repair workshops", "The kit is a specialist wheel-bearing or suspension service tool."),
         ("vehicle_specialists", "Relevant vehicle specialists", "Application details may matter for specialist repair businesses."),
@@ -78,6 +87,7 @@ AUDIENCE_OPTIONS = {
     ),
 }
 DEFAULT_FOCUS = {
+    "engine_timing": "application",
     "bearing_suspension": "application",
     "socket_ratchet": "benefit",
     "workshop_press": "benefit",
@@ -91,6 +101,7 @@ DEFAULT_FOCUS = {
     "general_hand_tools": "benefit",
 }
 DEFAULT_CHANNELS = {
+    "engine_timing": ("email", "website"),
     "bearing_suspension": ("email", "linkedin"),
     "socket_ratchet": ("social", "email"),
     "workshop_press": ("email", "website"),
@@ -107,10 +118,15 @@ DEFAULT_CHANNELS = {
 
 def _verified_features(product):
     features = []
+    is_timing = detect_category(product)[0] == "engine_timing"
     for raw in (product.get("features") or [])[:12]:
         if not isinstance(raw, str):
             continue
         fact = " ".join(raw.strip().split())[:175]
+        if is_timing and is_related_product_reference(fact):
+            # Related Laser products are valid reference notes but not
+            # the core marketing evidence for the timing kit itself.
+            continue
         if fact and fact not in features:
             features.append(fact)
     return features

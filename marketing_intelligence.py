@@ -40,6 +40,22 @@ PROFILES: dict[str, dict[str, Any]] = {
         "technical_preference": "light",
         "accent": "#39A9F0",
     },
+    "engine_timing": {
+        "label": "Engine timing & locking tools",
+        "style": "problem_solution",
+        "angle": "Confirmed engine applications, timing procedures and kit contents",
+        "headline": ("ENGINE TIMING.", "APPLICATION-LED."),
+        "hero_focus": "Genuine complete kit photograph and verified engine fitment",
+        "priorities": ("timed position", "camshafts and crankshaft", "camshaft",
+                       "crankshaft", "applications include", "designed for",
+                       "eb0", "eb2", "belt replacement", "locking",
+                       "engine", "citroën", "citroen", "peugeot", "vauxhall",
+                       "opel", "timing", "belt", "kit", "tin"),
+        "spec_terms": ("engine", "application", "vehicle", "manufacturer",
+                       "timing", "model", "code", "size", "contents"),
+        "technical_preference": "dense",
+        "accent": "#0F94D3",
+    },
     "bearing_suspension": {
         "label": "Bearing & suspension tools",
         "style": "problem_solution",
@@ -157,6 +173,14 @@ PROFILES: dict[str, dict[str, Any]] = {
 # Title patterns only. Descriptions and feature lists can mention OTHER tools
 # being used with the product, so may never override specific title matches.
 TITLE_RULES = (
+    # Engine timing kits are specialist service tools, not generic hand tools.
+    # Classify from the product name, NOT from mentions of related tools in
+    # the feature list (e.g. water-pump belt tools sold separately).
+    ("engine_timing", r"\b(?:engine\s+timing|cambelt\s+(?:tool\s+)?kit|"
+                      r"camshaft\s+(?:timing|locking|alignment|retaining|holding)|"
+                      r"crankshaft\s+(?:timing|locking|alignment|holding)|"
+                      r"timing\s+(?:belt|chain)\s+(?:checking|locking|tool|gauge|kit|tensioner)|"
+                      r"timing\s+(?:tool|locking)\s+(?:kit|set|pins?))\b"),
     ("workshop_press", r"\b(?:air[- ]hydraulic|hydraulic|workshop)\s+(?:workshop\s+)?press\b|\b\d{1,3}\s*(?:tonne|ton)\b.*\bpress\b"),
     ("workshop_service", r"\b(?:brake\s+bleed|bleeder|bleeding\s+kit|pressure\s+bleed|fluid\s+extractor)\b"),
     ("bearing_suspension", r"\b(?:wheel\s+bearing|bearing\s+(?:kit|tool|puller)|hub\s+(?:puller|spreader)|split\s+hub|knuckle|strut|ball\s+joint|suspension|bush(?:ing)?\s+(?:remov|install))"),
@@ -172,6 +196,8 @@ TITLE_RULES = (
 
 # Fallback only when a title contains no recognisable type.
 DESCRIPTION_RULES = (
+    ("engine_timing", r"\b(?:hold(?:s|ing)?\s+(?:the\s+)?camshafts?\s+and\s+crankshaft|"
+                      r"camshaft\s+timing\s+tool|engine\s+timing\s+kit)\b"),
     ("workshop_service", r"\b(?:brake\s+bleeding\s+tool|fluid\s+extraction)\b"),
     ("bearing_suspension", r"\b(?:bearing\s+removal|suspension\s+strut)\b"),
     ("lighting_inspection", r"\b(?:rechargeable\s+lamp|cob\s+lamp)\b"),
@@ -210,11 +236,21 @@ def _feature_claims(record: dict) -> list[str]:
     return values
 
 
+def is_related_product_reference(text: str) -> bool:
+    """References to *other* Laser part numbers aren't headline selling points."""
+    return bool(re.search(r"\b(?:laser\s+)?part\s*(?:no\.?|number)\s*[:#]?\s*\d{3,6}\b",
+                          str(text), re.I))
+
+
 def rank_verified_features(record: dict, category: str | None = None, limit: int = 5) -> list[str]:
     """Rank real manufacturer facts only; never generate new claims."""
     key=category if category in PROFILES else detect_category(record)[0]
     priorities=PROFILES[key]["priorities"]
     features=_feature_claims(record)
+    if key=="engine_timing":
+        # Do not promote another kit or accessory as the main feature of
+        # the engine timing product itself, even if the source mentions it.
+        features=[fact for fact in features if not is_related_product_reference(fact)]
     def score(item):
         idx,text=item
         low=text.lower()
