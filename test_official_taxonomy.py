@@ -62,7 +62,7 @@ class OfficialTaxonomyTests(unittest.TestCase):
             "9197":("Workshop","Inspection - Lighting","Workshop Lamps","lighting_inspection"),
             "9364":("General Hand Tools","Socketry","General Ratchets","socket_ratchet"),
             "9365":("General Hand Tools","Socketry","General Ratchets","socket_ratchet"),
-            "9024":("Workshop","Air Tools & Accessories","Air Tools","workshop_service"),
+            "9024":("Workshop","Air Tools & Accessories","Air Tools","air_power"),
             "4832":("Cars & Vans","Brakes","Brake Bleeding","workshop_service"),
         }
         for part,(root,dept,leaf,profile) in cases.items():
@@ -81,6 +81,17 @@ class OfficialTaxonomyTests(unittest.TestCase):
         ev=marketing_for_path(["Hybrid/Electric Vehicles","Insulated Tools","Socketry"])
         self.assertEqual(socket["id"],"kit_contents")
         self.assertEqual(pliers["id"],"hand_tool_features")
+        ratchet=marketing_for_path(["General Hand Tools","Socketry","General Ratchets"])
+        individual=marketing_for_path(["General Hand Tools","Socketry","Individual Sockets"])
+        socket_storage=marketing_for_path(["General Hand Tools","Socketry","Socket Racks"])
+        digital_measure=marketing_for_path(["General Hand Tools","Measuring & Marking","Measuring"])
+        induction=marketing_for_path(["Workshop","Equipment","Heat Induction"])
+        self.assertEqual(ratchet["id"],"individual_drive_tools")
+        self.assertEqual(individual["id"],"individual_drive_tools")
+        self.assertEqual(socket_storage["id"],"storage_organisation")
+        self.assertEqual(digital_measure["id"],"measurement_specs")
+        self.assertEqual(induction["id"],"equipment_specifications")
+        self.assertNotEqual(induction["id"],press["id"])
         self.assertEqual(press["id"],"capacity_equipment")
         self.assertEqual(timing["id"],"application_fitment")
         self.assertEqual(ev["id"],"ev_safety")
