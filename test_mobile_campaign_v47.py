@@ -202,6 +202,7 @@ const ctx={
  },
  readApiJson:async(result)=>result.json(),
  renderProgressGallery:()=>{},
+ PROGRESS_STAGE_LABELS:{running:'Building your artwork…'},
  showCampaign:(data)=>{received=data;},
  active:null,activePhoto:null,inflight:false
 };
