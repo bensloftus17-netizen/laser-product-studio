@@ -5,6 +5,7 @@ from ai_promo_renderer import FAMILIES
 from promo_art_direction import normalise_art_direction
 from promo_copy import normalise_copy_direction
 from promo_selling_points import focus_concept
+from campaign_strategy import strategy_options
 
 def _gemini_json(payload, key, model):
     """Read Gemini JSON with bounded retries and actionable, non-secret errors.
@@ -101,6 +102,10 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
     features=[str(x).strip()[:175] for x in (product.get("features") or []) if str(x).strip()][:12]
     specs=[{"label":str(k)[:65],"value":str(v)[:110]} for k,v in (product.get("specs") or {}).items()][:12]
     context={"part":product.get("part"),"title":product.get("title"),"description":str(product.get("description",""))[:1100],"features":features,"specs":specs,"category":product.get("marketing_direction",{}).get("category_label",""),"verified_price":str(product.get("price") or "Price on request")[:60]}
+    if only_family is None:
+        # Gives the existing single Gemini request constrained marketing choices
+        # in addition to the poster designs. No second API call or extra outage risk.
+        context["strategy_options"]=strategy_options(product)
     system=("You are a senior UK automotive trade marketing copywriter. Generate THREE completely DIFFERENT, "
             "short, attention-grabbing PROMOTIONAL advertisement concepts for the actual Laser Tools product in the supplied official data. "
             "All three are SALES POSTERS, NEVER technical specification sheets, blueprint diagrams or educational posters. "
@@ -152,6 +157,16 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "Retail, Premium and Trade. The app will use these choices to compose a short "
             "social caption, a LinkedIn post, a customer email and relevant hashtags using "
             "only the supplied verified facts. Never write unsupported marketing claims. "
+            "Also return a top-level 'marketing_strategy' object (not inside a concept), "
+            "with audience_id (one of strategy_options.audiences IDs), "
+            "primary_focus (one of strategy_options.focus_options), "
+            "channels (exactly two distinct IDs from strategy_options.channel_options), "
+            "and proof_index (integer index into strategy_options.proof_options). "
+            "The audience is a marketing hypothesis, not a verified customer or fitment. "
+            "Select a suitable audience, selling angle, factual proof and communications "
+            "channels for THIS product. Do not invent extra prospects, proof or conclusions. "
+            "The application validates your choices and writes all justifications from "
+            "approved source-based information. "
             "Do not request more input from the user.")
     if only_family is not None:
         kind={"retail":"bold retail promotion","premium":"clean premium retail advert",
@@ -243,6 +258,11 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "features":selected,
             "part":str(product.get("part","")),
             "title":str(product.get("title",""))[:125]},family_index))
+    # Attach the strictly enumerated choice to the first concept. The
+    # campaign builder validates IDs again against the manufacturer record.
+    # Existing AI poster callers remain compatible with the concept list.
+    if only_family is None and isinstance(raw,dict) and isinstance(raw.get("marketing_strategy"),dict):
+        cleaned[0]["ai_strategy_choice"]=raw["marketing_strategy"]
     return cleaned
 
 
