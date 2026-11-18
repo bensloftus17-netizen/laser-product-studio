@@ -23,6 +23,7 @@ jobs:
         run: |
           python -c "from app import V7_HOME_PAGE; open('/tmp/laser-studio-ui.js','w',encoding='utf-8').write(V7_HOME_PAGE.split('<script>',1)[1].split('</script>',1)[0])"
           node --check /tmp/laser-studio-ui.js
+          node --check static/campaign_poster_edit.js
 
       - name: Keep real 8899 cutout proof for visual inspection
         if: always()
