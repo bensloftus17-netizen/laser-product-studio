@@ -175,6 +175,10 @@ def rewrite_copy(product, *, mode, channel, current_text, angle=0):
     if len(current_text) > 5000:
         raise ValueError("The draft is too long to rewrite (5,000 characters maximum).")
 
+    # A stale source record or a direct API caller must not bypass the
+    # English-only guard before producing or rewriting customer-facing text.
+    from app import normalise_product_language
+    product = normalise_product_language(product)
     focus = FOCUSES[angle]
     features, default_index = _choose_fact(product, focus, current_text)
     plan, method, warning = _style_plan(mode, focus, current_text, features, default_index)
