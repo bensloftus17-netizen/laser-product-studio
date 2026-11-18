@@ -25,6 +25,10 @@ def make_png(color, size=(400,320)):
     image=Image.new("RGB",size,color)
     draw=ImageDraw.Draw(image)
     draw.rectangle((45,50,295,275),fill="white",outline="#1A6189",width=7)
+    return make_image_png(image)
+
+
+def make_image_png(image):
     buf=io.BytesIO()
     image.save(buf,"PNG")
     return buf.getvalue()
