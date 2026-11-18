@@ -2568,7 +2568,7 @@ def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report
                 raise ValueError("Unexpected per-asset quality state")
             state=job['assets'][asset_id]
             if stage=='ready':
-                if not isinstance(payload,bytes) or not payload.startswith(b'\\x89PNG\\r\\n\\x1a\\n'):
+                if not isinstance(payload,bytes) or not payload.startswith(b'\x89PNG\r\n\x1a\n'):
                     raise ValueError("Validated campaign artwork must be PNG bytes")
                 job['preview_images'][asset_id]=payload
             if stage=='failed':
