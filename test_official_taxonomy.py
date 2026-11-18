@@ -188,7 +188,7 @@ class OfficialTaxonomyTests(unittest.TestCase):
             self.assertEqual(page.count('id="'+name+'"'),1)
         self.assertIn("function flattenTaxonomy(data)",page)
         self.assertIn("/api/catalogue/taxonomy",page)
-        self.assertIn("v40-catalogue-hierarchy",page)
+        self.assertIn("v41-unified-campaign",page)
 
 
 if __name__=="__main__":
