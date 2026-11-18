@@ -1910,7 +1910,12 @@ def distributor_logo(brand):
 def product_lookup(part):
     try:
         product,image=lookup(part,uk_url=request.args.get('uk_url') or None)
-        public_record={**product,'technical_layout':technical_layout_mode(product), 'marketing_direction':strategy_for(product)}
+        # Raw foreign supplier phrases are retained only for internal audit;
+        # never expose them to the website or downloadable campaign record.
+        public_record={**{key:value for key,value in product.items()
+                          if key!="source_raw_features"},
+                       'technical_layout':technical_layout_mode(product),
+                       'marketing_direction':strategy_for(product)}
         return jsonify(product=public_record,photo_url=f'/api/photo/{part}?design=v19' if image else None)
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
     except requests.RequestException:return jsonify(error='Official Laser website could not be reached. Please retry.'),502
