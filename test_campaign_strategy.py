@@ -151,7 +151,7 @@ class IntelligentMarketingStrategyTests(unittest.TestCase):
         strategy = pack["manifest"]["marketing_strategy"]
         self.assertEqual(strategy["method"], "gemini-validated-choice")
         self.assertEqual(strategy["proof_point"], self.bearing["features"][1])
-        self.assertTrue(all(call.args[-1] == self.bearing["features"][1]
+        self.assertTrue(all(call.args[4] == self.bearing["features"][1]
                             for call in native.call_args_list))
         with ZipFile(io.BytesIO(pack["archive"])) as z:
             note=z.read("05_Product_Info/Marketing_Strategy.txt").decode("utf-8")
