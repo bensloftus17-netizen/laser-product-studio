@@ -56,6 +56,8 @@ FOLDERS = {
     "social_story": "02_Social/Instagram_Facebook_Story.png",
     "website_banner": "03_Web_Email/Website_Banner.png",
     "email_header": "03_Web_Email/Email_Header.png",
+    "linkedin_graphic": "02_Social/LinkedIn_Graphic.png",
+    "landscape_ad": "03_Web_Email/Landscape_Advert.png",
 }
 ALLOWED_SOURCE_HOSTS = {
     "www.lasertools.co.uk", "lasertools.co.uk",
@@ -202,6 +204,8 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         "social_story": (1080, 1920),
         "website_banner": (1600, 600),
         "email_header": (1200, 420),
+        "linkedin_graphic": (1200, 627),
+        "landscape_ad": (1600, 900),
     }
     width, height = sizes[kind]
     canvas = Image.new("RGBA", (width, height), NAVY)
@@ -639,7 +643,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             warnings.append(critic["warning"])
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
-    # V46: every secondary marketing format has its OWN AI-designed layout,
+    # V46: all six additional marketing formats have their OWN AI-designed layout,
     # tailored to its native width, height, safe areas and viewing context.
     # The model provides coordinates and feature indices, never source pixels,
     # copy, prices or arbitrary image URLs.
@@ -656,7 +660,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     format_reports={}
     format_canvases={}
     for key in FORMAT_ORDER:
-        scene_idx=0 if key=="social_story" else 2 if key=="website_banner" else 1
+        scene_idx=(0 if key=="social_story" else 2 if key in
+                   ("website_banner","landscape_ad") else 1)
         brief=validate_format_canvas(key,supplied_formats.get(key),len(format_facts))
         if brief and mode=="gemini-assisted":
             # Any failed native-format artwork is rejected rather than
