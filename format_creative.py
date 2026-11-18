@@ -28,6 +28,8 @@ FORMATS = {
     "social_story": (1080, 1920, 160, 860),
     "website_banner": (1600, 600, 230, 880),
     "email_header": (1200, 420, 245, 845),
+    "linkedin_graphic": (1200, 627, 225, 865),
+    "landscape_ad": (1600, 900, 205, 895),
 }
 FORMAT_ORDER = tuple(FORMATS)
 ROLE_IDS = ("technical_application", "price_promo", "product_selected")
@@ -54,7 +56,7 @@ def validate_format_canvas(kind, raw, feature_count=0):
     supplied=raw.get("zones")
     if not isinstance(supplied,dict):
         return None
-    compact=kind in ("website_banner","email_header")
+    compact=kind in ("website_banner","email_header","linkedin_graphic","landscape_ad")
     required=("headline","product") if compact else ("headline","product","proof")
     allowed=set(required)|{"proof","price"}
     zones={}
@@ -125,24 +127,29 @@ def validate_format_canvas(kind, raw, feature_count=0):
 def format_instruction():
     """One Gemini response asks for four unique canvases, not scaled posters."""
     return (
-        "Also output a top-level format_canvases object containing EXACTLY FOUR "
+        "Also output a top-level format_canvases object containing EXACTLY SIX "
         "independently designed artwork briefs, keyed social_square (1080x1080), "
         "social_story (1080x1920), website_banner (1600x600), email_header "
-        "(1200x420). Design EACH from scratch for its own aspect ratio, "
+        "(1200x420), linkedin_graphic (1200x627), and landscape_ad "
+        "(1600x900). Design EACH from scratch for its own aspect ratio, "
         "viewer attention and medium. NEVER copy/scale any of the three poster "
         "compositions into these formats. Each brief has zones with headline, "
         "product and optional proof/price regions, each [x,y,width,height] "
         "integers normalized 0..1000; social_square and social_story MUST also "
         "have proof. Safe x=35..965. Safe y ranges: square 150..905, Story "
         "160..860 (leave app UI overlays clear), website_banner 230..880, "
-        "email_header 245..845. Do not let ANY zones overlap. Product zone "
+        "email_header 245..845, linkedin_graphic 225..865, and landscape_ad "
+        "205..895. Do not let ANY zones overlap. Product zone "
         "minimum normalized width 260 and height 310 on banners or 265 for "
         "social; headline width minimum 320 social or 280 banners, height "
         "minimum 95; proof min width 220 height 70; price min width 215 "
         "height 105. On banners choose a horizontal composition with "
         "minimal copy and a wide product hero; on Story create a clear vertical "
         "sequence and leave generous mobile tap overlays; square should have "
-        "a strong immediate hook; email header should be concise and legible. "
+        "a strong immediate hook; email header should be concise and legible; "
+        "LinkedIn should suit professional trade buyers with concise evidence; "
+        "the landscape advert should offer a strong horizontal hero and clear "
+        "marketing hierarchy. "
         "Each brief also returns headline_role and scene_role each one of "
         "technical_application, price_promo, product_selected; "
         "proof_feature_index is an integer referring to the supplied official "
@@ -293,7 +300,7 @@ def _label(canvas,part,distributor):
 def _fit_text(draw,text,region,kind,style="editorial",is_headline=False):
     w,h,*_=FORMATS[kind]
     base=min(74,round((.059 if is_headline else .035)*h))
-    if kind in ("website_banner","email_header"):
+    if kind in ("website_banner","email_header","linkedin_graphic","landscape_ad"):
         base=min(64,max(26,round(.071*h if is_headline else .045*h)))
     base=int(base*{"massive":1.12,"editorial":1.0,"compact":.87}.get(style,1))
     if is_headline:
