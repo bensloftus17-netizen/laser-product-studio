@@ -30,6 +30,7 @@ from promo_copy import compose_promotional_copy
 from promo_selling_points import choose_feature, focus_concept
 from campaign_director import plan_campaign, POSTER_LABELS, ROLES
 from campaign_role_posters import technical_poster, smart_poster
+from campaign_art_quality import choose_best, campaign_consistency
 from promo_scene_library import find_scene, classify_product
 
 NAVY = "#0A2948"
@@ -413,6 +414,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     # general-purpose poster template.
     concepts, creative_plan = plan_campaign(
         product, raw_concepts if mode == "gemini-assisted" else [], marketing_strategy)
+    duplicate_issues = campaign_consistency(concepts)
+    if duplicate_issues:
+        raise ValueError("Campaign needs different sales messages: "+
+                         "; ".join(duplicate_issues))
     scenes = []
     scene_references = []
     for index, concept in enumerate(concepts):
@@ -435,20 +440,61 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "note":"Context photo, not evidence of this exact tool in use.",
         })
     image_assets = {}
-    # 1: genuinely technical editorial design; 2: bold retail price creative;
-    # 3: separate category-specific split editorial / workshop scene.
-    image_assets["poster_technical"] = technical_poster(
-        product,genuine_photo,concepts[0],scenes[0],distributor)
+    quality_reports = {}
+    # Real variant selection. Test 3 distinct creative compositions per role;
+    # reject large white zones, unreadable text, damaged PNGs and low contrast.
+    # All candidates reuse the same verified product pixels and scene sources.
+    from poster_quality import capture
+
+    def _geometry(tracked):
+        return {
+            "truncated": any(t["truncated"] for t in tracked.texts),
+            "out_of_bounds": any(
+                t["box"][0]<0 or t["box"][1]<0 or t["box"][2]>1200
+                or t["box"][3]>1500 for t in tracked.texts),
+            "overlaps": False,
+        }
+
+    def _role_candidate(index, renderer, variant):
+        candidate = dict(concepts[index])
+        candidate["variant"]=variant
+        with capture() as tracked:
+            output = renderer(product,genuine_photo,candidate,
+                              scenes[index],distributor)
+        return output,_geometry(tracked)
+
+    image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
+        lambda variant:_role_candidate(0,technical_poster,variant),
+        "technical_application",genuine_photo)
     retail=concepts[1]
     visual=retail["visual_plan"]
-    image_assets["poster_price"] = render_promo(
-        retail,genuine_photo,product,distributor,editor={
+
+    def _price_candidate(variant):
+        candidate=dict(retail)
+        candidate["variant"]=variant
+        styles=("panel","tag","plaque")
+        # Different price layouts are assessed before delivery. The price
+        # remains verified and the real tool cutout is always reused.
+        context_style={
+            "crop":((.46,.46),(.56,.55),(.42,.52))[variant],
+            "darkness":(.29,.25,.32)[variant],
+            "blur":(2.0,2.4,1.8)[variant],"colour":.82,
+        }
+        detail={}
+        output=render_promo(candidate,genuine_photo,product,distributor,editor={
             "background":"context","_scene_bytes":scenes[1],
-            "_scene_style":{"crop":(.45,.51),"darkness":.22,"blur":2.2,"colour":.9},
-            "show_subline":True,"price_style":visual["price_style"],
-            "accent":visual["accent"],"product_scale":100})
-    image_assets["poster_smart"] = smart_poster(
-        product,genuine_photo,concepts[2],scenes[2],distributor)
+            "_scene_style":context_style,"show_subline":False,
+            "price_style":styles[variant],
+            "accent":visual["accent"],"product_scale":(115,105,112)[variant],
+            "_quality_report":detail})
+        return output,{"truncated":False,"out_of_bounds":False,
+                       "overlaps":bool(detail.get("issues"))}
+
+    image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
+        _price_candidate,"price_promo",genuine_photo)
+    image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
+        lambda variant:_role_candidate(2,smart_poster,variant),
+        "product_selected",genuine_photo)
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
     for key in ("social_square", "social_story", "website_banner", "email_header"):
@@ -491,6 +537,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "category": product["marketing_direction"].get("category_label", ""),
         "marketing_strategy": marketing_strategy,
         "creative_plan": creative_plan,
+        "artwork_quality": quality_reports,
         "scene_photography": scene_references,
         "social_suggestions": social_suggestions,
         "source": _approved_source(product),
