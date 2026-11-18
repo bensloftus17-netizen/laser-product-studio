@@ -11,6 +11,8 @@ import io
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 from poster import font
 from brand_assets import get_brand_image
+from campaign_art_quality import inspected_product
+from poster_quality import record_text
 
 W,H=1200,1500
 NAVY="#071F37"
@@ -62,19 +64,46 @@ def fitted(draw, text, box, sizes, color, max_lines=3, bold=True):
             rows[-1]=last.rstrip()+"…"
     for i,line in enumerate(rows):
         draw.text((x0,y0+i*step),line,font=font(size,"bold" if bold else "regular"),fill=color)
+    record_text(text,box,rows,size,"headline" if size>=35 else "text")
 
 
-def product_photo(canvas, blob, bounds):
-    x0,y0,x1,y1=bounds
-    try:
-        image=ImageOps.exif_transpose(Image.open(io.BytesIO(blob))).convert("RGBA")
-    except (OSError,ValueError) as exc:
-        raise ValueError("Original manufacturer image could not be read") from exc
-    image.thumbnail((max(1,x1-x0-42),max(1,y1-y0-42)),Image.Resampling.LANCZOS)
-    x=x0+(x1-x0-image.width)//2
-    y=y0+(y1-y0-image.height)//2
-    # Preserve manufacturer pixels; any transparent source uses its alpha.
-    canvas.paste(image,(x,y),image)
+def product_photo(canvas, blob, bounds, *, scale=1.0):
+    """Safely isolate genuine tool pixels and place WITHOUT a white card.
+
+    Real white/metal components stay original. If automatic edge segmentation
+    is uncertain, retain the photograph on a *small dark mat*, mark the
+    campaign for review and never silently paint an invented tool silhouette.
+    """
+    x0,y0,x1,y1=map(int,bounds)
+    info=inspected_product(blob)
+    image=info["rgba"].copy()
+    w,h=max(1,x1-x0),max(1,y1-y0)
+    limit_w=max(1,round(w*.94*scale))
+    limit_h=max(1,round(h*.94*scale))
+    ratio=min(limit_w/max(1,image.width),limit_h/max(1,image.height))
+    image=image.resize((max(1,int(image.width*ratio)),
+                        max(1,int(image.height*ratio))),Image.Resampling.LANCZOS)
+    x=x0+(w-image.width)//2
+    y=y0+(h-image.height)//2
+    if not info["isolated"]:
+        # Low-confidence photo: never fake extraction or allow a full-canvas
+        # white rectangle. Deliberate smaller framed source-photo preview
+        # requires a human cutout review before publication.
+        d=ImageDraw.Draw(canvas)
+        pad=15
+        d.rounded_rectangle((max(0,x-pad),max(0,y-pad),
+                             min(W,x+image.width+pad),min(H,y+image.height+pad)),
+                            radius=16,fill="#16354F",outline="#6E9AB5",width=3)
+    if info["isolated"]:
+        alpha=image.getchannel("A")
+        # A natural studio shadow behind genuine steel, not a tool redraw.
+        shadow=Image.new("RGBA",image.size,(5,16,28,0))
+        shadow.putalpha(alpha.filter(ImageFilter.GaussianBlur(17)).point(
+            lambda value:int(value*.32)))
+        canvas.alpha_composite(shadow,(x+8,y+14))
+    canvas.alpha_composite(image,(x,y))
+    return {"isolated":info["isolated"],"needs_manual_cutout":info["needs_manual_cutout"],
+            "position":(x,y,x+image.width,y+image.height)}
 
 
 def actual_scene(canvas,blob,box,brightness=.72,blur=1.2):
@@ -123,82 +152,137 @@ def _clip_facts(concept):
     return all_facts[:3]
 
 
+def _story_copy(concept):
+    """Use one short manufacturer-derived phrase, never a long URL/paragraph."""
+    text=str(concept.get("selling_point") or "")
+    # Original manufacturer wording can include pointers to OTHER product
+    # pages or long URLs; neither is useful as a poster headline.
+    import re
+    text=re.split(r"https?://|www\.",text,maxsplit=1,flags=re.I)[0]
+    text=re.split(r"\bFor full details\b|\bTo order\b",text,maxsplit=1,flags=re.I)[0]
+    text=" ".join(text.split()).strip(" ,;.:")
+    if len(text)>132:
+        # Source excerpt only: no model-created technical claims. Prefer a
+        # complete first sentence and display full info in campaign copy.
+        sentence=re.split(r"(?<=[.!?])\s+",text)[0]
+        if 24<len(sentence)<=132:text=sentence
+        else:
+            limit=text.rfind(" ",0,130)
+            text=text[:limit if limit>72 else 128].rstrip(" ,;")+"."
+    return text
+
+
+def _contextual_base(scene,variant=0,tone="#07243C"):
+    canvas=Image.new("RGBA",(W,H),tone)
+    if scene:
+        x0,y0,x1,y1=(0,190,1200,1240)
+        actual_scene(canvas,scene,(x0,y0,x1,y1),
+                     brightness=(.60,.52,.68)[variant%3],blur=1.7)
+    # Brand-blue gradient overlay, not an arbitrary photo covered in white.
+    shade=Image.new("RGBA",(W,H),(0,0,0,0))
+    draw=ImageDraw.Draw(shade)
+    for y in range(180,1330,4):
+        alpha=round(115+82*(y-180)/1150)
+        draw.rectangle((0,y,W,y+4),fill=(4,26,48,alpha))
+    canvas=Image.alpha_composite(canvas,shade)
+    return canvas
+
+
+def _export(canvas):
+    buffer=io.BytesIO()
+    canvas.convert("RGB").save(buffer,"PNG",optimize=True)
+    return buffer.getvalue()
+
+
 def technical_poster(product,official_photo,concept,scene=None,distributor=None):
-    """Application/spec editorial layout: *no huge price bubble*."""
+    """Dark application editorial: a large, properly cut-out genuine hero."""
     part=product.get("part","")
-    canvas=Image.new("RGBA",(W,H),"#F2F7FB")
-    d=ImageDraw.Draw(canvas)
-    d.rectangle((0,0,1200,186),fill=NAVY)
-    d.rectangle((0,181,1200,193),fill="#0A90D2")
+    variation=int(concept.get("variant") or 0)%3
+    accent=(concept.get("visual_plan") or {}).get("accent","#15B6E4")
+    canvas=_contextual_base(scene,variation,tone="#08273F")
+    d=ImageDraw.Draw(canvas,"RGBA")
+    d.rectangle((0,0,W,190),fill="#082541")
+    d.rectangle((0,181,W,192),fill=accent)
     brand(d,part)
     co_brand(canvas,distributor)
-    d.rectangle((56,238,1105,252),fill="#0A90D2")
-    fitted(d,"APPLICATION / TECHNICAL",(58,282,1105,339),(36,32,26),"#0671AA",1)
-    fitted(d,product.get("title","Laser Tools product"),(55,355,1130,550),
-           (75,66,58,51,44,38,32),INK,3)
-    # The contextual photo is intentionally separate from the genuine product
-    # panel. The image is not evidence of specific vehicle fitment.
-    actual_scene(canvas,scene,(0,610,1200,985),brightness=.55,blur=2)
-    d=ImageDraw.Draw(canvas)
-    d.rounded_rectangle((54,642,1146,1203),radius=22,fill=WHITE,
-                        outline="#C8DFEB",width=4)
-    product_photo(canvas,official_photo,(93,665,1098,1169))
-    d=ImageDraw.Draw(canvas)
-    d.rectangle((0,1227,1200,1500),fill=NAVY)
-    d.rectangle((58,1262,67,1436),fill="#19A9DB")
-    proof=_clip_facts(concept)
-    fitted(d,"VERIFIED PRODUCT INFORMATION",(95,1269,1093,1313),
-           (29,26,22), "#A7E2FC",1)
-    if proof:
-        fitted(d,proof[0],(96,1332,1122,1433),
-               (31,27,24,21,19),WHITE,3,bold=False)
-    else:
-        fitted(d,"Review the manufacturer information for confirmed applications and specifications.",
-               (96,1332,1122,1433),(26,23,21),WHITE,3,bold=False)
-    fitted(d,"DRAFT · VERIFY APPLICATIONS BEFORE PUBLICATION",
-           (62,1467,1135,1494),(16,14), "#CAE4F0",1,bold=False)
-    out=io.BytesIO();canvas.convert("RGB").save(out,"PNG",optimize=True)
-    return out.getvalue()
+    d.rectangle((46,248,58,303),fill=accent)
+    fitted(d,"APPLICATION / TECHNICAL",(81,252,1120,307),
+           (33,30,27),accent,1)
+    fitted(d,product.get("title","Laser Tools product"),
+           (58,331,1124,540),(65,59,52,45,40,35,30),WHITE,3)
+    # Three distinct approved compositions; larger product, controlled scale.
+    if variation==0:hero=(355,550,1155,1175)
+    elif variation==1:hero=(270,555,1160,1195)
+    else:hero=(380,565,1170,1186)
+    product_photo(canvas,official_photo,hero,scale=1.08)
+    d=ImageDraw.Draw(canvas,"RGBA")
+    # A small technical information rail balances the tool, not a massive
+    # white product photograph panel.
+    d.rounded_rectangle((47,823,373,1142),radius=17,fill=(5,32,54,218),
+                        outline=(63,159,201,180),width=2)
+    d.rectangle((72,852,83,900),fill=accent)
+    fitted(d,"THE APPLICATION",(105,856,345,917),(23,21,19),accent,2)
+    fact=_story_copy(concept)
+    if fact:
+        fitted(d,fact,(75,938,344,1108),(27,25,22,20,18,16),WHITE,6,bold=False)
+    d.rectangle((0,1214,W,H),fill=(4,25,44,245))
+    d.rectangle((53,1253,1138,1262),fill=accent)
+    fitted(d,"TECHNICAL FOCUS",(62,1287,1137,1332),
+           (28,25,22),accent,1)
+    verified=[
+        str(x).strip() for x in concept.get("features") or []
+        if str(x).strip() and str(x).strip()!=str(concept.get("selling_point") or "").strip()
+    ]
+    secondary=_story_copy({"selling_point":verified[0]}) if verified else ""
+    fitted(d,secondary or (fact if fact else "Confirm applications with the official product record."),
+           (62,1349,1133,1427),(28,25,22,19,17),WHITE,3,bold=False)
+    fitted(d,"DRAFT / VERIFY APPLICATIONS BEFORE PUBLICATION",
+           (61,1462,1132,1487),(17,15,13),"#B9D7EB",1,bold=False)
+    return _export(canvas)
 
 
 def smart_poster(product,official_photo,concept,scene=None,distributor=None):
-    """Split editorial storytelling focused on a product-specific third angle."""
+    """Feature-led split-story ad, never a second price or technical flyer."""
     part=product.get("part","")
     plan=concept.get("visual_plan") or {}
-    theme=concept.get("third_angle") or "workshop_solution"
-    accent=plan.get("accent","#18AED8")
-    variant=int(concept.get("variant") or 0)%3
-    paper=("#FBFBF8","#F3F9FB","#F7F9F5")[variant]
-    canvas=Image.new("RGBA",(W,H),paper)
-    d=ImageDraw.Draw(canvas)
-    d.rectangle((0,0,1200,180),fill=NAVY)
-    d.rectangle((0,169,1200,187),fill=accent)
+    theme=str(concept.get("name") or "PRODUCT HIGHLIGHT")
+    variation=int(concept.get("variant") or 0)%3
+    accent=plan.get("accent","#1BB6D4")
+    canvas=_contextual_base(scene,variation,tone="#06223A")
+    d=ImageDraw.Draw(canvas,"RGBA")
+    d.rectangle((0,0,W,186),fill="#081E34")
+    d.rectangle((0,175,W,190),fill=accent)
     brand(d,part)
     co_brand(canvas,distributor)
-    actual_scene(canvas,scene,(520,348,1200,1070),brightness=.82,blur=1.6)
-    d=ImageDraw.Draw(canvas)
-    # Poster Three is NOT a second price advert: a large product image takes
-    # the left panel while real workshop context is visible on the right.
-    d.polygon([(0,340),(755,340),(590,1109),(0,1109)],fill="#DCEEF6")
-    d.rounded_rectangle((41,418,765,1090),radius=20,fill=WHITE)
-    product_photo(canvas,official_photo,(55,427,746,1072))
-    d=ImageDraw.Draw(canvas)
-    d.rectangle((0,1120,1200,1500),fill=paper)
-    d.rectangle((59,1154,1140,1165),fill=accent)
-    fitted(d,"THE EXTRA ANGLE · "+str(concept.get("name","PRODUCT DETAIL")).upper(),
-           (59,214,1141,271),(34,30,26),BLUE,2)
+    fitted(d,"LASER / PRODUCT SPOTLIGHT",(54,243,1135,290),
+           (31,27,23),accent,1)
     fitted(d,product.get("title","Laser Tools product"),
-           (60,274,1139,373),(50,43,37,30,26),INK,2)
-    proof=_clip_facts(concept)
-    fitted(d,theme.replace("_"," ").upper(),(62,1196,1140,1249),
-           (39,34,29),BLUE,1)
-    if proof:
-        fitted(d,proof[0],(61,1281,1136,1411),
-               (40,35,31,27,23),INK,3,bold=False)
+           (52,314,1146,523),(67,61,54,48,42,36,30),WHITE,3)
+    # A broad colored architectural shape behind, but NEVER white paper.
+    # Photographic workshop context remains on the right and the original
+    # tool silhouette is clearly legible in front of both.
+    if variation==0:
+        d.polygon([(0,595),(745,595),(580,1208),(0,1208)],
+                  fill=(9,67,101,225))
+        hero=(112,570,1100,1192)
+    elif variation==1:
+        d.polygon([(0,642),(870,551),(785,1210),(0,1210)],
+                  fill=(7,79,112,220))
+        hero=(72,572,1128,1201)
     else:
-        fitted(d,"Explore this product's official specifications before ordering.",
-               (61,1281,1136,1411),(32,28,23),INK,3,bold=False)
-    fitted(d,"GENUINE LASER TOOLS PRODUCT PHOTO · DRAFT FOR REVIEW",
-           (63,1457,1135,1489),(18,16,14),"#507187",1,bold=False)
-    out=io.BytesIO();canvas.convert("RGB").save(out,"PNG",optimize=True)
-    return out.getvalue()
+        d.polygon([(0,555),(690,633),(733,1202),(0,1202)],
+                  fill=(8,57,88,226))
+        hero=(118,554,1138,1185)
+    product_photo(canvas,official_photo,hero,scale=1.05)
+    d=ImageDraw.Draw(canvas,"RGBA")
+    d.rectangle((0,1201,W,H),fill=(6,29,52,248))
+    d.rectangle((54,1237,1144,1247),fill=accent)
+    fitted(d,theme.upper(),(61,1280,1140,1334),
+           (34,30,26),accent,1)
+    detail=_story_copy(concept)
+    if detail:
+        fitted(d,detail,(61,1363,1133,1435),
+               (30,27,24,21,18),WHITE,3,bold=False)
+    fitted(d,"GENUINE PRODUCT PHOTO · DRAFT FOR REVIEW",
+           (61,1461,1133,1487),(17,15,13),"#B9D7EB",1,bold=False)
+    return _export(canvas)
