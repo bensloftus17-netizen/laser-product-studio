@@ -158,7 +158,15 @@ def _pick_proof(product, role, theme, excluded):
         "access_function":("access","grip","handle","length","drive","size","design"),
         "service_workflow":("service","transfer","drain","repair","replace","remove"),
     }
-    cues=(("application","vehicle","engine","timing","fit") if role=="technical_application"
+    technical_by_category={
+        "engine_timing":("camshaft","crankshaft","timed","belt replacement","engine","application","vehicle"),
+        "bearing_suspension":("bearing","removal","installation","vehicle","application","hub"),
+        "workshop_press":("capacity","pressing","workshop","application"),
+        "socket_ratchet":("drive","ratchet","size","set","tooth"),
+        "diagnostic_electrical":("testing","measurement","diagnostic","range"),
+    }
+    cues=(technical_by_category.get(category,("application","vehicle","engine","timing","fit"))
+          if role=="technical_application"
           else ("include","supplied","capacity","size","handle") if role=="price_promo"
           else terms.get(theme,("benefit","use")))
     source_rank=rank_verified_features(product,category,8)
