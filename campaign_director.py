@@ -199,7 +199,17 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
     planned=[]
     scenes=[]
     for i,role in enumerate(ROLES):
-        fact=_pick_proof(product,role,third,used)
+        # AI may prioritise an actual manufacturer fact for this campaign
+        # role. Validate exact membership and diversity before accepting it;
+        # never promote a model-written claim to an official specification.
+        proposed=proposed_art.get(role) or {}
+        chosen=proposed.get("ai_verified_features") if isinstance(proposed,dict) else []
+        allowed=set(_verified_facts(product))
+        chosen_fact=next(
+            (value for value in chosen if isinstance(value,str)
+             and value in allowed and value not in used),None
+        ) if isinstance(chosen,list) else None
+        fact=chosen_fact or _pick_proof(product,role,third,used)
         if fact:used.add(fact)
         variation,seed=_variation(product,role,category)
         model_art=proposed_art[role].get("art_direction") if isinstance(
