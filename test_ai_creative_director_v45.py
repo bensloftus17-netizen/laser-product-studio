@@ -113,6 +113,21 @@ class CreativeDirectorV45Tests(unittest.TestCase):
         self.assertTrue(all(c["visual_plan"]["creative_source"]=="gemini-freeform-canvas"
                             for c in concepts))
 
+    def test_ai_selects_different_source_verified_marketing_facts(self):
+        concepts,_=plan_campaign(PRODUCT,[
+            {"creative_canvas":PRICE,"ai_verified_features":[
+                "Supplied with a carry case.", "Free unlimited warranty"]},
+            {"creative_canvas":SMART,"ai_verified_features":[
+                "Set of four ratchets."]},
+            {"creative_canvas":TECH,"ai_verified_features":[
+                "Four drive options for workshop use."]},
+        ])
+        self.assertEqual([c["selling_point"] for c in concepts],[
+            "Four drive options for workshop use.",
+            "Supplied with a carry case.",
+            "Set of four ratchets."])
+        self.assertNotIn("Free unlimited warranty",str(concepts))
+
     def test_renderer_never_uses_untrusted_model_claims_or_urls(self):
         concept={"campaign_role":"price_promo","creative_canvas":PRICE,
                  "headline":"Ratchet Set 4pc","selling_point":"Set of four ratchets.",
