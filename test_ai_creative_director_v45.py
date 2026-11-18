@@ -26,6 +26,8 @@ TECH = {
 PRICE = {
     "zones":{"headline":[60,155,495,145],"product":[575,280,345,400],
              "proof":[60,480,420,125],"price":[60,715,420,145]},
+    "shapes":[{"kind":"ribbon","box":[80,370,700,380],"ink":"accent","opacity":42},
+              {"kind":"circle","box":[480,190,460,460],"ink":"cyan","opacity":27}],
     "background":"workshop-photo","mood":"energetic","motif":"speed-lines",
     "headline_style":"massive","photo_focus":"centre","accent":"#FFC83A",
 }
@@ -83,6 +85,7 @@ class CreativeDirectorV45Tests(unittest.TestCase):
             validate_brief(PRICE,"price_promo"),
             validate_brief(SMART,"product_selected")]))
         self.assertIn("NOT template IDs",creative_instruction())
+        self.assertEqual(len(validate_brief(PRICE,"price_promo")["shapes"]),2)
 
     def test_rejects_missing_price_overlap_and_tiny_product(self):
         broken={**PRICE,"zones":{**PRICE["zones"],"product":[80,165,200,200]}}
