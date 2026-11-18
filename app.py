@@ -35,7 +35,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v42-premium-artwork-qa">
+<link rel="stylesheet" href="/static/styles.css?design=v44-creative-editor">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -172,6 +172,16 @@ V7_HOME_PAGE = r'''
 <div class="campaign-role-note">These posters serve different purposes: technical/application, price promotion and a third category-specific marketing angle. The actual Laser Tools product photo is always genuine.</div>
 <h4>Three posters · Story · Social · Banners</h4><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
 
+<section class="campaign-poster-editor" id="campaignPosterEditor" hidden aria-label="Edit selected poster">
+ <div class="poster-edit-heading"><div><span class="sectioncap">EDIT VERIFIED CAMPAIGN POSTER</span><h4 id="posterEditTitle">Edit one poster</h4><p>Manufacturer photo, part number and verified price remain locked.</p></div><button type="button" id="posterEditClose" class="ai-secondary">Close</button></div>
+ <div class="poster-edit-controls">
+  <label for="posterEditHeadline">Headline (official product name)<input id="posterEditHeadline" maxlength="120" autocomplete="off"></label>
+  <label for="posterEditFeature">Manufacturer-verified featured fact<select id="posterEditFeature"></select></label>
+  <label for="posterEditVariant">Layout variation<select id="posterEditVariant"><option value="0">Layout 1</option><option value="1">Layout 2</option><option value="2">Layout 3</option></select></label>
+ </div>
+ <p class="poster-edit-disclaimer">Use an exact excerpt of the official title and select a genuine manufacturer fact. This only updates the chosen poster and its copy in the downloadable ZIP.</p>
+ <div class="poster-edit-actions"><button type="button" class="primary" id="posterEditSave">Update this poster</button><span id="posterEditStatus" role="status" aria-live="polite"></span></div>
+</section>
 <section class="campaign-social-ideas" id="campaignSocialIdeas" hidden aria-label="Instagram Story and social suggestions">
  <h4>Instagram Story &amp; sharing suggestions</h4>
  <p>Use the suggested story sequence alongside the individual shareable graphics. All wording needs review.</p>
@@ -834,9 +844,10 @@ function showCampaign(data){
  social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
  email_header:'Email Header',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
-  '<article class="campaign-asset"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
+  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
-  '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button></div></article>').join('');
+  '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
+  (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
  prepareShareButtons($('campaignResults'));
  const social=m.social_suggestions||{};
  const frames=Array.isArray(social.instagram_story)?social.instagram_story:[];
@@ -1062,7 +1073,7 @@ $('distributorBrand').addEventListener('change',updateDistributorPreview);
 ['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script></body></html>
+</script><script src="/static/campaign_poster_edit.js?v=44"></script></body></html>
 
 '''
 
