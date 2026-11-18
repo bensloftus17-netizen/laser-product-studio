@@ -814,6 +814,13 @@ function showCampaign(data){
       ?'Independent AI review of finished posters completed.'
       :'AI visual review unavailable; deterministic QA applied.');
  }
+ const formatChecks=m.format_artwork_quality||{};
+ const nativeKinds=['social_square','social_story','website_banner','email_header'];
+ const originalCount=nativeKinds.filter(k=>formatChecks[k]?.render_engine==='ai-original-format-canvas').length;
+ if(nativeKinds.every(k=>formatChecks[k])){
+    $('campaignQuality').textContent+=' · '+originalCount+'/4 marketing formats have their own AI-designed layouts.'+
+      (originalCount<4?' Formats using the older renderer still require manual design review.':'');
+ }
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
  if(strategy){
