@@ -799,7 +799,7 @@ function showCampaign(data){
      ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
      :(m.generation_method==='gemini-assisted'
         ?'Gemini suggested concepts, but the safe legacy layout renderer was used. '
-        :'Verified-source standard layouts (Gemini unavailable). '))
+        :'Verified-source fallback campaign using standard layouts (Gemini unavailable). '))
      +m.files.length+' files in the ZIP. All materials still require approval.';
  const checked=Object.values(m.artwork_quality||{});
  const alerts=checked.flatMap(item=>item.warnings||[]);
