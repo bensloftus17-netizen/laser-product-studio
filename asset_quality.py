@@ -71,3 +71,19 @@ def require_good_asset(blob):
         raise ValueError("Product image rejected before poster generation: "+
                          "; ".join(result["issues"]))
     return result
+
+
+
+def manufacturer_image_rank(blob):
+    """Rank only genuine manufacturer photos already checked for the exact SKU.
+
+    Returns score and public-safe diagnostics. A rejected photo cannot outrank
+    a passing one merely by being large or colourful. No AI image editing.
+    """
+    report=inspect_asset(blob)
+    w,h=report["size"]
+    score=(100 if report["passed"] else 0)
+    score+=min(35,min(w,h)/30)
+    score+=min(18,report["edge_strength"]/2)
+    score-=12*len(report["warnings"])
+    return round(score,2),report
