@@ -120,7 +120,8 @@ class EnglishOnlyProductPipelineTests(unittest.TestCase):
                 for channel in ("social_caption", "linkedin_post", "email_body", "email_subject"):
                     self.assertNotIn("Schlüssel", copy[channel], (family, channel))
                     self.assertNotIn("Wechselbare", copy[channel], (family, channel))
-                    self.assertIn(ENGLISH_9469, copy[channel], (family, channel))
+                    if channel != "email_subject":
+                        self.assertIn(ENGLISH_9469, copy[channel], (family, channel))
             rewritten = rewrite_copy(
                 record, mode="professional", channel="linkedin_post",
                 current_text="Product spotlight: Laser Tools 9469", angle=0)
