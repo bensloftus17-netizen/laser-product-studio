@@ -1,10 +1,10 @@
 ## V46 — original AI artwork for every campaign format
 
-The single `Build Campaign` request now asks Gemini to develop **four additional
+The single `Build Campaign` request now asks Gemini to develop **six additional
 independent creative canvases**, instead of deriving them from the three
 1200×1500 posters: **1080×1080 Instagram/Facebook square**, **1080×1920
-Instagram/Facebook Story**, **1600×600 website banner** and **1200×420 email
-header**. The four native canvases are planned for their own reading and
+Instagram/Facebook Story**, **1600×600 website banner**, **1200×420 email
+header**, **1200×627 LinkedIn graphic** and **1600×900 landscape advert**. The four native canvases are planned for their own reading and
 attention patterns, including mobile Story UI-safe areas and concise
 horizontal banner compositions.
 
