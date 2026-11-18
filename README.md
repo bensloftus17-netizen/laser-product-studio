@@ -1,3 +1,37 @@
+## V46 — original AI artwork for every campaign format
+
+The single `Build Campaign` request now asks Gemini to develop **four additional
+independent creative canvases**, instead of deriving them from the three
+1200×1500 posters: **1080×1080 Instagram/Facebook square**, **1080×1920
+Instagram/Facebook Story**, **1600×600 website banner** and **1200×420 email
+header**. The four native canvases are planned for their own reading and
+attention patterns, including mobile Story UI-safe areas and concise
+horizontal banner compositions.
+
+`format_creative.py` validates the model's free-position headline, source
+product, optional manufacturer proof, and optional verified price zones, plus
+up to eight decorative vector shapes. It also accepts a role for the
+official product headline, an exact verified-feature index and a choice
+among existing approved context scenes. All text and product pixels are
+inserted by the server; the model cannot pass arbitrary slogans, photos,
+vehicle fitments, URLs, customer logos, prices or publication claims.
+
+Each format is rendered **at its final native pixel dimensions**, never
+cropped or resized from a poster. The actual manufacturer tool is isolated
+conservatively and composited untouched onto a non-white design. Two
+variations are checked for clipping, hero prominence, white-background
+contamination, image integrity and contrast; both failing rejects the
+AI artwork rather than quietly exporting unsafe output. Unavailable or
+invalid AI canvases use the existing clearly labelled verified-layout
+fallback. The ZIP manifest now includes separate `ai_format_canvases`,
+`format_artwork_quality`, and per-format engine status. The dashboard
+shows the number of genuine AI-original formats, rather than claiming all
+formats were AI-directed when they were not.
+
+Existing freeform poster creativity, genuine image QA, copy safeguards,
+approval notices, editor and download paths remain in place.
+Regression tests: `python -m unittest -v test_ai_formats_v46.py`.
+
 ## V45 — freeform AI creative director, genuine-image gates and visual review
 
 **Build Campaign** now asks Gemini, in its existing campaign concept request, to
