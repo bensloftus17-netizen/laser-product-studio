@@ -182,7 +182,7 @@ def _contextual_base(scene,variant=0,tone="#07243C"):
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     draw=ImageDraw.Draw(shade)
     for y in range(180,1330,4):
-        alpha=round(115+82*(y-180)/1150)
+        alpha=round(88+72*(y-180)/1150)
         draw.rectangle((0,y,W,y+4),fill=(4,26,48,alpha))
     canvas=Image.alpha_composite(canvas,shade)
     return canvas
