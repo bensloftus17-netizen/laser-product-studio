@@ -963,3 +963,31 @@ body{background:#eef4fb;color:#102744;min-width:320px}
 @media(max-width:790px){.poster-edit-controls{grid-template-columns:1fr}
  .campaign-poster-editor{padding:14px}
  .poster-edit-heading h4{font-size:15px}}
+
+/* V47: the dashboard moves preview nodes into .asset-workspace.  The more
+   specific grid rule used to override the HTML hidden attribute, leaving
+   three *old* preview posters on-screen even after full campaign success. */
+.asset-workspace .previews[hidden],
+.asset-workspace .campaign-dashboard[hidden],
+.asset-workspace .campaign-asset[hidden],
+.asset-workspace .campaign-mobile-recovery[hidden]{display:none!important}
+.campaign-mobile-recovery{margin:10px 0 0;display:flex;gap:9px;align-items:center;
+  flex-wrap:wrap;padding:9px 11px;border:1px solid #c8dfef;border-radius:9px;
+  background:#f4faff;color:#19496a;font-size:12px;line-height:1.5}
+.campaign-mobile-recovery button{border:1px solid #0b78b7;background:#e6f4ff;
+  color:#065486;border-radius:8px;padding:9px 12px;font-weight:800;cursor:pointer}
+.campaign-count{font-size:12px;line-height:1.5;color:#13658b;
+  font-weight:760;margin:9px 0 14px}
+.campaign-asset-load{font-size:11px;color:#5a7890;min-height:16px;margin:6px 0}
+.campaign-asset-retry{border:1px solid #0a7db4;background:#eaf7ff;
+  border-radius:7px;padding:8px 10px;color:#075b85;font-weight:700}
+.campaign-asset-retry[hidden]{display:none!important}
+@media(max-width:540px){
+ .asset-workspace .campaign-asset-grid{grid-template-columns:minmax(0,1fr);gap:14px}
+ .asset-workspace .campaign-asset{padding:12px}
+ .asset-workspace .campaign-asset img{height:auto;max-height:400px;object-fit:contain;
+   aspect-ratio:4/3}
+ .asset-workspace .campaign-asset b{font-size:13px}
+ .asset-workspace .campaign-asset-actions{gap:8px}
+ .asset-workspace .campaign-download-choice{flex-wrap:wrap}
+}
