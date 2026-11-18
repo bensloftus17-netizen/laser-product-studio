@@ -103,7 +103,8 @@ class CampaignHubTests(unittest.TestCase):
 
     def test_one_click_api_and_tokenised_downloads(self):
         with patch.object(studio, "lookup", return_value=(self.product, self.photo)), \
-             patch("campaign_hub.render_promo", side_effect=self.sample_poster):
+             patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             res = studio.app.test_client().post("/api/campaign/9364",
                 json={"distributor_brand": "none"})
         self.assertEqual(res.status_code, 200, res.get_json())
