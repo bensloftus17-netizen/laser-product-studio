@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 from poster import font
+from brand_assets import get_brand_image
 
 W,H=1200,1500
 NAVY="#071F37"
@@ -99,6 +100,18 @@ def brand(draw,part,background=NAVY,light=True):
     fitted(draw,"PART "+str(part),(824,68,1154,120),(34,28,23),ink,1)
 
 
+def co_brand(canvas,distributor):
+    if not distributor:return
+    mark=get_brand_image(distributor)
+    if mark is None:return
+    mark=mark.convert("RGBA")
+    mark.thumbnail((200,76),Image.Resampling.LANCZOS)
+    x=580
+    d=ImageDraw.Draw(canvas)
+    d.rounded_rectangle((x-12,28,x+mark.width+12,132),radius=10,fill="#FFFFFF")
+    canvas.paste(mark,(x,42),mark)
+
+
 def _clip_facts(concept):
     all_facts=[]
     for fact in concept.get("features") or []:
@@ -118,6 +131,7 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
     d.rectangle((0,0,1200,186),fill=NAVY)
     d.rectangle((0,181,1200,193),fill="#0A90D2")
     brand(d,part)
+    co_brand(canvas,distributor)
     d.rectangle((56,238,1105,252),fill="#0A90D2")
     fitted(d,"APPLICATION / TECHNICAL",(58,282,1105,339),(36,32,26),"#0671AA",1)
     fitted(d,product.get("title","Laser Tools product"),(55,355,1130,550),
@@ -160,6 +174,7 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     d.rectangle((0,0,1200,180),fill=NAVY)
     d.rectangle((0,169,1200,187),fill=accent)
     brand(d,part)
+    co_brand(canvas,distributor)
     actual_scene(canvas,scene,(520,348,1200,1070),brightness=.82,blur=1.6)
     d=ImageDraw.Draw(canvas)
     # Poster Three is NOT a second price advert: a large product image takes
