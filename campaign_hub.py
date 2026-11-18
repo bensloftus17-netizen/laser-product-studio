@@ -427,14 +427,22 @@ def _source_qr(product):
 
 
 def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
-                   application_photo=None):
+                   application_photo=None, progress=None):
     """Return a complete archive plus previewable images and a public manifest.
 
     Never accept unverified images, pricing or technical claims from the browser.
     The caller must supply a verified official record + genuine manufacturer photo.
     """
+    def _emit(stage, asset_id=None, payload=None, report=None):
+        # Only server-trusted render bytes pass through this callback. In
+        # particular, "ready" is emitted AFTER all required poster reviews,
+        # campaign distinctness checks, and format-specific QA have passed.
+        if progress is not None:
+            progress(stage,asset_id,payload,report)
+
     if not genuine_photo:
         raise ValueError("A genuine manufacturer product image is required.")
+    _emit("planning")
     if distributor and distributor not in BRAND_LABELS:
         raise ValueError("Unsupported distributor brand.")
     # Final defence even when a caller passes a previously cached record or
@@ -468,6 +476,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     if duplicate_issues:
         raise ValueError("Campaign needs different sales messages: "+
                          "; ".join(duplicate_issues))
+    _emit("finding_context")
     scenes = []
     scene_references = []
     for index, concept in enumerate(concepts):
@@ -499,6 +508,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "relevance_score":match["score"],
             "relevance_warning":match["warning"],
         })
+    _emit("rendering_posters")
     image_assets = {}
     quality_reports = {}
     # Real variant selection. Test 3 distinct creative compositions per role;
@@ -542,6 +552,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     if creative_enabled:
         # The AI authored arbitrary composition coordinates, not template IDs.
         for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
+            _emit("rendering",key)
             def _creative_candidate(variant,index=index):
                 with capture() as tracked:
                     poster=render_creative_canvas(
@@ -553,12 +564,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 preferred_variant=1,
                 scene_relevance={"warning":scene_references[index]["relevance_warning"]})
             quality_reports[key]["render_engine"]="ai-freeform-canvas"
+            _emit("quality_checking",key)
     else:
+        _emit("rendering","poster_technical")
         image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
             lambda variant:_role_candidate(0,technical_poster,variant),
             "technical_application",genuine_photo,
             preferred_variant=concepts[0]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[0]["relevance_warning"]})
+        _emit("quality_checking","poster_technical")
+        _emit("rendering","poster_price")
         retail=concepts[1]
         visual=retail["visual_plan"]
     
@@ -593,11 +608,15 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             _price_candidate,"price_promo",genuine_photo,
             preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[1]["relevance_warning"]})
+        _emit("quality_checking","poster_price")
+        _emit("rendering","poster_smart")
         image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
             lambda variant:_role_candidate(2,smart_poster,variant),
             "product_selected",genuine_photo,
             preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[2]["relevance_warning"]})
+        _emit("quality_checking","poster_smart")
+    _emit("reviewing_posters")
     # Inspect actual poster pixels and diversity before producing the ZIP.
     distinctness=check_distinctness(image_assets,concepts)
     if creative_enabled and not distinctness["passed"]:
@@ -641,6 +660,12 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 raise ValueError("Revised artwork is not visually distinct.")
         if critic.get("warning"):
             warnings.append(critic["warning"])
+    # The batch critic must approve the complete poster set before ANY
+    # poster is revealed as ready. A later rejected design therefore never
+    # leaks an unreviewed intermediate poster to the user.
+    for key in ("poster_technical","poster_price","poster_smart"):
+        _emit("ready",key,image_assets[key],quality_reports[key])
+    _emit("rendering_formats")
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
     # V46: all six additional marketing formats have their OWN AI-designed layout,
@@ -659,31 +684,45 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                for concept in concepts}
     format_reports={}
     format_canvases={}
+    failed_formats=[]
     for key in FORMAT_ORDER:
+        _emit("rendering",key)
         scene_idx=(0 if key=="social_story" else 2 if key in
                    ("website_banner","landscape_ad") else 1)
         brief=validate_format_canvas(key,supplied_formats.get(key),len(format_facts))
-        if brief and mode=="gemini-assisted":
-            # Any failed native-format artwork is rejected rather than
-            # quietly shipping a white product rectangle or cropped text.
-            output,report=generate_format(
-                key,brief,product,genuine_photo,scenes=scenes,
-                headlines=headlines,facts=format_facts,distributor=distributor,
-                source_report=asset_report)
-            image_assets[key]=output
-            format_reports[key]=report
-            format_canvases[key]=brief
-        else:
-            image_assets[key]=_native_graphic(
-                product,genuine_photo,distributor,key,proof,
-                scene=scenes[scene_idx],visual_plan=creative_plan)
-            format_reports[key]={
-                "render_engine":"verified-legacy-layout","passed":None,
-                "warning":"AI did not return an approved native-format canvas; "
-                          "older renderer used. Manual artwork review required."}
-            if mode=="gemini-assisted":
-                warnings.append("No safe AI original layout for "+key+
-                                "; the existing format layout was used.")
+        try:
+            if brief and mode=="gemini-assisted":
+                # Any failed native-format artwork is rejected rather than
+                # quietly shipping a white product rectangle or cropped text.
+                output,report=generate_format(
+                    key,brief,product,genuine_photo,scenes=scenes,
+                    headlines=headlines,facts=format_facts,distributor=distributor,
+                    source_report=asset_report)
+                image_assets[key]=output
+                format_reports[key]=report
+                format_canvases[key]=brief
+            else:
+                image_assets[key]=_native_graphic(
+                    product,genuine_photo,distributor,key,proof,
+                    scene=scenes[scene_idx],visual_plan=creative_plan)
+                format_reports[key]={
+                    "render_engine":"verified-legacy-layout","passed":None,
+                    "warning":"AI did not return an approved native-format canvas; "
+                              "older renderer used. Manual artwork review required."}
+                if mode=="gemini-assisted":
+                    warnings.append("No safe AI original layout for "+key+
+                                    "; the existing format layout was used.")
+            # Individual files become visible only after their normal image
+            # gate succeeds (the AI format renderer already checks two
+            # variants). We do not resize, remove QA or shorten Gemini work.
+            _emit("ready",key,image_assets[key],format_reports[key])
+        except (ValueError,OSError,RuntimeError) as exc:
+            failed_formats.append((key,str(exc)[:220]))
+            _emit("failed",key,report={"issues":[str(exc)[:220]]})
+    if failed_formats:
+        raise ValueError("Incomplete campaign; failed quality checks: "+
+                         "; ".join(k+": "+reason for k,reason in failed_formats))
+    _emit("finalising_pack")
     creative_plan["format_render_engines"]={
         key:format_reports[key]["render_engine"] for key in FORMAT_ORDER}
     qr = _source_qr(product)

@@ -35,7 +35,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v47-mobile-recovery">
+<link rel="stylesheet" href="/static/styles.css?design=v48-progressive-assets">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -156,6 +156,15 @@ V7_HOME_PAGE = r'''
  <p><b>These are only three quick previews.</b> To generate the complete AI marketing campaign, including all nine graphics and the downloadable pack, choose Build Full Campaign.</p>
  <button type="button" id="previewBuildFull">Build All 9 Graphics</button>
 </div>
+<section id="campaignProgress" class="campaign-progress" aria-label="Live artwork generation progress" hidden>
+ <div class="campaign-progress-heading">
+  <h3>Live campaign artwork</h3>
+  <span id="campaignProgressCount" role="status" aria-live="polite">0 of 9 graphics ready</span>
+ </div>
+ <p id="campaignProgressStage" role="status" aria-live="polite">Verifying the product…</p>
+ <div id="campaignProgressGrid" class="campaign-progress-grid"></div>
+ <p id="campaignProgressZip" class="campaign-progress-zip">Full ZIP preparing — individual graphics will become available after quality checks.</p>
+</section>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
@@ -429,6 +438,9 @@ function installMarketingHubLayout(){
  // Relocate existing functional controls into the approved dashboard structure.
  // IDs and event handlers remain unchanged; no duplicate editors or poster APIs.
  const assets=$('assetWorkspace'),copy=$('copyWorkspace');
+ // The original content pane is hidden after relocating the dashboard.
+ // Move progress into the visible workspace too, or all nine cards vanish.
+ assets.appendChild($('campaignProgress'));
  assets.appendChild($('previews'));
  assets.appendChild($('campaignResults'));
  copy.appendChild($('unifiedCopyStudio'));
@@ -466,7 +478,7 @@ document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventLis
 
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('campaignProgress').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  legacyShareFile=null;$('legacyShareZip').disabled=true;
  const id=selectedDistributor(),target=$('distributorPreview');
@@ -481,7 +493,7 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('previewCampaignCallout').hidden=true;legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('previewCampaignCallout').hidden=true;$('campaignProgress').hidden=true;legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc(((p.marketing_direction||{}).site_category_path||[]).length
  ?(p.marketing_direction.site_category_path.join(' › '))
@@ -824,6 +836,7 @@ function renderCampaignGallery(data){
  $('previews').hidden=true;
  $('previewCampaignCallout').hidden=true;
  $('campaignResults').hidden=false;
+ $('campaignProgress').hidden=true;
  $('campaignRecovery').hidden=true;
 }
 $('campaignAssets').addEventListener('load',event=>{
@@ -854,6 +867,87 @@ $('campaignAssets').addEventListener('click',event=>{
  img.src=base+'?retry='+Date.now();
 });
 
+
+
+// A progressive campaign is not a lower-quality draft. Artwork appears ONLY
+// after the server's normal source, layout, image, and critic gates succeed.
+const PROGRESS_FORMATS=[
+ ['poster_technical','01 · Technical poster'],
+ ['poster_price','02 · Price poster'],
+ ['poster_smart','03 · Product poster'],
+ ['social_square','04 · Social square'],
+ ['social_story','05 · Instagram Story'],
+ ['website_banner','06 · Website banner'],
+ ['email_header','07 · Email header'],
+ ['linkedin_graphic','08 · LinkedIn graphic'],
+ ['landscape_ad','09 · Landscape advert']
+];
+const PROGRESS_STAGE_LABELS={
+ queued:'Campaign queued for generation…',
+ verifying_product:'Retrieving official product information and real manufacturer photography…',
+ planning:'AI is planning your unique campaign concepts and layouts…',
+ finding_context:'Choosing suitable application/background photography…',
+ rendering_posters:'Creating three quality-controlled original posters…',
+ reviewing_posters:'Checking all posters for text, cutouts and creative quality…',
+ rendering_formats:'Rendering each additional marketing format at its own size…',
+ finalising_pack:'All nine graphics ready. Building the complete ZIP and review documents…',
+ complete:'All nine graphics are ready for review.',
+ failed:'The campaign could not finish. Download any graphics already shown as ready.'
+};
+let progressJobShown=null;
+const progressDisplayed=new Set();
+function renderProgressGallery(jobId,data){
+ if(!/^[A-Za-z0-9_-]{24,64}$/.test(jobId))return;
+ const section=$('campaignProgress');
+ if(progressJobShown!==jobId){
+  progressJobShown=jobId;
+  progressDisplayed.clear();
+  $('campaignProgressGrid').innerHTML=PROGRESS_FORMATS.map(([id,label])=>
+   '<article class="campaign-progress-card" id="progress-card-'+id+'">'+
+   '<div class="campaign-progress-preview"><a id="progress-open-'+id+
+    '" target="_blank" rel="noopener noreferrer" hidden>'+
+   '<img id="progress-img-'+id+'" alt="'+label+' verified marketing graphic" loading="lazy" hidden></a>'+
+   '<span id="progress-placeholder-'+id+'">Artwork preparing…</span></div>'+
+   '<b>'+label+'</b><span id="progress-state-'+id+
+    '" class="campaign-progress-state" role="status">Queued</span>'+
+   '<a id="progress-save-'+id+
+    '" class="campaign-progress-save" download="LASER_'+id+'.png" hidden>Download PNG</a>'+
+   '</article>').join('');
+ }
+ section.hidden=false;
+ $('campaignResults').hidden=true;
+ $('previews').hidden=true;
+ $('previewCampaignCallout').hidden=true;
+ const assets=data.assets||{};
+ const stage=PROGRESS_STAGE_LABELS[data.stage]||'Working on the campaign…';
+ const ready=PROGRESS_FORMATS.filter(([id])=>assets[id]&&assets[id].status==='ready').length;
+ $('campaignProgressCount').textContent=ready+' of 9 graphics ready';
+ $('campaignProgressStage').textContent=stage;
+ $('campaignProgressZip').textContent=data.status==='failed'
+    ?'Full ZIP unavailable: the campaign did not pass every required check. Ready PNGs remain downloadable until the job expires.'
+    :'Full ZIP preparing. Finished, quality-checked PNGs can be viewed or downloaded below.';
+ $('assetWorkspaceStatus').textContent=ready+' of 9 artworks ready · '+stage;
+ for(const [id] of PROGRESS_FORMATS){
+  const item=assets[id]||{};
+  const status=item.status||'queued';
+  const message={queued:'Queued',rendering:'Generating',quality_checking:'Quality checking',
+    ready:'Ready · passed checks',failed:'Quality check failed'}[status]||'Queued';
+  $('progress-state-'+id).textContent=message;
+  $('progress-card-'+id).dataset.status=status;
+  if(status==='ready'&&!progressDisplayed.has(id)){
+   const url='/api/campaign/job-assets/'+encodeURIComponent(jobId)+'/'+id;
+   const img=$('progress-img-'+id),open=$('progress-open-'+id),save=$('progress-save-'+id);
+   img.src=url;img.hidden=false;
+   open.href=url;open.hidden=false;
+   save.href=url+'?download=1';save.hidden=false;
+   $('progress-placeholder-'+id).hidden=true;
+   progressDisplayed.add(id);
+  }
+  if(status==='failed'&&item.error){
+   $('progress-state-'+id).title=String(item.error).slice(0,150);
+  }
+ }
+}
 
 // Safari may close or suspend the page while a full set of artwork is being
 // generated. Store only the short-lived bearer token for this draft in the
@@ -893,13 +987,14 @@ function rememberFinishedCampaign(data){
 async function pollMobileCampaign(job_id){
  // A finished campaign is looked up by a short-lived job ID, not regenerated.
  // Normal tab suspension pauses JS polling but does not cancel server work.
- for(let attempt=0;attempt<125;attempt++){
+ for(let attempt=0;attempt<250;attempt++){
   const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
                              {cache:'no-store',headers:{Accept:'application/json'}});
   const data=await readApiJson(response);
+  renderProgressGallery(job_id,data);
   if(data.status==='ready'&&data.manifest&&data.token)return data;
   if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
-  $('campaignStatus').textContent='Creating your complete campaign: 3 posters and 6 more original marketing formats. Please keep this tab open, or reopen your campaign when you return.';
+  $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+(PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+' You can open finished PNGs while the rest is created.';
   await new Promise(resolve=>setTimeout(resolve,2400));
  }
  throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
@@ -1216,25 +1311,17 @@ $('campaignBtn').addEventListener('click',async()=>{
        staff_rrp_ex:rawPrice||staffApplied,
        staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
        staff_rrp_basis:rawPrice?reviewedBasis:staffBasis};
-   const onPhone=(window.matchMedia&&window.matchMedia('(max-width:760px)').matches)||
-       /iPhone|iPad|Android/i.test(navigator.userAgent);
-   let data;
-   if(onPhone){
-     // The old one-minute POST can be interrupted when iOS locks or suspends
-     // Safari. Instead the phone receives a job ID immediately and can resume.
-     $('previews').hidden=true;
-     $('previewCampaignCallout').hidden=true;
-     $('assetWorkspaceStatus').textContent='Generating all 9 campaign graphics — preview posters are not the finished campaign.';
-     const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
-       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-       body:JSON.stringify(body)}));
-     rememberMobileJob(started.job_id,part);
-     data=await pollMobileCampaign(started.job_id);
-   }else{
-     data=await readApiJson(await fetch('/api/campaign/'+encodeURIComponent(part),{
-       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-       body:JSON.stringify(body)}));
-   }
+   // All browsers now use resumable jobs. Desktop users also get per-asset
+   // progressive results without rerunning Gemini or reducing image QA.
+   $('previews').hidden=true;
+   $('previewCampaignCallout').hidden=true;
+   $('assetWorkspaceStatus').textContent='Preparing 9 high-quality graphics. Each will appear once it passes QA.';
+   const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
+     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+     body:JSON.stringify(body)}));
+   rememberMobileJob(started.job_id,part);
+   renderProgressGallery(started.job_id,{status:'queued',stage:'queued'});
+   const data=await pollMobileCampaign(started.job_id);
    rememberFinishedCampaign(data);
    showCampaign(data);
    $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links expire after 15 minutes.';
@@ -1242,7 +1329,10 @@ $('campaignBtn').addEventListener('click',async()=>{
    $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
      ' The three basic previews are not a complete AI campaign.';
    setState(error.message||'Campaign generation failed','error');
-   $('previews').hidden=false;
+   if($('campaignProgress').hidden){
+     $('previews').hidden=false;
+     $('previewCampaignCallout').hidden=false;
+   }
    updateCampaignRecovery();
  }
  finally{button.disabled=false;button.textContent='✦ Build Campaign';}
@@ -2475,8 +2565,10 @@ def _get_campaign_pack(token):
         return entry['bundle'] if entry and entry['expires'] >= now else None
 
 
-def _assemble_campaign_bundle(part, body):
-    """One canonical product/price/imagery validation path for sync and jobs."""
+def _assemble_campaign_bundle(part, body, progress=None):
+    """Source-safe generator for both synchronous and progressive campaigns."""
+    if progress:
+        progress("verifying_product")
     product, image = lookup(part, uk_url=body.get('official_url') or None)
     if not image:
         raise ValueError('A genuine official product photograph is required.')
@@ -2489,6 +2581,9 @@ def _assemble_campaign_bundle(part, body):
         if product.get('application_photo_source')
         and product.get('application_photo_source') != product.get('photo_source')
         else None)
+    if progress is not None:
+        return build_campaign(product, image, distributor,
+                              application_photo=official_context, progress=progress)
     return build_campaign(product, image, distributor,
                           application_photo=official_context)
 
@@ -2541,6 +2636,54 @@ def one_click_campaign(part):
 CAMPAIGN_JOBS={}
 CAMPAIGN_JOBS_LOCK=threading.Lock()
 CAMPAIGN_JOB_TTL=20*60
+# Nine independent campaign artwork files, excluding the optional QR code.
+from campaign_hub import FOLDERS as CAMPAIGN_ARTWORK
+PROGRESS_ASSETS=tuple(CAMPAIGN_ARTWORK)
+
+
+def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report=None):
+    """Atomically publish only fully validated PNGs to the job's bearer token.
+
+    Byte payloads never enter JSON status responses, and intermediate rejects
+    are never exposed through the download endpoint.
+    """
+    with CAMPAIGN_JOBS_LOCK:
+        job=CAMPAIGN_JOBS.get(job_id)
+        if job is None or job['status'] not in ('queued','running'):
+            return
+        if asset_id is not None:
+            if asset_id not in PROGRESS_ASSETS:
+                raise ValueError("Unexpected campaign asset ID")
+            if stage not in ('rendering','quality_checking','ready','failed'):
+                raise ValueError("Unexpected per-asset quality state")
+            state=job['assets'][asset_id]
+            if stage=='ready':
+                if not isinstance(payload,bytes) or not payload.startswith(b'\x89PNG\r\n\x1a\n'):
+                    raise ValueError("Validated campaign artwork must be PNG bytes")
+                job['preview_images'][asset_id]=payload
+            if stage=='failed':
+                reason=(report or {}).get('issues') or ["Artwork failed verification"]
+                state['error']=str(reason[0])[:180]
+            state['status']=stage
+        else:
+            if stage not in ('verifying_product','planning','finding_context',
+                             'rendering_posters','reviewing_posters',
+                             'rendering_formats','finalising_pack'):
+                raise ValueError("Unexpected campaign progress stage")
+            job['stage']=stage
+
+
+def _progress_payload(job):
+    return {
+        'status':job['status'], 'part':job['part'],
+        'stage':job.get('stage','queued'),
+        'ready_count':sum(a['status']=='ready' for a in job['assets'].values()),
+        'total_assets':len(PROGRESS_ASSETS),
+        'assets':{k:dict(v) for k,v in job['assets'].items()},
+    }
+
+
+
 
 
 def _run_campaign_job(job_id,part,body):
@@ -2548,24 +2691,34 @@ def _run_campaign_job(job_id,part,body):
         if job_id not in CAMPAIGN_JOBS:return
         CAMPAIGN_JOBS[job_id]['status']='running'
     try:
-        bundle=_assemble_campaign_bundle(part,body)
+        # Each approved poster or native-format PNG is released to the
+        # authenticated job as soon as its existing QA has passed.
+        bundle=_assemble_campaign_bundle(part,body,progress=lambda *args:
+            _campaign_progress_update(job_id,*args))
         token=_save_campaign_bundle(bundle)
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
-                CAMPAIGN_JOBS[job_id].update(
-                    status='ready',token=token,error=None,
-                    expires=time.time()+CAMPAIGN_PACK_TTL)
+                job=CAMPAIGN_JOBS[job_id]
+                # Compatibility for tests and any older bundle providers
+                # without progressive callbacks; the final pack is validated.
+                for asset in bundle['manifest']['images']:
+                    key=asset['id']
+                    if key in job['assets'] and key in bundle['images']:
+                        job['assets'][key]['status']='ready'
+                job['preview_images'].clear()  # Avoid duplicate PNG bytes in RAM
+                job.update(status='ready',stage='complete',token=token,error=None,
+                           expires=time.time()+CAMPAIGN_PACK_TTL)
     except (LookupErrorPublic,ValueError,RuntimeError) as exc:
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
-                CAMPAIGN_JOBS[job_id].update(status='failed',
-                                             error=str(exc)[:350])
+                CAMPAIGN_JOBS[job_id].update(
+                    status='failed',stage='failed',error=str(exc)[:350])
     except Exception:
         app.logger.exception('Async mobile campaign rendering failed')
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
                 CAMPAIGN_JOBS[job_id].update(
-                    status='failed',
+                    status='failed',stage='failed',
                     error='Campaign could not be completed. Please retry or check the application logs.')
 
 
@@ -2587,7 +2740,9 @@ def start_mobile_campaign(part):
                 return jsonify(error='Two campaigns are already being prepared. Please retry shortly.'),429
             job_id=secrets.token_urlsafe(24)
             CAMPAIGN_JOBS[job_id]={
-                'part':part,'status':'queued','token':None,
+                'part':part,'status':'queued','stage':'queued','token':None,
+                'assets':{k:{'status':'queued'} for k in PROGRESS_ASSETS},
+                'preview_images':{},
                 'error':None,'expires':now+CAMPAIGN_JOB_TTL}
         try:
             threading.Thread(target=_run_campaign_job,
@@ -2619,18 +2774,47 @@ def mobile_campaign_progress(job_id):
             return jsonify(error='Campaign job expired. Please generate it again.'),404
         snapshot=dict(job)
     status=snapshot['status']
+    summary=_progress_payload(snapshot)
     if status=='ready':
         bundle=_get_campaign_pack(snapshot['token'])
         if bundle is None:
             return jsonify(error='Campaign artwork has expired. Generate it again.'),404
-        response=jsonify(status='ready',token=snapshot['token'],
-                         manifest=bundle['manifest'],part=snapshot['part'])
+        response=jsonify(**summary, token=snapshot['token'],
+                         manifest=bundle['manifest'])
     elif status=='failed':
-        response=jsonify(status='failed',error=snapshot['error'],
-                         part=snapshot['part'])
+        response=jsonify(**summary,error=snapshot['error'])
     else:
-        response=jsonify(status=status,part=snapshot['part'])
+        response=jsonify(**summary)
     response.headers['Cache-Control']='private, no-store'
+    return response
+
+
+@app.get('/api/campaign/job-assets/<job_id>/<asset_id>')
+def progressive_campaign_asset(job_id, asset_id):
+    """Preview or individually download one approved asset before ZIP exists."""
+    if (not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',job_id)
+            or asset_id not in PROGRESS_ASSETS):
+        return jsonify(error='Unknown campaign artwork.'),404
+    with CAMPAIGN_JOBS_LOCK:
+        job=CAMPAIGN_JOBS.get(job_id)
+        if not job or job['expires']<time.time():
+            return jsonify(error='Campaign artwork has expired.'),404
+        item=job['assets'][asset_id]
+        if item['status']!='ready':
+            return jsonify(error='This image is still generating or failed quality review.'),409
+        payload=job['preview_images'].get(asset_id)
+        token=job.get('token')
+        part=job['part']
+    if payload is None and token:
+        bundle=_get_campaign_pack(token)
+        payload=bundle['images'].get(asset_id) if bundle else None
+    if payload is None:
+        return jsonify(error='Artwork is no longer available.'),404
+    response=send_file(
+        io.BytesIO(payload), mimetype='image/png',
+        as_attachment=request.args.get('download')=='1',
+        download_name='LASER_'+part+'_'+asset_id+'.png')
+    response.headers['Cache-Control']='no-store, private'
     return response
 
 

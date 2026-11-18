@@ -35,7 +35,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
         self.assertIn("copy.appendChild($('unifiedCopyStudio'))",html)
         self.assertIn("$('campaignBtn').click()",html)
         self.assertIn("$('searchBtn').addEventListener('click'",html)
-        self.assertIn("data=await readApiJson(await fetch('/api/campaign/'",html)
+        self.assertIn("await fetch('/api/campaign/start/'",html)
         self.assertIn("/api/campaign/start/",html)
         self.assertIn("/api/campaign/jobs/",html)
         self.assertIn("data-open-ai",html)
@@ -48,7 +48,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
         self.assertIn(b'Build a Unique Product Campaign',response.data)
         self.assertIn(b'Saved Promotions Library',response.data)
         self.assertIn(b'campaignCopyText',response.data)
-        self.assertIn(b'static/styles.css?design=v47-mobile-recovery',response.data)
+        self.assertIn(b'static/styles.css?design=v48-progressive-assets',response.data)
 
 
 if __name__=='__main__':

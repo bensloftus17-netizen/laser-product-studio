@@ -1003,3 +1003,50 @@ body{background:#eef4fb;color:#102744;min-width:320px}
 .preview-campaign-callout button{background:#f5c23e;color:#183147;
   border:0;border-radius:8px;padding:11px 13px;cursor:pointer;
   font-size:12px;font-weight:850}
+
+
+/* V48: real progressive campaign artwork, not placeholder "fake ready" cards.
+   An image becomes visible only after its normal full-resolution QA gate. */
+.campaign-progress[hidden],
+.campaign-progress-card a[hidden],
+.campaign-progress-card img[hidden],
+.campaign-progress-preview span[hidden]{display:none!important}
+.campaign-progress{padding:15px;margin:14px 0 20px;border:1px solid #b6d9ed;
+ background:linear-gradient(160deg,#f8fcff,#eaf6fd);border-radius:12px}
+.campaign-progress-heading{display:flex;justify-content:space-between;align-items:center;
+ flex-wrap:wrap;gap:12px;margin-bottom:8px}
+.campaign-progress-heading h3{font-size:18px;color:#0c3a5d;font-weight:850;margin:0}
+.campaign-progress-heading span{font-size:13px;color:#08648e;font-weight:800}
+#campaignProgressStage{font-size:12px;font-weight:670;color:#2f5e7b;line-height:1.55;
+ margin:5px 0 15px}
+.campaign-progress-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.campaign-progress-card{display:flex;flex-direction:column;gap:6px;min-width:0;
+ border:1px solid #cbdfea;background:white;border-radius:10px;padding:10px}
+.campaign-progress-card>b{font-size:12px;color:#173e5b;font-weight:800}
+.campaign-progress-preview{height:135px;background:linear-gradient(140deg,#e4f0f9,#f8fbfe);
+ border-radius:7px;display:grid;place-items:center;overflow:hidden}
+.campaign-progress-preview>a{width:100%;height:100%;display:grid;place-items:center}
+.campaign-progress-preview img{width:100%;height:100%;object-fit:contain}
+.campaign-progress-preview>span{font-size:11px;font-weight:650;color:#6b8da5;
+ text-align:center;padding:12px}
+.campaign-progress-state{font-size:11px;color:#487187;font-weight:700;line-height:1.4}
+.campaign-progress-card[data-status="ready"]{border-color:#91c7dc;background:#f4fbff}
+.campaign-progress-card[data-status="ready"] .campaign-progress-state{color:#096e83}
+.campaign-progress-card[data-status="failed"]{border-color:#e7b0aa}
+.campaign-progress-card[data-status="failed"] .campaign-progress-state{color:#b0443b}
+.campaign-progress-save{display:inline-flex;align-items:center;justify-content:center;
+ text-align:center;padding:9px 10px;margin-top:auto;color:#084c75;border:1px solid #76bdd9;
+ border-radius:7px;background:#e3f5fd;font-size:11px;font-weight:850;text-decoration:none}
+.campaign-progress-zip{margin:15px 0 3px;color:#4d7389;font-size:11px;line-height:1.5;
+ border-top:1px solid #d2e3ec;padding-top:11px}
+@media(max-width:720px){
+ .campaign-progress{padding:12px}
+ .campaign-progress-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .campaign-progress-preview{height:160px}
+}
+@media(max-width:440px){
+ .campaign-progress-grid{grid-template-columns:minmax(0,1fr)}
+ .campaign-progress-preview{height:auto;aspect-ratio:5/4;max-height:330px}
+ .campaign-progress-card{padding:12px}
+ .campaign-progress-card>b{font-size:13px}
+}
