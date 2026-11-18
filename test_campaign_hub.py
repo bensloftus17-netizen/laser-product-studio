@@ -55,7 +55,7 @@ class CampaignHubTests(unittest.TestCase):
         self.assertTrue(manifest["review_required"])
         self.assertEqual(len(manifest["angles"]), 3)
         self.assertEqual([x["focus"] for x in manifest["angles"]],
-                         ["price", "benefit", "application"])
+                         ["application", "price", "benefit"])
         expected = {
             "01_Posters/Price-led.png", "01_Posters/Benefit-led.png",
             "01_Posters/Application-led.png",
