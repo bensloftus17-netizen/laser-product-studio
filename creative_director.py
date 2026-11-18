@@ -18,6 +18,8 @@ MOODS=("bold","understated","editorial","technical","energetic")
 MOTIFS=("none","speed-lines","circles","industrial-grid","diagonal-bars")
 HEADLINE_STYLES=("massive","editorial","compact")
 FOCUSES=("left","centre","right")
+SHAPE_KINDS=("panel","outline","circle","ribbon","line")
+SHAPE_INKS=("accent","cyan","white")
 
 
 def _intersects(a,b):
@@ -72,9 +74,30 @@ def validate_brief(raw,role):
     def choice(key,values,default):
         value=raw.get(key)
         return value if isinstance(value,str) and value in values else default
+    # Decorative vector objects can be placed freely behind all text and
+    # tool pixels. No arbitrary model scripts, URLs or new product silhouettes.
+    shapes=[]
+    raw_shapes=raw.get("shapes",[])
+    if isinstance(raw_shapes,list):
+        for item in raw_shapes[:8]:
+            if not isinstance(item,dict):continue
+            kind=item.get("kind")
+            rect=item.get("box")
+            ink=item.get("ink")
+            opacity=item.get("opacity",45)
+            if (kind not in SHAPE_KINDS or ink not in SHAPE_INKS or
+                not isinstance(rect,(list,tuple)) or len(rect)!=4 or
+                any(type(n) is not int for n in rect) or
+                type(opacity) is not int):continue
+            x,y,w,h=rect
+            if (x<0 or y<0 or w<=0 or h<=0 or
+                x+w>1000 or y+h>1000):continue
+            shapes.append({"kind":kind,"box":list(rect),"ink":ink,
+                           "opacity":max(10,min(85,opacity))})
     # No AI-provided headlines, benefits, part numbers, prices, or photo URLs.
     return {
         "zones":clean,
+        "shapes":shapes,
         "background":choice("background",BACKGROUNDS,"workshop-photo"),
         "mood":choice("mood",MOODS,"editorial"),
         "motif":choice("motif",MOTIFS,"none"),
@@ -136,6 +159,13 @@ def creative_instruction():
         "editorial, compact; photo_focus one of left, centre, right; "
         "accent one of #13B5EC #40C1E8 #FFC83A #F9A842 #D9E75B "
         "#FFFFFF #71D6EE #F1E9D8. "
+        "Optionally create up to eight custom vector background shapes, "
+        "each as creative_canvas.shapes array item with kind one of panel, "
+        "outline, circle, ribbon, line; box [x,y,width,height] using integer "
+        "0..1000 coordinates inside the artboard; ink one of accent, cyan, "
+        "white; opacity integer 10..85. Their geometry is entirely YOUR "
+        "design decision. These are abstract background objects only, never "
+        "tools, extra products, words or brand logos. "
         "Let the product's REAL shape, function and intended audience guide "
         "the design. All three canvases must have visibly different "
         "composition, product position, headline hierarchy and mood. "
