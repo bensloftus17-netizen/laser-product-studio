@@ -36,6 +36,8 @@ from flexible_canvas import render_creative_canvas
 from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
 from creative_qa import review_finished_artworks
+from format_creative import (FORMAT_ORDER, validate_format_canvas,
+                             generate_format)
 from product_evidence_ranker import verified_candidates
 from promo_scene_library import find_scene, classify_product
 
@@ -54,6 +56,8 @@ FOLDERS = {
     "social_story": "02_Social/Instagram_Facebook_Story.png",
     "website_banner": "03_Web_Email/Website_Banner.png",
     "email_header": "03_Web_Email/Email_Header.png",
+    "linkedin_graphic": "02_Social/LinkedIn_Graphic.png",
+    "landscape_ad": "03_Web_Email/Landscape_Advert.png",
 }
 ALLOWED_SOURCE_HOSTS = {
     "www.lasertools.co.uk", "lasertools.co.uk",
@@ -200,6 +204,8 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         "social_story": (1080, 1920),
         "website_banner": (1600, 600),
         "email_header": (1200, 420),
+        "linkedin_graphic": (1200, 627),
+        "landscape_ad": (1600, 900),
     }
     width, height = sizes[kind]
     canvas = Image.new("RGBA", (width, height), NAVY)
@@ -637,11 +643,49 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             warnings.append(critic["warning"])
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
-    for key in ("social_square", "social_story", "website_banner", "email_header"):
-        scene_idx=0 if key=="social_story" else 2 if key=="website_banner" else 1
-        image_assets[key] = _native_graphic(
-            product,genuine_photo,distributor,key,proof,
-            scene=scenes[scene_idx],visual_plan=creative_plan)
+    # V46: all six additional marketing formats have their OWN AI-designed layout,
+    # tailored to its native width, height, safe areas and viewing context.
+    # The model provides coordinates and feature indices, never source pixels,
+    # copy, prices or arbitrary image URLs.
+    supplied_formats = (raw_concepts[0].get("ai_format_canvases") or {}
+                        if mode=="gemini-assisted" and raw_concepts else {})
+    if not isinstance(supplied_formats,dict):
+        supplied_formats={}
+    model_facts=[str(f).strip()[:175] for f in product.get("features",[])
+                 if isinstance(f,str) and str(f).strip()][:12]
+    verified_set=set(verified_candidates(product))
+    format_facts=[f if f in verified_set else "" for f in model_facts]
+    headlines={concept["campaign_role"]:concept.get("headline") or product.get("title")
+               for concept in concepts}
+    format_reports={}
+    format_canvases={}
+    for key in FORMAT_ORDER:
+        scene_idx=(0 if key=="social_story" else 2 if key in
+                   ("website_banner","landscape_ad") else 1)
+        brief=validate_format_canvas(key,supplied_formats.get(key),len(format_facts))
+        if brief and mode=="gemini-assisted":
+            # Any failed native-format artwork is rejected rather than
+            # quietly shipping a white product rectangle or cropped text.
+            output,report=generate_format(
+                key,brief,product,genuine_photo,scenes=scenes,
+                headlines=headlines,facts=format_facts,distributor=distributor,
+                source_report=asset_report)
+            image_assets[key]=output
+            format_reports[key]=report
+            format_canvases[key]=brief
+        else:
+            image_assets[key]=_native_graphic(
+                product,genuine_photo,distributor,key,proof,
+                scene=scenes[scene_idx],visual_plan=creative_plan)
+            format_reports[key]={
+                "render_engine":"verified-legacy-layout","passed":None,
+                "warning":"AI did not return an approved native-format canvas; "
+                          "older renderer used. Manual artwork review required."}
+            if mode=="gemini-assisted":
+                warnings.append("No safe AI original layout for "+key+
+                                "; the existing format layout was used.")
+    creative_plan["format_render_engines"]={
+        key:format_reports[key]["render_engine"] for key in FORMAT_ORDER}
     qr = _source_qr(product)
     if qr:
         image_assets["source_qr"] = qr
@@ -678,6 +722,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "marketing_strategy": marketing_strategy,
         "creative_plan": creative_plan,
         "artwork_quality": quality_reports,
+        "format_artwork_quality": format_reports,
+        "ai_format_canvases": format_canvases,
         "product_photo_quality":asset_report,
         "creative_critic":{
             "method":critic["method"],"reviewed":critic["reviewed"],

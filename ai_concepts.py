@@ -8,6 +8,7 @@ from promo_selling_points import focus_concept
 from campaign_strategy import strategy_options
 from campaign_director import third_angle_options
 from creative_director import creative_instruction
+from format_creative import format_instruction
 
 def _gemini_json(payload, key, model):
     """Read Gemini JSON with bounded retries and actionable, non-secret errors.
@@ -180,7 +181,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "approved source-based information. "
             "Do not request more input from the user.")
     if only_family is None:
-        system += " " + creative_instruction()
+        system += " " + creative_instruction() + " " + format_instruction()
     if only_family is not None:
         kind={"retail":"bold retail promotion","premium":"clean premium retail advert",
               "trade":"dramatic trade counter promotion"}[only_family]
@@ -219,7 +220,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
         # 2,200 tokens could exhaust the allowance before Gemini completes
         # three multi-field concepts, including model thinking tokens.
         "generationConfig":{"temperature":0.65,"responseMimeType":"application/json",
-                            "maxOutputTokens":2500 if only_family else 8500}
+                            "maxOutputTokens":2500 if only_family else 11000}
     }
     raw = _gemini_json(payload, key, model)
     # Gemini's JSON mode can return either the requested {"concepts": [...]}
@@ -277,6 +278,12 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "features":selected,
             "part":str(product.get("part","")),
             "title":str(product.get("title",""))[:125]},family_index))
+    # One JSON response carries the model's own native-format designs. Keep
+    # the original raw geometry until the renderer validates it; never
+    # accept model-provided words, photo URLs or publisher claims.
+    if (only_family is None and isinstance(raw,dict)
+            and isinstance(raw.get("format_canvases"),dict)):
+        cleaned[0]["ai_format_canvases"]=raw["format_canvases"]
     # Attach the strictly enumerated choice to the first concept. The
     # campaign builder validates IDs again against the manufacturer record.
     # Existing AI poster callers remain compatible with the concept list.

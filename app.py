@@ -110,7 +110,7 @@ V7_HOME_PAGE = r'''
 
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Technical · Price · Product-selected</small></div>
- <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>7</b><small>Core artwork files</small></div>
+ <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>9</b><small>Core artwork files</small></div>
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-download"></use></svg><b>1</b><small>Complete ZIP download</small></div>
  <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
   <a href="#assetWorkspace">View campaign assets</a><a href="#copyWorkspace">Edit campaign copy</a>
@@ -814,6 +814,13 @@ function showCampaign(data){
       ?'Independent AI review of finished posters completed.'
       :'AI visual review unavailable; deterministic QA applied.');
  }
+ const formatChecks=m.format_artwork_quality||{};
+ const nativeKinds=['social_square','social_story','website_banner','email_header','linkedin_graphic','landscape_ad'];
+ const originalCount=nativeKinds.filter(k=>formatChecks[k]?.render_engine==='ai-original-format-canvas').length;
+ if(nativeKinds.every(k=>formatChecks[k])){
+    $('campaignQuality').textContent+=' · '+originalCount+'/6 marketing formats have their own AI-designed layouts.'+
+      (originalCount<4?' Formats using the older renderer still require manual design review.':'');
+ }
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
  if(strategy){
@@ -853,7 +860,7 @@ function showCampaign(data){
   (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
  const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
  social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
- email_header:'Email Header',source_qr:'Official Product QR'};
+ email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
  $('campaignAssets').innerHTML=m.images.map(asset=>
   '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+

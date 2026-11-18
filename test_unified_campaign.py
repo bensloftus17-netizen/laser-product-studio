@@ -146,7 +146,7 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
         self.assertEqual(tuple(x["role"] for x in manifest["angles"]),ROLES)
         self.assertEqual([item["id"] for item in manifest["images"][:3]],
                          ["poster_technical","poster_price","poster_smart"])
-        self.assertEqual(len(manifest["images"]),8) # 3 posters, 4 channels, 1 QR
+        self.assertEqual(len(manifest["images"]),10) # 3 posters, 6 channels, 1 QR
         self.assertEqual(len(manifest["social_suggestions"]["instagram_story"]),3)
         self.assertTrue(manifest["scene_photography"])
         self.assertEqual(manifest["generation_method"],"verified-template-fallback")
@@ -166,7 +166,8 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
                          "04_Copy/Instagram_Story_Suggestions.txt"):
                 self.assertIn(name,names)
             for key in ("poster_technical","poster_price","poster_smart",
-                        "social_square","social_story","website_banner","email_header"):
+                        "social_square","social_story","website_banner","email_header",
+                        "linkedin_graphic","landscape_ad"):
                 with Image.open(io.BytesIO(pack["images"][key])) as image:
                     self.assertEqual(image.mode,"RGB")
             story=archive.read("04_Copy/Instagram_Story_Suggestions.txt").decode()

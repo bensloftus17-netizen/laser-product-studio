@@ -133,7 +133,7 @@ class OneClickPromos(unittest.TestCase):
             result=propose({**self.product,"marketing_direction":{}})
         self.assertEqual(len(result),3)
         self.assertEqual(send.call_count,2)
-        self.assertEqual(send.call_args.kwargs["json"]["generationConfig"]["maxOutputTokens"],8500)
+        self.assertEqual(send.call_args.kwargs["json"]["generationConfig"]["maxOutputTokens"],11000)
 
     def test_gemini_explains_invalid_json_after_retry(self):
         import os
