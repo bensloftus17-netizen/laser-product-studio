@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
+from official_taxonomy import category_from_product_url
 
 # Ordered specificity: a bearing kit mentioning use with a workshop press is a
 # bearing kit, not a press; an impact wrench is not a general socket set.
@@ -209,7 +210,13 @@ VALID_CATEGORIES = frozenset(PROFILES)
 
 
 def detect_category(record: dict) -> tuple[str, str]:
-    """Return (category, evidence source) from manufacturer-provided words."""
+    """Prefer the official website breadcrumb; fall back to title-derived type."""
+    official = record.get("official_taxonomy") or category_from_product_url(
+        record.get("source"), record.get("part"))
+    if isinstance(official, dict):
+        profile = (official.get("marketing") or {}).get("profile")
+        if profile in PROFILES:
+            return profile, "official manufacturer product-category URL"
     title=str(record.get("title") or "").lower()
     # Drop leading part number. Avoid using long PDF data as title evidence.
     title=re.sub(r"^\s*[a-z]?\d{3,6}(?:[-\s:]+)", "", title).strip()
@@ -273,12 +280,19 @@ def rank_specs(record: dict, category: str | None = None, limit: int = 7) -> lis
 
 def category_strategy(record: dict) -> dict[str, Any]:
     key,evidence=detect_category(record)
+    official = record.get("official_taxonomy") or category_from_product_url(
+        record.get("source"), record.get("part"))
     p=PROFILES[key]
     points=rank_verified_features(record,key,5)
     selected=rank_specs(record,key,6)
     return {
         "category": key,
         "category_label": p["label"],
+        "site_category_path": official["path"] if official else [],
+        "site_category_source": official["source"] if official else None,
+        "site_subcategory": official.get("subcategory") if official else None,
+        "preferred_marketing_lens": (official["marketing"]["label"]
+                                     if official else p["angle"]),
         "evidence": evidence,
         "marketing_angle": p["angle"],
         "headline": " ".join(p["headline"]),

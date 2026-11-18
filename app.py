@@ -20,6 +20,8 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
+from official_taxonomy import (apply_official_taxonomy, taxonomy_snapshot,
+                               catalogue_url_for_part)
 from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
@@ -31,7 +33,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v39-ai-marketing-strategy">
+<link rel="stylesheet" href="/static/styles.css?design=v40-catalogue-hierarchy">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -125,6 +127,18 @@ V7_HOME_PAGE = r'''
  <div class="saved-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions Library <span>Coming soon</span></h2><p>Save, reopen, duplicate and organise promotions in a future release.</p></div></div>
  <div class="saved-not-yet"><span aria-hidden="true">☆</span><div><b>Saved campaigns are not enabled yet</b><p>Your finished campaigns can be downloaded as ZIP files today. A searchable library will be added later — no campaigns are being stored by this demo.</p></div></div>
 </section>
+<details class="taxonomy-explorer" id="taxonomyExplorer">
+ <summary>Browse Laser Tools categories &amp; preferred marketing strategies
+ <small>Official website hierarchy · product-aware marketing plans</small></summary>
+ <div class="taxonomy-explorer-content">
+  <label for="taxonomySearch">Find a category or subcategory</label>
+  <input id="taxonomySearch" type="search" placeholder="e.g. Engine Timing, Socket Sets, Battery Tools" autocomplete="off">
+  <p id="taxonomyCoverage" class="taxonomy-coverage">Full part-number catalogue import not yet completed.</p>
+  <p id="taxonomyCount" role="status" aria-live="polite">Open this section to load the category directory.</p>
+  <div id="taxonomyMatches"></div>
+  <p class="taxonomy-accuracy">Category names are a dated snapshot of the official Laser navigation. A part number is only shown as website-classified when its exact official product URL confirms that path. Suggested audiences and channels need sales-team review.</p>
+ </div>
+</details>
 <details class="studio-deep-tools" id="productStudio">
  <summary>Product Studio &amp; advanced poster tools <small>Official record · poster previews · AI poster editor · manual export</small></summary>
  <div id="productRecordSlot" class="record-dock"></div>
@@ -144,12 +158,12 @@ V7_HOME_PAGE = r'''
 <section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
  <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
  <div class="marketing-strategy-grid">
-  <div class="strategy-field"><small>Product category</small><b id="strategyCategory"></b></div>
+  <div class="strategy-field"><small id="strategyCategoryLabel">Product category</small><b id="strategyCategory"></b><span class="strategy-category-source" id="strategyCategorySource"></span></div>
   <div class="strategy-field"><small>Suggested target audience</small><b id="strategyAudience"></b></div>
   <div class="strategy-field"><small>Recommended sales angle</small><b id="strategyFocus"></b></div>
   <div class="strategy-field"><small>Recommended channels</small><b id="strategyChannels"></b></div>
  </div>
- <div class="marketing-proof"><small>Why this is recommended</small><p id="strategyReason"></p><small>Verified manufacturer selling point</small><p id="strategyProof"></p></div>
+ <div class="marketing-proof"><small>Category-specific marketing strategy</small><p id="strategyLens"></p><small>Why this is recommended</small><p id="strategyReason"></p><small>Verified manufacturer selling point</small><p id="strategyProof"></p></div>
  <p class="strategy-warning">Audience and channel recommendations are marketing hypotheses, not verified prospects. The team must approve the approach and all manufacturer claims before publication.</p>
 </section>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
@@ -336,6 +350,48 @@ $('legacyShareZip').addEventListener('click',()=>{
  if(legacyShareFile)shareNativeFile(legacyShareFile);
 });
 
+
+let taxonomyExplorerRows=null;
+function flattenTaxonomy(data){
+ const result=[];
+ (data.categories||[]).forEach(root=>{
+  result.push({path:root.name,marketing:root.marketing});
+  (root.departments||[]).forEach(group=>{
+   const groupPath=root.name+' › '+group.name;
+   result.push({path:groupPath,marketing:group.marketing});
+   (group.subcategories||[]).forEach(leaf=>{
+    result.push({path:groupPath+' › '+leaf.name,marketing:leaf.marketing});
+   });
+  });
+ });
+ return result;
+}
+function renderTaxonomyExplorer(){
+ if(!taxonomyExplorerRows)return;
+ const query=$('taxonomySearch').value.toLowerCase().trim();
+ const matching=taxonomyExplorerRows.filter(item=>
+  item.path.toLowerCase().includes(query)||(item.marketing?.label||'').toLowerCase().includes(query));
+ $('taxonomyCount').textContent='Showing '+Math.min(40,matching.length)+' of '+matching.length+
+  ' matching category paths. Refine the search to find a specific subcategory.';
+ $('taxonomyMatches').innerHTML=matching.slice(0,40).map(item=>
+  '<div class="taxonomy-result"><b>'+esc(item.path)+'</b><span>'+esc(item.marketing?.label||'Verified product marketing')+
+  ' · '+esc((item.marketing?.channels||[]).join(' + '))+'</span></div>').join('')||
+  '<p class="taxonomy-no-results">No category matches that search.</p>';
+}
+$('taxonomySearch').addEventListener('input',renderTaxonomyExplorer);
+$('taxonomyExplorer').addEventListener('toggle',async()=>{
+ if(!$('taxonomyExplorer').open||taxonomyExplorerRows)return;
+ $('taxonomyCount').textContent='Loading official category directory…';
+ try{
+  const response=await fetch('/api/catalogue/taxonomy',{headers:{Accept:'application/json'}});
+  const data=await readApiJson(response);
+  taxonomyExplorerRows=flattenTaxonomy(data);
+  $('taxonomyCoverage').textContent=(data.part_numbers_indexed||0)+
+   ' official part-number URLs indexed so far; the full catalogue still needs an approved product export.';
+  renderTaxonomyExplorer();
+ }catch(error){$('taxonomyCount').textContent='Category directory unavailable. Refresh and try again.';}
+});
+
 function installMarketingHubLayout(){
  // Relocate existing functional controls into the approved dashboard structure.
  // IDs and event handlers remain unchanged; no duplicate editors or poster APIs.
@@ -394,7 +450,9 @@ function updateDistributorPreview(){
 }
 function reset(){legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
-function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc((p.marketing_direction||{}).category_label||'General hand tools')+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
+function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc(((p.marketing_direction||{}).site_category_path||[]).length
+ ?(p.marketing_direction.site_category_path.join(' › '))
+ :((p.marketing_direction||{}).category_label||'Category not confirmed'))+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
 function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><div class="asset-links"><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a><a download="LASER_'+esc(p.part)+'_'+key+'.png" href="'+url+'">Download PNG</a><button type="button" class="asset-share-button share-primary" data-share-url="'+esc(url)+'" data-share-filename="LASER_'+esc(p.part)+'_'+key+'.png">↗ Share to apps</button></div></div></article>';}).join('');prepareShareButtons($('previews'));}
 // Render's free-hosting wake/deploy screen is HTML, NOT our product JSON.
 // Never show a raw "Unexpected token <" error. GET lookups can safely retry;
@@ -724,6 +782,12 @@ function showCampaign(data){
  if(strategy){
   $('strategyMethod').textContent=strategy.method_label||'Product-aware recommendation';
   $('strategyCategory').textContent=strategy.category_label||'Uncategorised';
+  const official=Array.isArray(strategy.official_category_path)&&strategy.official_category_path.length>0;
+  $('strategyCategoryLabel').textContent=official?'Official Tool Connection category':'Suggested product category';
+  $('strategyCategorySource').textContent=official
+    ?'Verified from the manufacturer product URL'
+    :'Inferred from the product title/description — verify the official category';
+  $('strategyLens').textContent=(strategy.marketing_lens||{}).label||'Product-aware verified features';
   $('strategyAudience').textContent=strategy.target_audience||'Sales review required';
   $('strategyFocus').textContent=strategy.primary_focus_label||'Review required';
   $('strategyChannels').textContent=(strategy.recommended_channels||[]).map(c=>c.label).join(' + ');
@@ -1569,7 +1633,9 @@ def lookup(part,session=requests,force=False,uk_url=None):
     # Official UK pages are best for English product wording and genuine GBP RRP.
     uk_candidates=[]
     if uk_url:uk_candidates.append(uk_url)
-    if part in OFFICIAL_UK_PRODUCTS:uk_candidates.append(OFFICIAL_UK_PRODUCTS[part])
+    indexed_url = OFFICIAL_UK_PRODUCTS.get(part) or catalogue_url_for_part(part)
+    if indexed_url:
+        uk_candidates.append(indexed_url)
     else:
         discovered=search_official_uk_product(part,session)
         if discovered:uk_candidates.append(discovered)
@@ -1707,6 +1773,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
     if image_bytes is None and part in APPLICATION_IMAGE_CACHE:
         image_bytes=APPLICATION_IMAGE_CACHE[part]
         product['photo_source']=product['application_photo_source']
+    product=apply_official_taxonomy(product)
     product['photo_verified']=bool(image_bytes)
     product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
     product['lookup_status']='Live official UK/English manufacturer source'
@@ -1773,6 +1840,14 @@ def no_cache_for_drafts(response):
 
 @app.get('/api/health')
 def health():return jsonify(ok=True,service='Laser Product Studio',design='v19-product-aware-marketing-direction',lookup='official page + PDF fallback')
+
+@app.get('/api/catalogue/taxonomy')
+def catalogue_taxonomy():
+    """Complete published category tree, NOT a claim to have imported every SKU."""
+    response=jsonify(taxonomy_snapshot())
+    response.headers['Cache-Control']='public, max-age=3600'
+    return response
+
 
 @app.get('/api/distributor-logo/<brand>')
 def distributor_logo(brand):

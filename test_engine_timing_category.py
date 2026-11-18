@@ -31,7 +31,7 @@ class EngineTimingCategoryTests(unittest.TestCase):
     def test_6200_classifies_as_engine_timing_not_hand_tools(self):
         category,evidence=detect_category(self.product)
         self.assertEqual(category,"engine_timing")
-        self.assertEqual(evidence,"product title")
+        self.assertEqual(evidence,"official manufacturer product-category URL")
         direction=strategy_for(self.product)
         self.assertEqual(direction["category_label"],"Engine timing & locking tools")
         self.assertEqual(direction["technical_preference"],"dense")
@@ -67,14 +67,14 @@ class EngineTimingCategoryTests(unittest.TestCase):
         self.assertTrue(all("7595" not in p["verified_manufacturer_fact"]
                             for p in choices["proof_options"]))
         valid={
-            "audience_id":"marque_specialists","primary_focus":"application",
+            "audience_id":"category_audience_1","primary_focus":"application",
             "channels":["email","linkedin"],"proof_index":1,
         }
         result=explain_strategy(self.product,valid)
         self.assertEqual(result["method"],"gemini-validated-choice")
         self.assertIn(result["proof_point"],self.product["features"][:3])
         self.assertNotIn("7595",result["proof_point"])
-        self.assertEqual(result["audience_id"],"marque_specialists")
+        self.assertEqual(result["audience_id"],"category_audience_1")
 
     def test_other_engine_timing_titles_and_unrelated_tools(self):
         cases=[

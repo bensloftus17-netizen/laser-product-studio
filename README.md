@@ -1,5 +1,19 @@
 # Laser Product Studio
 
+## Official category to marketing strategy mapping (V40)
+
+The recorded Tool Connection Laser Tools website navigation hierarchy is
+mapped to product-specific marketing strategies. Valid manufacturer product
+URLs supply exact categories and subcategories ahead of title guesses.
+A collapsible website category browser and GET /api/catalogue/taxonomy show
+the category-strategy mapping.
+
+Ten checked official product URLs are indexed initially. The application
+classifies any other product when it locates its actual official product URL.
+An authorised company part-number/product-URL CSV can populate the full
+index via import_catalogue.py. See CATALOGUE_STRATEGY.md for sources,
+matching rules, the CSV format, evidence checks and coverage limits.
+
 ## Engine timing tool recognition (part 6200)
 
 The official Engine Timing Kit 6200 is classified as **Engine timing & locking
