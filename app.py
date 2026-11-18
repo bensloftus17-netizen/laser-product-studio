@@ -14,6 +14,8 @@ import requests
 from bs4 import BeautifulSoup
 from PIL import Image, ImageOps
 from langdetect import detect_langs, DetectorFactory, LangDetectException
+from english_numeric_specs import (translate_known_numeric_labels,
+                                   normalise_numeric_spec_row, RAW_GERMAN_TECH)
 DetectorFactory.seed = 0
 from flask import Flask, request, jsonify, send_file, render_template_string
 
@@ -1307,6 +1309,7 @@ def is_non_english(text):
     if not phrase:return False
     if (FRENCH_STRONG.search(phrase) or FRENCH_TECH_TERMS.search(phrase)
         or DUTCH_TECH.search(phrase) or GERMAN_TECH.search(phrase)
+        or RAW_GERMAN_TECH.search(phrase)
         or SPANISH_TECH.search(phrase)):
         return True
     if DUTCH_PATTERNS.search(phrase):return True
@@ -1344,7 +1347,7 @@ def english_only_features(features):
     output=[]
     seen=set()
     for feature in features or []:
-        phrase=normalize(feature)
+        phrase=translate_known_numeric_labels(normalize(feature))
         key=phrase.casefold().strip(' .')
         if (not phrase or key in seen or is_non_english(phrase)
             or re.search(r'\b(?:N\.B\.|REMARQUE)\s*:',phrase,re.I)):
@@ -1355,8 +1358,14 @@ def english_only_features(features):
 
 
 def english_only_specs(specs):
-    return {k:v for k,v in (specs or {}).items()
-            if not is_non_english(str(k)+' '+str(v))}
+    """Preserve English specs; translate only numeric labels with exact units."""
+    english={}
+    for key,value in (specs or {}).items():
+        safe_key,safe_value=normalise_numeric_spec_row(key,value)
+        if (safe_key and safe_value
+            and not is_non_english(safe_key+" "+safe_value)):
+            english[safe_key]=safe_value
+    return english
 
 
 def english_description(text):
@@ -1364,7 +1373,11 @@ def english_description(text):
     original=normalize(text)
     if not original:return ''
     parts=re.split(r'(?<=[.!?])\s+(?=[A-Za-zÀ-ÿ])',original)
-    good=[part for part in parts if part and not is_non_english(part)]
+    good=[]
+    for part in parts:
+        translated=translate_known_numeric_labels(part)
+        if translated and not is_non_english(translated):
+            good.append(translated)
     if not good:return ''
     return normalize(' '.join(good))[:900]
 
