@@ -30,7 +30,8 @@ from promo_copy import compose_promotional_copy
 from promo_selling_points import choose_feature, focus_concept
 from campaign_director import plan_campaign, POSTER_LABELS, ROLES
 from campaign_role_posters import technical_poster, smart_poster
-from campaign_art_quality import choose_best, campaign_consistency
+from campaign_art_quality import choose_best, campaign_consistency, photo_relevance
+from product_evidence_ranker import verified_candidates
 from promo_scene_library import find_scene, classify_product
 
 NAVY = "#0A2948"
@@ -454,9 +455,17 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         picture, ref = find_scene(
             product,variation=visual["scene_index"],
             official_photo=application_photo,
-            prefer_official=(index==0 and bool(application_photo)),
+            prefer_official=(index in (0,2) and bool(application_photo)),
             category_override=visual["scene_category"],
             family=concept["family"])
+        match=photo_relevance(product,visual["scene_category"],ref)
+        if not match["supported"]:
+            # Source appears unrelated to this product category. Using no
+            # context photograph is preferable to an irrelevant stock scene.
+            picture=None
+            ref={"category":visual["scene_category"],
+                 "description":"Branded background (irrelevant photo rejected)",
+                 "source":"No external photograph used","page_url":"","license_url":None}
         scenes.append(picture)
         scene_references.append({
             "role":concept["campaign_role"],
@@ -464,6 +473,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "source":ref.get("source"),"page_url":ref.get("page_url"),
             "license_url":ref.get("license_url"),
             "note":"Context photo, not evidence of this exact tool in use.",
+            "relevance_score":match["score"],
+            "relevance_warning":match["warning"],
         })
     image_assets = {}
     quality_reports = {}
@@ -473,12 +484,28 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     from poster_quality import capture
 
     def _geometry(tracked):
+        from poster_quality import _overlap
+        texts=[t for t in tracked.texts if str(t.get("text") or "").strip()]
+        main=[t for t in texts if t.get("role")=="headline"]
+        overlaps=any(
+            other is not title and _overlap(title["box"],other["box"])>
+                .27*min(
+                    (title["box"][2]-title["box"][0])*
+                    (title["box"][3]-title["box"][1]),
+                    (other["box"][2]-other["box"][0])*
+                    (other["box"][3]-other["box"][1]))
+            for title in main for other in texts
+        )
         return {
-            "truncated": any(t["truncated"] for t in tracked.texts),
+            "truncated": any(t["truncated"] for t in texts),
             "out_of_bounds": any(
                 t["box"][0]<0 or t["box"][1]<0 or t["box"][2]>1200
-                or t["box"][3]>1500 for t in tracked.texts),
-            "overlaps": False,
+                or t["box"][3]>1500 for t in texts),
+            "overlaps": overlaps,
+            "missing_headline":not main,
+            "product_visible_fraction":max(
+                (p.get("visible_fraction",0) for p in tracked.products),
+                default=None),
         }
 
     def _role_candidate(index, renderer, variant):
@@ -491,14 +518,17 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
 
     image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
         lambda variant:_role_candidate(0,technical_poster,variant),
-        "technical_application",genuine_photo)
+        "technical_application",genuine_photo,
+        preferred_variant=concepts[0]["visual_plan"]["preferred_variant"],
+        scene_relevance={"warning":scene_references[0]["relevance_warning"]})
     retail=concepts[1]
     visual=retail["visual_plan"]
 
     def _price_candidate(variant):
         candidate=dict(retail)
         candidate["variant"]=variant
-        styles=("panel","tag","plaque")
+        preferred_style=visual.get("price_style")
+        styles=(preferred_style or "panel","tag","plaque")
         # Different price layouts are assessed before delivery. The price
         # remains verified and the real tool cutout is always reused.
         context_style={
@@ -511,16 +541,25 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "background":"context","_scene_bytes":scenes[1],
             "_scene_style":context_style,"show_subline":False,
             "price_style":styles[variant],
-            "accent":visual["accent"],"product_scale":(115,105,112)[variant],
+            "accent":visual["accent"],
+            "product_scale":(115,105,112)[variant],
+            "product_x":visual.get("art_direction",{}).get("product_x",0),
+            "product_y":visual.get("art_direction",{}).get("product_y",0),
+            "price_position":visual.get("art_direction",{}).get("price_position","standard"),
+            "headline_size":visual.get("art_direction",{}).get("headline_size","normal"),
             "_quality_report":detail})
         return output,{"truncated":False,"out_of_bounds":False,
                        "overlaps":bool(detail.get("issues"))}
 
     image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
-        _price_candidate,"price_promo",genuine_photo)
+        _price_candidate,"price_promo",genuine_photo,
+        preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
+        scene_relevance={"warning":scene_references[1]["relevance_warning"]})
     image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
         lambda variant:_role_candidate(2,smart_poster,variant),
-        "product_selected",genuine_photo)
+        "product_selected",genuine_photo,
+        preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
+        scene_relevance={"warning":scene_references[2]["relevance_warning"]})
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
     for key in ("social_square", "social_story", "website_banner", "email_header"):
@@ -565,6 +604,13 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "creative_plan": creative_plan,
         "artwork_quality": quality_reports,
         "scene_photography": scene_references,
+        "poster_editor":{
+            "manufacturer_title":str(product.get("title") or "")[:160],
+            "verified_features":verified_candidates(product)[:24],
+            "allowed_roles":["poster_technical","poster_price","poster_smart"],
+            "review_notice":"Headline must use the verified product title; featured facts must come from the source. Pricing is locked.",
+        },
+        "poster_revision":0,
         "social_suggestions": social_suggestions,
         "source": _approved_source(product),
         "distributor": BRAND_LABELS.get(distributor) if distributor else None,
@@ -636,4 +682,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         z.writestr("05_Product_Info/Campaign_Summary.pdf",
                    _summary_pdf(product, concepts, manifest))
         z.writestr("Campaign_Manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-    return {"archive": archive.getvalue(), "images": image_assets, "manifest": manifest}
+    return {"archive": archive.getvalue(), "images": image_assets,
+            "manifest": manifest,
+            # Server-only context; NEVER sent in response/ZIP. Needed for
+            # changing a single poster without re-fetching/regenerating AI.
+            "editor_context":{"product":product,"genuine_photo":genuine_photo,
+                              "scenes":scenes,"concepts":concepts,
+                              "distributor":distributor}}
