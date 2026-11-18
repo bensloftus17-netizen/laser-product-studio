@@ -68,7 +68,30 @@ def _background(scene,brief,variant):
     # are composited afterwards, unmodified.
     tint=Image.new("RGBA",(W,H),(4,20,35,64 if brief["mood"]=="energetic" else 91))
     image=Image.alpha_composite(image,tint)
-    return image
+    # Model-authored abstract shapes: freely positioned and coloured within
+    # brand-approved inks, rendered behind all genuine tool and text layers.
+    shape_layer=Image.new("RGBA",(W,H),(0,0,0,0))
+    painter=ImageDraw.Draw(shape_layer,"RGBA")
+    from PIL import ImageColor
+    ink_map={"accent":ImageColor.getrgb(brief["accent"]),
+             "cyan":(20,174,226),"white":(255,255,255)}
+    for shape in brief.get("shapes",[]):
+        x0,y0,x1,y1=_box(shape["box"])
+        rgba=(*ink_map[shape["ink"]],shape["opacity"])
+        kind=shape["kind"]
+        if kind=="panel":
+            painter.rounded_rectangle((x0,y0,x1,y1),radius=22,fill=rgba)
+        elif kind=="outline":
+            painter.rounded_rectangle((x0,y0,x1,y1),radius=18,
+                                      outline=rgba,width=5)
+        elif kind=="circle":
+            painter.ellipse((x0,y0,x1,y1),outline=rgba,width=7)
+        elif kind=="ribbon":
+            painter.polygon(((x0+min(60,x1-x0),y0),(x1,y0),
+                             (x1-min(60,x1-x0),y1),(x0,y1)),fill=rgba)
+        elif kind=="line":
+            painter.line((x0,y0,x1,y1),fill=rgba,width=7)
+    return Image.alpha_composite(image,shape_layer)
 
 
 def render_creative_canvas(product,official_photo,concept,scene=None,
