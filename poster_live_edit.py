@@ -69,7 +69,28 @@ def edit_campaign_poster(bundle,asset_id,body):
         [fact] if fact and role=="product_selected" else []
     )
     scene=source["scenes"][idx]
-    if role=="price_promo":
+    if updated.get("creative_canvas"):
+        # Preserve an AI-authored composition when a single poster is edited.
+        # Switching to the old templates would silently discard the creative
+        # director's actual design decisions.
+        from flexible_canvas import render_creative_canvas
+        def render(variant):
+            with capture() as geometry:
+                png=render_creative_canvas(
+                    product,photo,updated,scene,distributor,variant=variant)
+            return png,{
+                "truncated":any(t["truncated"] for t in geometry.texts),
+                "out_of_bounds":any(
+                    t["box"][0]<0 or t["box"][1]<0 or
+                    t["box"][2]>1200 or t["box"][3]>1500
+                    for t in geometry.texts),
+                "missing_headline":not any(
+                    t.get("role")=="headline" for t in geometry.texts),
+                "product_visible_fraction":max(
+                    (p.get("visible_fraction",0) for p in geometry.products),
+                    default=None),
+            }
+    elif role=="price_promo":
         from ai_promo_renderer import render_promo
         art=updated.get("visual_plan") or {}
         controls=art.get("art_direction") or {}
