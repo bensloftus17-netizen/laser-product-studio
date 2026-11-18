@@ -1,0 +1,145 @@
+"""AI-directed, free-positioned design briefs for three Laser Tools posters.
+
+The model owns the layout coordinates, mood, typographic approach and visual
+hierarchy. The server owns every factual string, logo, price, product pixel and
+permission boundary. No arbitrary CSS, HTML, image URLs, or AI-drawn tools.
+Coordinates are per-mille of a 1200x1500 artboard, not template IDs.
+"""
+from __future__ import annotations
+
+from itertools import combinations
+
+ROLES=("technical_application","price_promo","product_selected")
+ZONES=("headline","product","proof","price")
+ACCENTS=("#13B5EC","#40C1E8","#FFC83A","#F9A842","#D9E75B","#FFFFFF",
+         "#71D6EE","#F1E9D8")
+BACKGROUNDS=("workshop-photo","studio-gradient","industrial")
+MOODS=("bold","understated","editorial","technical","energetic")
+MOTIFS=("none","speed-lines","circles","industrial-grid","diagonal-bars")
+HEADLINE_STYLES=("massive","editorial","compact")
+FOCUSES=("left","centre","right")
+
+
+def _intersects(a,b):
+    x,y,w,h=a
+    u,v,p,q=b
+    return max(0,min(x+w,u+p)-max(x,u))*max(0,min(y+h,v+q)-max(y,v))
+
+
+def _valid_zone(value):
+    if (not isinstance(value,(list,tuple)) or len(value)!=4
+            or any(type(n) is not int for n in value)):
+        return False
+    x,y,w,h=value
+    return x>=35 and y>=137 and w>0 and h>0 and x+w<=965 and y+h<=917
+
+
+def validate_brief(raw,role):
+    """Reject bad AI compositions before they can be sent to Pillow.
+
+    No snapping to any legacy grid: *valid* arbitrarily positioned rectangular
+    zones are preserved exactly. Rejection is safer than silently turning an
+    AI concept into a pre-existing poster template.
+    """
+    if role not in ROLES or not isinstance(raw,dict):
+        return None
+    zones=raw.get("zones")
+    if not isinstance(zones,dict):
+        return None
+    required=("headline","product","proof")+(
+        ("price",) if role=="price_promo" else ())
+    if any(not _valid_zone(zones.get(key)) for key in required):
+        return None
+    clean={key:list(zones[key]) for key in required}
+    headline=clean["headline"]
+    photo=clean["product"]
+    proof=clean["proof"]
+    if (headline[2]<300 or headline[3]<85 or photo[2]<270
+            or photo[3]<250 or proof[2]<230 or proof[3]<65):
+        return None
+    if role=="price_promo" and (
+            clean["price"][2]<220 or clean["price"][3]<80):
+        return None
+    text_zones=[key for key in required if key!="product"]
+    for a,b in combinations(text_zones,2):
+        if _intersects(clean[a],clean[b]):
+            return None
+    # Text must not lie underneath the genuine product photo. A designer can
+    # overlap decorative panels, but not cover the actual source tool or copy.
+    for key in text_zones:
+        if _intersects(clean[key],photo):
+            return None
+    def choice(key,values,default):
+        value=raw.get(key)
+        return value if isinstance(value,str) and value in values else default
+    # No AI-provided headlines, benefits, part numbers, prices, or photo URLs.
+    return {
+        "zones":clean,
+        "background":choice("background",BACKGROUNDS,"workshop-photo"),
+        "mood":choice("mood",MOODS,"editorial"),
+        "motif":choice("motif",MOTIFS,"none"),
+        "headline_style":choice("headline_style",HEADLINE_STYLES,"massive"),
+        "photo_focus":choice("photo_focus",FOCUSES,"centre"),
+        "accent":choice("accent",ACCENTS,"#13B5EC"),
+        "source":"ai-freeform-canvas",
+    }
+
+
+def brief_signature(brief):
+    """Coarse comparison for concept distinctness, not a restrictive grid."""
+    zones=brief.get("zones",{})
+    head=zones.get("headline",[0,0,0,0])
+    photo=zones.get("product",[0,0,0,0])
+    return (int(head[0]//130),int(head[1]//140),
+            int(photo[0]//130),int(photo[1]//140),
+            brief.get("background"),brief.get("headline_style"))
+
+
+def distinct_briefs(briefs):
+    """A model returning the same composition three times must try again."""
+    if len(briefs)!=3 or any(not isinstance(b,dict) for b in briefs):
+        return False
+    signatures=[brief_signature(b) for b in briefs]
+    if len(set(signatures))!=3:
+        return False
+    positions=[tuple(b["zones"]["product"][:2]) for b in briefs]
+    # Deliberately permit two similar artboards, but not three copy/pastes.
+    return len(set(positions))>=2
+
+
+def creative_instruction():
+    """Prompt appendix for the existing single Gemini call.
+
+    Geometry is creative and free-positioned; code rejects unsafe overlaps.
+    The legacy art_direction remains supported for the manual poster editor.
+    """
+    return (
+        "IMPORTANT: You are the creative director, not a template selector. "
+        "For EACH of the 3 concepts, also return a creative_canvas object. "
+        "Design the composition yourself, uniquely for this actual product. "
+        "Use normalized integer coordinates from 0 to 1000. "
+        "creative_canvas.zones is an object with headline, product, proof "
+        "and (for the retail/price concept) price, each an [x,y,width,height] "
+        "array of integers. The visual artboard has a fixed branding strip "
+        "at y=0..130 and a review footer at y=920..1000. "
+        "Place every zone inside x=35..965 and y=137..917. "
+        "Leave substantial room for headlines and a clearly visible genuine "
+        "product cutout: headline width >=300 height >=85, product width >=270 "
+        "height >=250, proof width >=230 height >=65, and price (where needed) "
+        "width >=220 height >=80. Text zones may not overlap each other or "
+        "the product zone. Place nothing below footer or under the brand. "
+        "Choose your own arbitrary positions and dimensions, NOT template IDs. "
+        "Respond with creative_canvas.background one of workshop-photo, "
+        "studio-gradient, industrial; mood one of bold, understated, editorial, "
+        "technical, energetic; motif one of none, speed-lines, circles, "
+        "industrial-grid, diagonal-bars; headline_style one of massive, "
+        "editorial, compact; photo_focus one of left, centre, right; "
+        "accent one of #13B5EC #40C1E8 #FFC83A #F9A842 #D9E75B "
+        "#FFFFFF #71D6EE #F1E9D8. "
+        "Let the product's REAL shape, function and intended audience guide "
+        "the design. All three canvases must have visibly different "
+        "composition, product position, headline hierarchy and mood. "
+        "Do NOT supply product pixels, imagined photos, new technical claims "
+        "or any text for the poster: the server inserts verified source text. "
+        "Avoid cheap white rectangles, clashing text, and tiny product heroes."
+    )
