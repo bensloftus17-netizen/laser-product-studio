@@ -425,7 +425,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         raise ValueError("A genuine manufacturer product image is required.")
     if distributor and distributor not in BRAND_LABELS:
         raise ValueError("Unsupported distributor brand.")
-    product = dict(product)
+    # Final defence even when a caller passes a previously cached record or
+    # bypasses the normal lookup. The same English-only facts then reach all
+    # posters, Gemini planning, channel copy, stories, banners and the ZIP.
+    from app import normalise_product_language
+    product = normalise_product_language(product)
     product["marketing_direction"] = strategy_for(product)
     raw_concepts, mode, warnings = _concepts(product, use_gemini)
     ai_choice = (raw_concepts[0].get("ai_strategy_choice")
@@ -622,8 +626,12 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "specifications and the sales team's research before external use.\n"
         )
         z.writestr("05_Product_Info/Marketing_Strategy.txt", strategy_note)
+        # The audit-only raw supplier fragments are not customer-facing
+        # material. They can include rejected German/Dutch/French sentences.
+        public_record={key:value for key,value in product.items()
+                       if key!="source_raw_features"}
         z.writestr("05_Product_Info/Source_Record.json",
-                   json.dumps(product, indent=2, ensure_ascii=False, default=str))
+                   json.dumps(public_record, indent=2, ensure_ascii=False, default=str))
         z.writestr("05_Product_Info/READ_FIRST.txt", note)
         z.writestr("05_Product_Info/Campaign_Summary.pdf",
                    _summary_pdf(product, concepts, manifest))
