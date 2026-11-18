@@ -84,7 +84,7 @@ def visual_review(data:bytes,role:str,*,source_info=None,text_status=None):
     elif colour_range<31:warnings.append("Low visual contrast")
     if source_info:
         if source_info.get("needs_manual_cutout"):
-            warnings.append("Manufacturer photograph needs manual cutout review")
+            reasons.append("White-background product photo cannot be isolated safely; provide a clean manufacturer cutout")
         elif source_info.get("source_warning"):
             warnings.append(source_info["source_warning"])
     status=text_status or {}
