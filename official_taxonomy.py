@@ -134,7 +134,7 @@ LENSES = {
         "audiences": ("Relevant specialist repair workshops", "Automotive tool distributors"),
         "reason": "Lead with manufacturer-confirmed vehicle or engine applications and the specific repair job.",
         "feature_terms": ("application", "vehicle", "engine", "compatible", "manufacturer", "fitment", "use on", "designed for"),
-        "profile": "engine_timing",
+        "profile": "bearing_suspension",
     },
     "workshop_service": {
         "label": "Verified workshop procedure",
@@ -399,7 +399,13 @@ def marketing_for_path(path):
     if top == "Hybrid/Electric Vehicles" and group == "Insulated Tools":
         lens = "ev_safety"
     item = LENSES[lens]
-    return {"id": lens, **item, "channels": list(item["channels"]),
+    profile = item["profile"]
+    if group == "Engine Timing Tools" or (top == "Motorcycle" and group == "Timing"):
+        profile = "engine_timing"
+    elif leaf in ("Wheel Bearings", "Wheel Hub Removal", "Hub Removal") or group == "Steering & Suspension":
+        profile = "bearing_suspension"
+    return {"id": lens, **item, "profile": profile,
+            "channels": list(item["channels"]),
             "audiences": list(item["audiences"]), "feature_terms": list(item["feature_terms"])}
 
 
