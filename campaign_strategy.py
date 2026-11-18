@@ -146,8 +146,14 @@ def explain_strategy(product, ai_choice=None):
     index = facts.index(recommended_fact) if recommended_fact in facts else 0
 
     choice = ai_choice if isinstance(ai_choice, dict) else {}
-    valid_ai_audience = choice.get("audience_id") in {a["id"] for a in audiences}
-    valid_ai_focus = choice.get("primary_focus") in FOCUSES
+    valid_ai_audience = (
+        isinstance(choice.get("audience_id"), str)
+        and choice["audience_id"] in {a["id"] for a in audiences}
+    )
+    valid_ai_focus = (
+        isinstance(choice.get("primary_focus"), str)
+        and choice["primary_focus"] in FOCUSES
+    )
     valid_ai_proof = type(choice.get("proof_index")) is int and 0 <= choice["proof_index"] < len(facts)
     raw_channels = choice.get("channels")
     valid_ai_channels = (
