@@ -211,9 +211,9 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
     fitted(d,product.get("title","Laser Tools product"),
            (58,331,1124,540),(65,59,52,45,40,35,30),WHITE,3)
     # Three distinct approved compositions; larger product, controlled scale.
-    if variation==0:hero=(355,550,1155,1175)
-    elif variation==1:hero=(270,555,1160,1195)
-    else:hero=(380,565,1170,1186)
+    if variation==0:hero=(395,550,1155,1175)
+    elif variation==1:hero=(382,555,1160,1195)
+    else:hero=(404,565,1170,1186)
     product_photo(canvas,official_photo,hero,scale=1.08)
     d=ImageDraw.Draw(canvas,"RGBA")
     # A small technical information rail balances the tool, not a massive
