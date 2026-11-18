@@ -1,3 +1,47 @@
+## V44 — product-specific creative decisions and direct poster editing
+
+Five improvements build on the existing one-click campaign without creating a
+second poster generator:
+
+1. **AI creative direction that actually reaches the artwork.** The one
+   Gemini concepts request can supply bounded layout variant, photographic
+   focus, brightness mood, graphic motif, product scale and accent. The
+   campaign maps the legacy retail/premium/trade proposals to the new
+   technical/price/product-selected roles, validates every setting against
+   approved choices, and gives the preferred composition a small priority
+   **only if it passes objective QA**. When Gemini is unavailable, category
+   and part-number-specific art direction is used transparently.
+2. **Better real photographic context.** Multi-function workshop lamps use a
+   curated automotive workshop/under-bonnet photo pool instead of generic
+   engine/laboratory scenes. Verified manufacturer application photographs
+   take priority for technical and product-selected posters when available.
+   The system scores category match and rejects out-of-category context.
+   Context photos are illustrative, not evidence of this exact product in use.
+3. **Stricter visual QA.** Candidate checks now include source cutout safety,
+   visible product size, presence of a headline, text-box geometry, clipping,
+   excessive white canvas, contrast and scene relevance. Unsafe candidates
+   are rejected. For acceptable candidates, quality selection can favour
+   Gemini's chosen composition when scores are close.
+4. **Function-first evidence.** `product_evidence_ranker.py` ranks only
+   manufacturer-verbatim features by role and category. For work lamp 9476,
+   the verified fan/lighting functions outrank dimensions and weight; timing
+   kits foreground timing jobs, ratchets their actual drive/contents and
+   presses their confirmed capacity. Unsupported benefits never enter copy.
+5. **Edit one poster, not the whole campaign.** Each of three images has an
+   Edit poster control. Users can shorten the headline *only as a contiguous
+   excerpt of the verified manufacturer's product name*, select from genuine
+   product feature entries, and choose a preapproved layout. The tool
+   re-renders that single image and updates its preview, PDF summary and ZIP
+   **without calling Gemini again**. Price, VAT, applications and product
+   photo are locked. Copy Editor drafts and other posters remain unchanged.
+   This editor is intentionally available only during the existing 15-minute
+   campaign session.
+
+All outputs still require technical/company approval. This is product-aware
+AI-assisted decision support, not an autonomously trained advertising model,
+and automatic visual QA cannot substitute for a human design review.
+Regression tests: `python -m unittest test_creative_editor_v44.py`.
+
 # Laser Product Studio
 
 ## Premium product-specific campaign artwork and automatic QA (V42)
