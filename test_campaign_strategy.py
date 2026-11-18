@@ -128,9 +128,16 @@ class IntelligentMarketingStrategyTests(unittest.TestCase):
 
     def test_pack_stores_and_uses_model_strategy_for_actual_graphics(self):
         photo = Image.new("RGB", (160, 120), "white")
+        from PIL import ImageDraw
+        pencil=ImageDraw.Draw(photo)
+        pencil.rounded_rectangle((29,28,135,91),radius=9,fill="#384F61")
+        pencil.ellipse((39,35,65,62),fill="#A5B8C6")
         buf = io.BytesIO()
         photo.save(buf, "PNG")
-        fake = Image.new("RGB", (50, 50), "blue")
+        fake = Image.new("RGB", (1200, 1500), "#102B4C")
+        d=__import__("PIL.ImageDraw",fromlist=["Draw"]).Draw(fake)
+        d.rectangle((50,180,1120,950),fill="#1386C0")
+        d.rectangle((100,1060,1040,1400),fill="#F5C241")
         out = io.BytesIO()
         fake.save(out, "PNG")
         images = out.getvalue()

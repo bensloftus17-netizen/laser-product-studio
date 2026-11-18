@@ -25,6 +25,10 @@ def make_png(color, size=(400,320)):
     image=Image.new("RGB",size,color)
     draw=ImageDraw.Draw(image)
     draw.rectangle((45,50,295,275),fill="white",outline="#1A6189",width=7)
+    return make_image_png(image)
+
+
+def make_image_png(image):
     buf=io.BytesIO()
     image.save(buf,"PNG")
     return buf.getvalue()
@@ -35,7 +39,11 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
     def setUpClass(cls):
         cls.photo=make_png("#DAE4E9")
         cls.workshop=make_png("#D7AD6C")
-        cls.rrp=make_png("#F5CC3A",size=(1200,1500))
+        branded=Image.new("RGB",(1200,1500),"#0A294B")
+        drawing=ImageDraw.Draw(branded)
+        drawing.rectangle((64,185,1110,980),fill="#176CA5")
+        drawing.polygon([(40,1120),(1080,960),(1140,1400),(100,1440)],fill="#F5C239")
+        cls.rrp=make_png("#F5CC3A",size=(1200,1500)) if False else make_image_png(branded)
         cls.scene={"category":"engine","description":"Genuine contextual workshop",
                    "source":"Pexels free commercial-use photo",
                    "page_url":"https://www.pexels.com/photo/8985517/",
@@ -142,7 +150,9 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
         self.assertEqual(len(manifest["social_suggestions"]["instagram_story"]),3)
         self.assertTrue(manifest["scene_photography"])
         self.assertEqual(manifest["generation_method"],"verified-template-fallback")
-        self.assertEqual(len(calls),1)
+        self.assertEqual(len(calls),3)
+        self.assertTrue(all(c[0]["campaign_role"]=="price_promo" for c in calls))
+        self.assertEqual(pack["manifest"]["artwork_quality"]["poster_price"]["candidates_checked"],3)
         self.assertEqual(calls[0][0]["campaign_role"],"price_promo")
         self.assertEqual(calls[0][1]["background"],"context")
         self.assertEqual(calls[0][1]["_scene_bytes"],self.workshop)

@@ -33,7 +33,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v41-unified-campaign">
+<link rel="stylesheet" href="/static/styles.css?design=v42-premium-artwork-qa">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -148,7 +148,7 @@ V7_HOME_PAGE = r'''
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Campaign posters</h2><p>Three different roles, layouts and verified selling points for this specific tool.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
-<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p></div><div class="campaign-download-choice">
+<div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
  <button type="button" id="campaignShareSocial" class="asset-share-button share-primary" data-share-url="" data-share-filename="">↗ Share social graphic</button>
  <small class="share-app-targets">WhatsApp · Instagram · Facebook</small>
  <a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a>
@@ -784,6 +784,13 @@ function showCampaign(data){
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
  $('campaignSummary').textContent=(m.generation_method==='gemini-assisted'?'Gemini-directed campaign using source-verified facts. ':'Verified-source fallback campaign (Gemini unavailable). ')
      +m.files.length+' files in the ZIP. All materials still require approval.';
+ const checked=Object.values(m.artwork_quality||{});
+ const alerts=checked.flatMap(item=>item.warnings||[]);
+ $('campaignQuality').textContent=checked.length
+   ?checked.filter(item=>item.passed).length+' / '+checked.length+
+    ' posters passed automated layout checks · '+checked.reduce((n,item)=>n+(item.candidates_checked||0),0)+
+    ' candidate designs reviewed.'+(alerts.length?' Photo review: '+[...new Set(alerts)].join('; ')+'.':'')
+   :'Automated poster checks unavailable — review every image before sharing.';
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
  if(strategy){

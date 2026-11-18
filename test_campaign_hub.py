@@ -40,6 +40,9 @@ class CampaignHubTests(unittest.TestCase):
     @staticmethod
     def sample_poster(*args, **kwargs):
         picture = Image.new("RGB", (1200, 1500), "#0B2948")
+        d=ImageDraw.Draw(picture)
+        d.rectangle((80,150,1090,855),fill="#1886BE")
+        d.polygon([(65,980),(1060,890),(1130,1340),(95,1420)],fill="#F4BB39")
         return _png(picture)
 
     def build(self, product=None, **kwargs):

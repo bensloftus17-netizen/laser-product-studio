@@ -30,6 +30,7 @@ from promo_copy import compose_promotional_copy
 from promo_selling_points import choose_feature, focus_concept
 from campaign_director import plan_campaign, POSTER_LABELS, ROLES
 from campaign_role_posters import technical_poster, smart_poster
+from campaign_art_quality import choose_best, campaign_consistency
 from promo_scene_library import find_scene, classify_product
 
 NAVY = "#0A2948"
@@ -126,15 +127,33 @@ def _fitted(draw, text, box, sizes, fill, max_lines=3, bold=True):
 
 
 def _product_panel(canvas, photo, box):
-    x1, y1, x2, y2 = box
-    draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle(box, radius=20, fill=WHITE)
-    image = ImageOps.exif_transpose(Image.open(io.BytesIO(photo))).convert("RGBA")
-    # Manufacturer pixels stay intact; contain rather than crop or AI-redraw.
-    image.thumbnail((max(1, x2 - x1 - 52), max(1, y2 - y1 - 52)), Image.Resampling.LANCZOS)
-    px = x1 + (x2 - x1 - image.width) // 2
-    py = y1 + (y2 - y1 - image.height) // 2
-    canvas.paste(image, (px, py), image)
+    """Use the genuine product cutout in every Story, banner and social image.
+
+    Prior versions inserted the uncut white packshot in a giant white card.
+    The image now sits directly on the coloured/real-photo composition.
+    """
+    from campaign_art_quality import inspected_product
+    from PIL import ImageFilter
+    x1,y1,x2,y2=box
+    details=inspected_product(photo)
+    image=details["rgba"].copy()
+    max_w=max(1,x2-x1-36)
+    max_h=max(1,y2-y1-36)
+    scale=min(max_w/max(1,image.width),max_h/max(1,image.height))
+    image=image.resize((max(1,round(image.width*scale)),
+                        max(1,round(image.height*scale))),Image.Resampling.LANCZOS)
+    px=x1+(x2-x1-image.width)//2
+    py=y1+(y2-y1-image.height)//2
+    if not details["isolated"]:
+        d=ImageDraw.Draw(canvas)
+        d.rounded_rectangle((px-11,py-11,px+image.width+11,py+image.height+11),
+                            radius=13,fill="#133A59",outline="#5596B7",width=2)
+    else:
+        shadow=Image.new("RGBA",image.size,(1,16,32,0))
+        shadow.putalpha(image.getchannel("A").filter(
+            ImageFilter.GaussianBlur(13)).point(lambda v:int(v*.31)))
+        canvas.alpha_composite(shadow,(px+6,py+9))
+    canvas.alpha_composite(image,(px,py))
 
 
 def _brand(canvas, part, distributor=None, compact=False):
@@ -205,8 +224,10 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         _brand(canvas, part, distributor)
         _fitted(d, title, (50, 200, 1025, 370), (64, 56, 48, 42, 36), WHITE, 3)
         _product_panel(canvas, photo, (100, 390, 980, 855))
-        d.rounded_rectangle((62, 896, 1015, 1020), radius=10, fill=WHITE)
-        _fitted(d, price, (90, 918, 980, 1001), (47, 41, 35, 28, 23), TEXT, 2)
+        d.rounded_rectangle((62, 896, 1015, 1020), radius=13,
+                            fill="#092C4A",outline="#42ABD9",width=3)
+        _fitted(d, price, (90, 918, 980, 1001),
+                (47, 41, 35, 28, 23), WHITE, 2)
     elif kind == "social_story":
         if not scene:d.rectangle((0, 200, width, height), fill=BLUE)
         d.polygon([(0, 1620), (1080, 1400), (1080, 1920), (0, 1920)], fill=NAVY)
@@ -214,8 +235,10 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         _fitted(d, title, (58, 258, 1022, 515), (81, 72, 60, 52, 44), WHITE, 4)
         _product_panel(canvas, photo, (62, 558, 1018, 1360))
         _fitted(d, fact, (66, 1394, 1007, 1612), (41, 36, 31, 27, 24), WHITE, 4, bold=False)
-        d.rounded_rectangle((64, 1655, 1012, 1830), radius=16, fill=WHITE)
-        _fitted(d, price, (89, 1702, 990, 1798), (55, 48, 42, 34, 28), TEXT, 2)
+        d.rounded_rectangle((64, 1655, 1012, 1830), radius=16,
+                            fill="#092C4A",outline="#5CCBE8",width=4)
+        _fitted(d, price, (89, 1702, 990, 1798),
+                (55, 48, 42, 34, 28), WHITE, 2)
         _fitted(d, "DRAFT  /  CHECK PRODUCT DETAILS BEFORE PUBLISHING",
                 (72, 1854, 1000, 1893), (21, 18, 16), "#DBE9F2", 1, bold=False)
     else:
@@ -413,6 +436,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     # general-purpose poster template.
     concepts, creative_plan = plan_campaign(
         product, raw_concepts if mode == "gemini-assisted" else [], marketing_strategy)
+    duplicate_issues = campaign_consistency(concepts)
+    if duplicate_issues:
+        raise ValueError("Campaign needs different sales messages: "+
+                         "; ".join(duplicate_issues))
     scenes = []
     scene_references = []
     for index, concept in enumerate(concepts):
@@ -435,20 +462,61 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "note":"Context photo, not evidence of this exact tool in use.",
         })
     image_assets = {}
-    # 1: genuinely technical editorial design; 2: bold retail price creative;
-    # 3: separate category-specific split editorial / workshop scene.
-    image_assets["poster_technical"] = technical_poster(
-        product,genuine_photo,concepts[0],scenes[0],distributor)
+    quality_reports = {}
+    # Real variant selection. Test 3 distinct creative compositions per role;
+    # reject large white zones, unreadable text, damaged PNGs and low contrast.
+    # All candidates reuse the same verified product pixels and scene sources.
+    from poster_quality import capture
+
+    def _geometry(tracked):
+        return {
+            "truncated": any(t["truncated"] for t in tracked.texts),
+            "out_of_bounds": any(
+                t["box"][0]<0 or t["box"][1]<0 or t["box"][2]>1200
+                or t["box"][3]>1500 for t in tracked.texts),
+            "overlaps": False,
+        }
+
+    def _role_candidate(index, renderer, variant):
+        candidate = dict(concepts[index])
+        candidate["variant"]=variant
+        with capture() as tracked:
+            output = renderer(product,genuine_photo,candidate,
+                              scenes[index],distributor)
+        return output,_geometry(tracked)
+
+    image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
+        lambda variant:_role_candidate(0,technical_poster,variant),
+        "technical_application",genuine_photo)
     retail=concepts[1]
     visual=retail["visual_plan"]
-    image_assets["poster_price"] = render_promo(
-        retail,genuine_photo,product,distributor,editor={
+
+    def _price_candidate(variant):
+        candidate=dict(retail)
+        candidate["variant"]=variant
+        styles=("panel","tag","plaque")
+        # Different price layouts are assessed before delivery. The price
+        # remains verified and the real tool cutout is always reused.
+        context_style={
+            "crop":((.46,.46),(.56,.55),(.42,.52))[variant],
+            "darkness":(.29,.25,.32)[variant],
+            "blur":(2.0,2.4,1.8)[variant],"colour":.82,
+        }
+        detail={}
+        output=render_promo(candidate,genuine_photo,product,distributor,editor={
             "background":"context","_scene_bytes":scenes[1],
-            "_scene_style":{"crop":(.45,.51),"darkness":.22,"blur":2.2,"colour":.9},
-            "show_subline":True,"price_style":visual["price_style"],
-            "accent":visual["accent"],"product_scale":100})
-    image_assets["poster_smart"] = smart_poster(
-        product,genuine_photo,concepts[2],scenes[2],distributor)
+            "_scene_style":context_style,"show_subline":False,
+            "price_style":styles[variant],
+            "accent":visual["accent"],"product_scale":(115,105,112)[variant],
+            "_quality_report":detail})
+        return output,{"truncated":False,"out_of_bounds":False,
+                       "overlaps":bool(detail.get("issues"))}
+
+    image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
+        _price_candidate,"price_promo",genuine_photo)
+    image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
+        lambda variant:_role_candidate(2,smart_poster,variant),
+        "product_selected",genuine_photo)
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
     for key in ("social_square", "social_story", "website_banner", "email_header"):
@@ -491,6 +559,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "category": product["marketing_direction"].get("category_label", ""),
         "marketing_strategy": marketing_strategy,
         "creative_plan": creative_plan,
+        "artwork_quality": quality_reports,
         "scene_photography": scene_references,
         "social_suggestions": social_suggestions,
         "source": _approved_source(product),
