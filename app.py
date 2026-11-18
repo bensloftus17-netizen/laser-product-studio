@@ -31,7 +31,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v38-share-to-apps">
+<link rel="stylesheet" href="/static/styles.css?design=v39-ai-marketing-strategy">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -141,6 +141,17 @@ V7_HOME_PAGE = r'''
  <button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button>
  <small>Nothing downloads automatically. Sharing is optional too.</small>
  </div></div>
+<section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
+ <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
+ <div class="marketing-strategy-grid">
+  <div class="strategy-field"><small>Product category</small><b id="strategyCategory"></b></div>
+  <div class="strategy-field"><small>Suggested target audience</small><b id="strategyAudience"></b></div>
+  <div class="strategy-field"><small>Recommended sales angle</small><b id="strategyFocus"></b></div>
+  <div class="strategy-field"><small>Recommended channels</small><b id="strategyChannels"></b></div>
+ </div>
+ <div class="marketing-proof"><small>Why this is recommended</small><p id="strategyReason"></p><small>Verified manufacturer selling point</small><p id="strategyProof"></p></div>
+ <p class="strategy-warning">Audience and channel recommendations are marketing hypotheses, not verified prospects. The team must approve the approach and all manufacturer claims before publication.</p>
+</section>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
 <h4>Campaign graphics — built for each channel</h4><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
 
@@ -708,6 +719,17 @@ function showCampaign(data){
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
  $('campaignSummary').textContent=(m.generation_method==='gemini-assisted'?'Gemini-directed campaign using source-verified facts. ':'Verified-source fallback campaign (Gemini unavailable). ')
      +m.files.length+' files in the ZIP. All materials still require approval.';
+ const strategy=m.marketing_strategy;
+ $('marketingStrategyPanel').hidden=!strategy;
+ if(strategy){
+  $('strategyMethod').textContent=strategy.method_label||'Product-aware recommendation';
+  $('strategyCategory').textContent=strategy.category_label||'Uncategorised';
+  $('strategyAudience').textContent=strategy.target_audience||'Sales review required';
+  $('strategyFocus').textContent=strategy.primary_focus_label||'Review required';
+  $('strategyChannels').textContent=(strategy.recommended_channels||[]).map(c=>c.label).join(' + ');
+  $('strategyReason').textContent=strategy.reason||'Requires review';
+  $('strategyProof').textContent=strategy.proof_point||'No verified manufacturer feature available';
+ }
  $('campaignDownload').href='/api/campaign/download/'+encodeURIComponent(data.token);
  $('campaignDownload').setAttribute('download','LASER_'+m.part+'_Complete_Campaign.zip');
  delete $('campaignShareZip').dataset.shareLoading;
@@ -726,7 +748,8 @@ function showCampaign(data){
  socialButton.hidden=!socialAsset;
  if(socialAsset)prepareShareButton(socialButton);
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
-  '<div class="campaign-angle"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+'</span><b>'+esc(angle.headline)+'</b><p>'+esc(angle.selling_point)+'</p></div>').join('');
+  '<div class="campaign-angle'+(strategy&&strategy.primary_focus===angle.focus?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
+  (strategy&&strategy.primary_focus===angle.focus?' · RECOMMENDED':'')+'</span><b>'+esc(angle.headline)+'</b><p>'+esc(angle.selling_point)+'</p></div>').join('');
  const names={poster_price:'Price-led Poster',poster_benefit:'Benefit-led Poster',poster_application:'Application-led Poster',
  social_square:'Facebook / Instagram Square',social_story:'Story / Vertical',website_banner:'Website Banner',
  email_header:'Email Header',source_qr:'Official Product QR'};
