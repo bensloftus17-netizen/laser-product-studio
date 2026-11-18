@@ -101,7 +101,7 @@ class OriginalFormatCampaignTests(unittest.TestCase):
                 self.assertEqual(safe["zones"],raw["zones"])
                 self.assertEqual(safe["source"],"AI-format-specific-canvas")
                 shapes.append(tuple(safe["zones"]["product"]))
-        self.assertEqual(len(set(shapes)),4)
+        self.assertEqual(len(set(shapes)),6)
         self.assertEqual(FORMATS["social_story"][:2],(1080,1920))
         self.assertEqual(FORMATS["website_banner"][:2],(1600,600))
         self.assertEqual(FORMATS["email_header"][:2],(1200,420))
@@ -209,7 +209,7 @@ class OriginalFormatCampaignTests(unittest.TestCase):
                      "native_dimensions":list(FORMATS[kind][:2])})) as render,\
              patch("campaign_hub._native_graphic") as legacy:
             pack=build_campaign(PRODUCT,image_bytes(),use_gemini=True)
-        self.assertEqual(render.call_count,4)
+        self.assertEqual(render.call_count,6)
         self.assertEqual(legacy.call_count,0)
         self.assertEqual(set(pack["manifest"]["ai_format_canvases"]),set(FOUR))
         self.assertEqual(set(pack["manifest"]["format_artwork_quality"]),set(FOUR))
