@@ -1276,7 +1276,10 @@ DUTCH_WORDS=re.compile(
 GERMAN_TECH=re.compile(
     r'\b(?:Drehmoment|Druckluft|Schlagschrauber|Werkzeugstahl|'
     r'geeignet\s+für|Fahrzeuge|Verwendung|Ausführung|'
-    r'Kugellager|Montagewerkzeug)\b',re.I)
+    r'Kugellager|Montagewerkzeug|Auswechselbar\w*|Wechselbar\w*|'
+    r'Schlüsselköpfe|Schluesselkoepfe|Maulschlüssel|'
+    r'Schraubenschlüssel|Steckschlüssel|Schlüsselweite\w*|'
+    r'Schlüsselgröße\w*|Drehmomentschlüssel|Aufsätze)\b',re.I)
 SPANISH_TECH=re.compile(
     r'\b(?:herramienta|vehículos|rodamiento|para\s+la|'
     r'presión\s+de|aplicaciones|fabricado|incluye)\b',re.I)
