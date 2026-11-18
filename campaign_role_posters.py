@@ -95,7 +95,21 @@ def product_photo(canvas, blob, bounds, *, scale=1.0):
                              min(W,x+image.width+pad),min(H,y+image.height+pad)),
                             radius=16,fill="#16354F",outline="#6E9AB5",width=3)
     if info["isolated"]:
+        from PIL import ImageStat
         alpha=image.getchannel("A")
+        mean=sum(ImageStat.Stat(image.convert("RGB"),mask=alpha).mean)/3
+        if mean<115:
+            # Dark tool against a dark workshop? Lift the *background only*.
+            # The original manufacturer pixels remain entirely untouched.
+            spotlight=Image.new("RGBA",(W,H),(0,0,0,0))
+            glow_draw=ImageDraw.Draw(spotlight,"RGBA")
+            spread=max(24,round(min(image.size)*.12))
+            glow_draw.ellipse((max(0,x-spread),max(0,y-spread),
+                               min(W,x+image.width+spread),
+                               min(H,y+image.height+spread)),
+                              fill=(112,203,240,94))
+            spotlight=spotlight.filter(ImageFilter.GaussianBlur(52))
+            canvas.alpha_composite(spotlight)
         # A natural studio shadow behind genuine steel, not a tool redraw.
         shadow=Image.new("RGBA",image.size,(5,16,28,0))
         shadow.putalpha(alpha.filter(ImageFilter.GaussianBlur(17)).point(
