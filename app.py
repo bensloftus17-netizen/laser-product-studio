@@ -156,6 +156,15 @@ V7_HOME_PAGE = r'''
  <p><b>These are only three quick previews.</b> To generate the complete AI marketing campaign, including all nine graphics and the downloadable pack, choose Build Full Campaign.</p>
  <button type="button" id="previewBuildFull">Build All 9 Graphics</button>
 </div>
+<section id="campaignProgress" class="campaign-progress" aria-label="Live artwork generation progress" hidden>
+ <div class="campaign-progress-heading">
+  <h3>Live campaign artwork</h3>
+  <span id="campaignProgressCount" role="status" aria-live="polite">0 of 9 graphics ready</span>
+ </div>
+ <p id="campaignProgressStage" role="status" aria-live="polite">Verifying the product…</p>
+ <div id="campaignProgressGrid" class="campaign-progress-grid"></div>
+ <p id="campaignProgressZip" class="campaign-progress-zip">Full ZIP preparing — individual graphics will become available after quality checks.</p>
+</section>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
@@ -466,7 +475,7 @@ document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventLis
 
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('campaignProgress').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  legacyShareFile=null;$('legacyShareZip').disabled=true;
  const id=selectedDistributor(),target=$('distributorPreview');
@@ -481,7 +490,7 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){$('previewCampaignCallout').hidden=true;legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('previewCampaignCallout').hidden=true;$('campaignProgress').hidden=true;legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc(((p.marketing_direction||{}).site_category_path||[]).length
  ?(p.marketing_direction.site_category_path.join(' › '))
@@ -824,6 +833,7 @@ function renderCampaignGallery(data){
  $('previews').hidden=true;
  $('previewCampaignCallout').hidden=true;
  $('campaignResults').hidden=false;
+ $('campaignProgress').hidden=true;
  $('campaignRecovery').hidden=true;
 }
 $('campaignAssets').addEventListener('load',event=>{
@@ -854,6 +864,87 @@ $('campaignAssets').addEventListener('click',event=>{
  img.src=base+'?retry='+Date.now();
 });
 
+
+
+// A progressive campaign is not a lower-quality draft. Artwork appears ONLY
+// after the server's normal source, layout, image, and critic gates succeed.
+const PROGRESS_FORMATS=[
+ ['poster_technical','01 · Technical poster'],
+ ['poster_price','02 · Price poster'],
+ ['poster_smart','03 · Product poster'],
+ ['social_square','04 · Social square'],
+ ['social_story','05 · Instagram Story'],
+ ['website_banner','06 · Website banner'],
+ ['email_header','07 · Email header'],
+ ['linkedin_graphic','08 · LinkedIn graphic'],
+ ['landscape_ad','09 · Landscape advert']
+];
+const PROGRESS_STAGE_LABELS={
+ queued:'Campaign queued for generation…',
+ verifying_product:'Retrieving official product information and real manufacturer photography…',
+ planning:'AI is planning your unique campaign concepts and layouts…',
+ finding_context:'Choosing suitable application/background photography…',
+ rendering_posters:'Creating three quality-controlled original posters…',
+ reviewing_posters:'Checking all posters for text, cutouts and creative quality…',
+ rendering_formats:'Rendering each additional marketing format at its own size…',
+ finalising_pack:'All nine graphics ready. Building the complete ZIP and review documents…',
+ complete:'All nine graphics are ready for review.',
+ failed:'The campaign could not finish. Download any graphics already shown as ready.'
+};
+let progressJobShown=null;
+const progressDisplayed=new Set();
+function renderProgressGallery(jobId,data){
+ if(!/^[A-Za-z0-9_-]{24,64}$/.test(jobId))return;
+ const section=$('campaignProgress');
+ if(progressJobShown!==jobId){
+  progressJobShown=jobId;
+  progressDisplayed.clear();
+  $('campaignProgressGrid').innerHTML=PROGRESS_FORMATS.map(([id,label])=>
+   '<article class="campaign-progress-card" id="progress-card-'+id+'">'+
+   '<div class="campaign-progress-preview"><a id="progress-open-'+id+
+    '" target="_blank" rel="noopener noreferrer" hidden>'+
+   '<img id="progress-img-'+id+'" alt="'+label+' verified marketing graphic" loading="lazy" hidden></a>'+
+   '<span id="progress-placeholder-'+id+'">Artwork preparing…</span></div>'+
+   '<b>'+label+'</b><span id="progress-state-'+id+
+    '" class="campaign-progress-state" role="status">Queued</span>'+
+   '<a id="progress-save-'+id+
+    '" class="campaign-progress-save" download="LASER_'+id+'.png" hidden>Download PNG</a>'+
+   '</article>').join('');
+ }
+ section.hidden=false;
+ $('campaignResults').hidden=true;
+ $('previews').hidden=true;
+ $('previewCampaignCallout').hidden=true;
+ const assets=data.assets||{};
+ const stage=PROGRESS_STAGE_LABELS[data.stage]||'Working on the campaign…';
+ const ready=PROGRESS_FORMATS.filter(([id])=>assets[id]&&assets[id].status==='ready').length;
+ $('campaignProgressCount').textContent=ready+' of 9 graphics ready';
+ $('campaignProgressStage').textContent=stage;
+ $('campaignProgressZip').textContent=data.status==='failed'
+    ?'Full ZIP unavailable: the campaign did not pass every required check. Ready PNGs remain downloadable until the job expires.'
+    :'Full ZIP preparing. Finished, quality-checked PNGs can be viewed or downloaded below.';
+ $('assetWorkspaceStatus').textContent=ready+' of 9 artworks ready · '+stage;
+ for(const [id] of PROGRESS_FORMATS){
+  const item=assets[id]||{};
+  const status=item.status||'queued';
+  const message={queued:'Queued',rendering:'Generating',quality_checking:'Quality checking',
+    ready:'Ready · passed checks',failed:'Quality check failed'}[status]||'Queued';
+  $('progress-state-'+id).textContent=message;
+  $('progress-card-'+id).dataset.status=status;
+  if(status==='ready'&&!progressDisplayed.has(id)){
+   const url='/api/campaign/job-assets/'+encodeURIComponent(jobId)+'/'+id;
+   const img=$('progress-img-'+id),open=$('progress-open-'+id),save=$('progress-save-'+id);
+   img.src=url;img.hidden=false;
+   open.href=url;open.hidden=false;
+   save.href=url+'?download=1';save.hidden=false;
+   $('progress-placeholder-'+id).hidden=true;
+   progressDisplayed.add(id);
+  }
+  if(status==='failed'&&item.error){
+   $('progress-state-'+id).title=String(item.error).slice(0,150);
+  }
+ }
+}
 
 // Safari may close or suspend the page while a full set of artwork is being
 // generated. Store only the short-lived bearer token for this draft in the
@@ -893,13 +984,14 @@ function rememberFinishedCampaign(data){
 async function pollMobileCampaign(job_id){
  // A finished campaign is looked up by a short-lived job ID, not regenerated.
  // Normal tab suspension pauses JS polling but does not cancel server work.
- for(let attempt=0;attempt<125;attempt++){
+ for(let attempt=0;attempt<250;attempt++){
   const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
                              {cache:'no-store',headers:{Accept:'application/json'}});
   const data=await readApiJson(response);
+  renderProgressGallery(job_id,data);
   if(data.status==='ready'&&data.manifest&&data.token)return data;
   if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
-  $('campaignStatus').textContent='Creating your complete campaign: 3 posters and 6 more original marketing formats. Please keep this tab open, or reopen your campaign when you return.';
+  $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+(PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+' You can open finished PNGs while the rest is created.';
   await new Promise(resolve=>setTimeout(resolve,2400));
  }
  throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
@@ -1216,25 +1308,17 @@ $('campaignBtn').addEventListener('click',async()=>{
        staff_rrp_ex:rawPrice||staffApplied,
        staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
        staff_rrp_basis:rawPrice?reviewedBasis:staffBasis};
-   const onPhone=(window.matchMedia&&window.matchMedia('(max-width:760px)').matches)||
-       /iPhone|iPad|Android/i.test(navigator.userAgent);
-   let data;
-   if(onPhone){
-     // The old one-minute POST can be interrupted when iOS locks or suspends
-     // Safari. Instead the phone receives a job ID immediately and can resume.
-     $('previews').hidden=true;
-     $('previewCampaignCallout').hidden=true;
-     $('assetWorkspaceStatus').textContent='Generating all 9 campaign graphics — preview posters are not the finished campaign.';
-     const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
-       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-       body:JSON.stringify(body)}));
-     rememberMobileJob(started.job_id,part);
-     data=await pollMobileCampaign(started.job_id);
-   }else{
-     data=await readApiJson(await fetch('/api/campaign/'+encodeURIComponent(part),{
-       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-       body:JSON.stringify(body)}));
-   }
+   // All browsers now use resumable jobs. Desktop users also get per-asset
+   // progressive results without rerunning Gemini or reducing image QA.
+   $('previews').hidden=true;
+   $('previewCampaignCallout').hidden=true;
+   $('assetWorkspaceStatus').textContent='Preparing 9 high-quality graphics. Each will appear once it passes QA.';
+   const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
+     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+     body:JSON.stringify(body)}));
+   rememberMobileJob(started.job_id,part);
+   renderProgressGallery(started.job_id,{status:'queued',stage:'queued'});
+   const data=await pollMobileCampaign(started.job_id);
    rememberFinishedCampaign(data);
    showCampaign(data);
    $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links expire after 15 minutes.';
@@ -1242,7 +1326,10 @@ $('campaignBtn').addEventListener('click',async()=>{
    $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
      ' The three basic previews are not a complete AI campaign.';
    setState(error.message||'Campaign generation failed','error');
-   $('previews').hidden=false;
+   if($('campaignProgress').hidden){
+     $('previews').hidden=false;
+     $('previewCampaignCallout').hidden=false;
+   }
    updateCampaignRecovery();
  }
  finally{button.disabled=false;button.textContent='✦ Build Campaign';}
