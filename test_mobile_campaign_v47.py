@@ -201,6 +201,7 @@ const ctx={
   throw Error('Unexpected URL '+url);
  },
  readApiJson:async(result)=>result.json(),
+ renderProgressGallery:()=>{},
  showCampaign:(data)=>{received=data;},
  active:null,activePhoto:null,inflight:false
 };
