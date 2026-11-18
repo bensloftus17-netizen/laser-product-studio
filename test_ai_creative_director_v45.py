@@ -139,6 +139,48 @@ class CreativeDirectorV45Tests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertTrue(any("duplicate" in issue for issue in result["issues"]))
 
+    def test_real_manufacturer_photo_freeform_artwork(self):
+        """When the genuine 8899 photo is reachable, actually render all three."""
+        import requests
+        from campaign_art_quality import visual_review
+        try:
+            response=requests.get(
+                "https://www.lasertools.co.uk/items/xlarge/8899.jpg",
+                timeout=(3,12))
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            self.skipTest("Official photo unavailable: "+str(exc)[:90])
+        photo=response.content
+        evaluation=inspect_asset(photo)
+        self.assertTrue(evaluation["passed"],evaluation)
+        product={
+            "part":"8899","title":"Ball Joint Separator for JLR",
+            "features":["Heavy-duty scissor-type ball joint separator."],
+            "price":"£144.16 excluding VAT","specs":{},
+        }
+        for role,brief in (
+            ("technical_application",TECH),
+            ("price_promo",PRICE),
+            ("product_selected",SMART),
+        ):
+            with self.subTest(role=role):
+                concept={"campaign_role":role,
+                         "creative_canvas":brief,
+                         "headline":"Ball Joint Separator",
+                         "selling_point":product["features"][0]}
+                with capture() as traced:
+                    result=render_creative_canvas(product,photo,concept,variant=1)
+                status={
+                    "truncated":any(x["truncated"] for x in traced.texts),
+                    "missing_headline":not any(
+                        x["role"]=="headline" for x in traced.texts),
+                    "product_visible_fraction":max(
+                        (x["visible_fraction"] for x in traced.products),
+                        default=0),
+                }
+                report=visual_review(result,role,text_status=status)
+                self.assertTrue(report["passed"],report)
+
     def test_no_ai_critic_without_key_but_deterministic_qa_remains(self):
         with patch.dict("os.environ",{"GEMINI_API_KEY":""}):
             result=review_finished_artworks({})
