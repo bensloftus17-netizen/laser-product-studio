@@ -901,3 +901,31 @@ body{background:#eef4fb;color:#102744;min-width:320px}
 .taxonomy-no-results{font-size:11px;color:#697f92}
 @media(max-width:760px){#taxonomyMatches{grid-template-columns:1fr}
  .taxonomy-explorer-content{padding:12px}}
+
+/* V41: one campaign builder, three purpose-built creative artboards. */
+#productStudio[hidden],#aiExplore[hidden],#searchBtn[hidden]{display:none!important}
+.studio-sidebar .sidebar-section p{line-height:1.6}
+.campaign-role-note{font-size:11px;line-height:1.6;color:#305a78;
+ background:#edf7ff;border-left:4px solid #0873b7;border-radius:7px;
+ padding:10px 13px;margin:11px 0 16px}
+.campaign-angle small{display:block;font-size:10px;line-height:1.4;
+ color:#5982a0;font-weight:650;margin:5px 0}
+.campaign-angle.strategy-recommended{border-color:#0d85c4!important;
+ background:#f0faff}
+.campaign-social-ideas{margin:20px 0 18px;padding:18px;
+ border:1px solid #c8dce9;border-radius:12px;background:#f9fcff}
+.campaign-social-ideas[hidden]{display:none}
+.campaign-social-ideas h4{margin:0 0 7px;font-size:16px;font-weight:850;color:#123e60}
+.campaign-social-ideas>p{margin:0 0 13px;font-size:11px;line-height:1.6;color:#4b7894}
+.story-suggestion-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.story-suggestion{border:1px solid #d5e6f2;border-radius:9px;background:#fff;
+ padding:12px 11px;min-height:100px}
+.story-suggestion b{display:block;font-size:10px;line-height:1.45;
+ color:#0871aa;text-transform:uppercase}
+.story-suggestion p{font-size:11px;line-height:1.7;color:#224961;margin:8px 0 0;
+ overflow-wrap:anywhere}
+.campaign-social-tip{margin-top:11px;font-size:11px;color:#577c97;line-height:1.55}
+.workspace-secondary-note{font-size:10px;font-weight:650;color:#6b8ba4;text-align:right}
+@media(max-width:740px){.story-suggestion-cards{grid-template-columns:1fr}
+ .campaign-social-ideas{padding:12px}
+ .workspace-secondary-note{display:none}}

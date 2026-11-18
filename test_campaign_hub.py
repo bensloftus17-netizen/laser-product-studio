@@ -43,7 +43,8 @@ class CampaignHubTests(unittest.TestCase):
         return _png(picture)
 
     def build(self, product=None, **kwargs):
-        with patch("campaign_hub.render_promo", side_effect=self.sample_poster):
+        with patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             return build_campaign(product or self.product, self.photo,
                                   use_gemini=False, **kwargs)
 
@@ -54,15 +55,16 @@ class CampaignHubTests(unittest.TestCase):
         self.assertTrue(manifest["review_required"])
         self.assertEqual(len(manifest["angles"]), 3)
         self.assertEqual([x["focus"] for x in manifest["angles"]],
-                         ["price", "benefit", "application"])
+                         ["application", "price", "benefit"])
         expected = {
-            "01_Posters/Price-led.png", "01_Posters/Benefit-led.png",
-            "01_Posters/Application-led.png",
+            "01_Posters/01_Application_Technical.png", "01_Posters/02_Price_Promotion.png",
+            "01_Posters/03_Product_Selected.png",
             "02_Social/Facebook_Instagram_Square.png",
             "02_Social/Instagram_Facebook_Story.png",
             "03_Web_Email/Website_Banner.png",
             "03_Web_Email/Email_Header.png",
             "04_Copy/All_Channels.txt", "04_Copy/All_Channels.json",
+            "04_Copy/Instagram_Story_Suggestions.txt",
             "05_Product_Info/Official_Product_QR.png",
             "05_Product_Info/Campaign_Summary.pdf",
             "05_Product_Info/Marketing_Strategy.txt",
@@ -101,7 +103,8 @@ class CampaignHubTests(unittest.TestCase):
 
     def test_one_click_api_and_tokenised_downloads(self):
         with patch.object(studio, "lookup", return_value=(self.product, self.photo)), \
-             patch("campaign_hub.render_promo", side_effect=self.sample_poster):
+             patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             res = studio.app.test_client().post("/api/campaign/9364",
                 json={"distributor_brand": "none"})
         self.assertEqual(res.status_code, 200, res.get_json())
@@ -156,7 +159,8 @@ class CampaignHubTests(unittest.TestCase):
 
     def test_one_click_without_gemini_uses_honest_fallback(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": ""}), \
-             patch("campaign_hub.render_promo", side_effect=self.sample_poster):
+             patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             result = build_campaign(self.product, self.photo)
         self.assertEqual(result["manifest"]["generation_method"],
                          "verified-template-fallback")

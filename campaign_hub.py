@@ -28,6 +28,9 @@ from campaign_strategy import explain_strategy
 from poster import font
 from promo_copy import compose_promotional_copy
 from promo_selling_points import choose_feature, focus_concept
+from campaign_director import plan_campaign, POSTER_LABELS, ROLES
+from campaign_role_posters import technical_poster, smart_poster
+from promo_scene_library import find_scene, classify_product
 
 NAVY = "#0A2948"
 BLUE = "#006EB8"
@@ -35,11 +38,11 @@ CYAN = "#16B1E7"
 WHITE = "#FFFFFF"
 YELLOW = "#F8C343"
 TEXT = "#092A47"
-FAMILIES_LABELS = ("Price-led", "Benefit-led", "Application-led")
+FAMILIES_LABELS = POSTER_LABELS
 FOLDERS = {
-    "poster_price": "01_Posters/Price-led.png",
-    "poster_benefit": "01_Posters/Benefit-led.png",
-    "poster_application": "01_Posters/Application-led.png",
+    "poster_technical": "01_Posters/01_Application_Technical.png",
+    "poster_price": "01_Posters/02_Price_Promotion.png",
+    "poster_smart": "01_Posters/03_Product_Selected.png",
     "social_square": "02_Social/Facebook_Instagram_Square.png",
     "social_story": "02_Social/Instagram_Facebook_Story.png",
     "website_banner": "03_Web_Email/Website_Banner.png",
@@ -160,8 +163,13 @@ def _price_line(product):
     return "{} {} {}".format(info["label"], info["amount"], info["vat"]).strip()
 
 
-def _native_graphic(product, photo, distributor, kind, fact):
-    """Independent formats with measured typography, not clipped poster crops."""
+def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_plan=None):
+    """Product-specific stories and banners with genuine workshop context.
+
+    Supporting photography is curated or approved; original tool image is
+    presented separately, never AI-redrawn or represented as a documented
+    demonstration.
+    """
     sizes = {
         "social_square": (1080, 1080),
         "social_story": (1080, 1920),
@@ -170,12 +178,29 @@ def _native_graphic(product, photo, distributor, kind, fact):
     }
     width, height = sizes[kind]
     canvas = Image.new("RGBA", (width, height), NAVY)
+    if scene:
+        try:
+            from PIL import ImageEnhance, ImageFilter
+            actual = Image.open(io.BytesIO(scene)).convert("RGB")
+            actual.thumbnail((1900,1900),Image.Resampling.LANCZOS)
+            region = (
+                (0,190,width,height) if kind=="social_square" else
+                (0,250,width,1610) if kind=="social_story" else
+                (width//2,0,width,height)
+            )
+            sx,sy,ex,ey=region
+            contextual=ImageOps.fit(actual,(ex-sx,ey-sy),Image.Resampling.LANCZOS)
+            contextual=ImageEnhance.Brightness(contextual).enhance(.47)
+            contextual=contextual.filter(ImageFilter.GaussianBlur(1.6))
+            canvas.paste(contextual,(sx,sy))
+        except (OSError,ValueError):
+            pass
     d = ImageDraw.Draw(canvas)
     title = _clean(product.get("title"), 150) or "Laser Tools product"
     part = _clean(product.get("part"), 18)
     price = _price_line(product)
     if kind == "social_square":
-        d.rectangle((0, 210, width, height), fill=BLUE)
+        if not scene:d.rectangle((0, 210, width, height), fill=BLUE)
         d.polygon([(0, 1000), (1080, 820), (1080, 1080), (0, 1080)], fill=NAVY)
         _brand(canvas, part, distributor)
         _fitted(d, title, (50, 200, 1025, 370), (64, 56, 48, 42, 36), WHITE, 3)
@@ -183,7 +208,7 @@ def _native_graphic(product, photo, distributor, kind, fact):
         d.rounded_rectangle((62, 896, 1015, 1020), radius=10, fill=WHITE)
         _fitted(d, price, (90, 918, 980, 1001), (47, 41, 35, 28, 23), TEXT, 2)
     elif kind == "social_story":
-        d.rectangle((0, 200, width, height), fill=BLUE)
+        if not scene:d.rectangle((0, 200, width, height), fill=BLUE)
         d.polygon([(0, 1620), (1080, 1400), (1080, 1920), (0, 1920)], fill=NAVY)
         _brand(canvas, part, distributor)
         _fitted(d, title, (58, 258, 1022, 515), (81, 72, 60, 52, 44), WHITE, 4)
@@ -275,7 +300,7 @@ def _copies(product, concepts):
             + _clean(product.get("title"), 120) + ". "
             + _price_line(product) + ". Enquire for details."
         )
-        copy["campaign_angle"] = FAMILIES_LABELS[index]
+        copy["campaign_angle"] = concepts[index].get("name") or FAMILIES_LABELS[index]
         sets.append(copy)
     return sets
 
@@ -366,7 +391,8 @@ def _source_qr(product):
     return _render_png(qr.make_image(fill_color="black", back_color="white").convert("RGB"))
 
 
-def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True):
+def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
+                   application_photo=None):
     """Return a complete archive plus previewable images and a public manifest.
 
     Never accept unverified images, pricing or technical claims from the browser.
@@ -378,32 +404,83 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
         raise ValueError("Unsupported distributor brand.")
     product = dict(product)
     product["marketing_direction"] = strategy_for(product)
-    concepts, mode, warnings = _concepts(product, use_gemini)
-    ai_choice = (concepts[0].get("ai_strategy_choice")
-                 if mode == "gemini-assisted" and concepts else None)
+    raw_concepts, mode, warnings = _concepts(product, use_gemini)
+    ai_choice = (raw_concepts[0].get("ai_strategy_choice")
+                 if mode == "gemini-assisted" and raw_concepts else None)
     marketing_strategy = explain_strategy(product, ai_choice)
-    image_assets = {}
+    # The three posters are *always* technical, commercial and a third angle
+    # selected for the actual product. Their layouts are not variations of one
+    # general-purpose poster template.
+    concepts, creative_plan = plan_campaign(
+        product, raw_concepts if mode == "gemini-assisted" else [], marketing_strategy)
+    scenes = []
+    scene_references = []
     for index, concept in enumerate(concepts):
-        key = ("poster_price", "poster_benefit", "poster_application")[index]
-        image_assets[key] = render_promo(concept, genuine_photo, product, distributor,
-                                         editor={"background": "clean",
-                                                 "show_subline": True})
-    # A specialised vehicle kit should foreground verified application,
-    # whereas a socket set or a press needs its category-relevant proof.
+        visual=concept["visual_plan"]
+        # The model may select an angle but NEVER an arbitrary photo URL.
+        # Scene choices come from fixed, licensed photography and, where
+        # available, an official genuine product application photograph.
+        picture, ref = find_scene(
+            product,variation=visual["scene_index"],
+            official_photo=application_photo,
+            prefer_official=(index==0 and bool(application_photo)),
+            category_override=visual["scene_category"],
+            family=concept["family"])
+        scenes.append(picture)
+        scene_references.append({
+            "role":concept["campaign_role"],
+            "category":ref.get("category"),"description":ref.get("description"),
+            "source":ref.get("source"),"page_url":ref.get("page_url"),
+            "license_url":ref.get("license_url"),
+            "note":"Context photo, not evidence of this exact tool in use.",
+        })
+    image_assets = {}
+    # 1: genuinely technical editorial design; 2: bold retail price creative;
+    # 3: separate category-specific split editorial / workshop scene.
+    image_assets["poster_technical"] = technical_poster(
+        product,genuine_photo,concepts[0],scenes[0],distributor)
+    retail=concepts[1]
+    visual=retail["visual_plan"]
+    image_assets["poster_price"] = render_promo(
+        retail,genuine_photo,product,distributor,editor={
+            "background":"context","_scene_bytes":scenes[1],
+            "_scene_style":{"crop":(.45,.51),"darkness":.22,"blur":2.2,"colour":.9},
+            "show_subline":True,"price_style":visual["price_style"],
+            "accent":visual["accent"],"product_scale":100})
+    image_assets["poster_smart"] = smart_poster(
+        product,genuine_photo,concepts[2],scenes[2],distributor)
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
     for key in ("social_square", "social_story", "website_banner", "email_header"):
-        image_assets[key] = _native_graphic(product, genuine_photo, distributor, key, proof)
+        scene_idx=0 if key=="social_story" else 2 if key=="website_banner" else 1
+        image_assets[key] = _native_graphic(
+            product,genuine_photo,distributor,key,proof,
+            scene=scenes[scene_idx],visual_plan=creative_plan)
     qr = _source_qr(product)
     if qr:
         image_assets["source_qr"] = qr
 
     copies = _copies(product, concepts)
+    title=_clean(product.get("title"),130)
+    story_fact=concepts[0].get("selling_point") or "Review official product specifications."
+    smart_fact=concepts[2].get("selling_point") or "Review official product specifications."
+    social_suggestions={
+        "instagram_story":[
+            {"slide":1,"suggestion":"Introduce the product","text":"LASER "+str(product.get("part") or "")+" · "+title},
+            {"slide":2,"suggestion":"Show its documented application","text":story_fact},
+            {"slide":3,"suggestion":"Highlight the selected extra angle","text":smart_fact},
+        ],
+        "whatsapp":"Laser Tools "+str(product.get("part") or "")+" — "+title+
+                   ". See official details to confirm suitability before ordering.",
+        "instagram_caption":copies[0]["social_caption"],
+        "review_note":"Suggested layout and wording only. Review product information, confirm application and obtain company approval before posting.",
+    }
     files = dict(FOLDERS)
     if qr:
         files["source_qr"] = "05_Product_Info/Official_Product_QR.png"
     file_paths = list(files.values()) + [
         "04_Copy/All_Channels.txt", "04_Copy/All_Channels.json",
+        "04_Copy/Instagram_Story_Suggestions.txt",
         "05_Product_Info/Marketing_Strategy.txt",
         "05_Product_Info/Source_Record.json", "05_Product_Info/Campaign_Summary.pdf",
         "05_Product_Info/READ_FIRST.txt", "Campaign_Manifest.json",
@@ -413,13 +490,19 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
         "title": str(product.get("title", "")),
         "category": product["marketing_direction"].get("category_label", ""),
         "marketing_strategy": marketing_strategy,
+        "creative_plan": creative_plan,
+        "scene_photography": scene_references,
+        "social_suggestions": social_suggestions,
         "source": _approved_source(product),
         "distributor": BRAND_LABELS.get(distributor) if distributor else None,
         "price": _price_line(product),
         "generation_method": mode,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "angles": [
-            {"name": FAMILIES_LABELS[index], "focus": concept["focus"],
+            {"name": concept.get("name") or FAMILIES_LABELS[index],
+             "role":ROLES[index], "focus": concept["focus"],
+             "third_angle":concept.get("third_angle"),
+             "layout":concept["family"],
              "headline": str(concept.get("headline") or ""),
              "selling_point": str(concept.get("selling_point") or "")}
             for index, concept in enumerate(concepts)
@@ -452,6 +535,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
             z.writestr(files[key], payload)
         z.writestr("04_Copy/All_Channels.txt", _copy_text(copies))
         z.writestr("04_Copy/All_Channels.json", json.dumps(copies, indent=2, ensure_ascii=False))
+        z.writestr("04_Copy/Instagram_Story_Suggestions.txt", "\n\n".join(
+            "Story frame "+str(v["slide"])+" — "+v["suggestion"]+"\n"+v["text"]
+            for v in social_suggestions["instagram_story"])+"\n\n"+
+            social_suggestions["review_note"])
         strategy_note = (
             "LASER TOOLS — RECOMMENDED PRODUCT MARKETING STRATEGY (DRAFT)\n\n"
             + "Category: " + marketing_strategy["category_label"] + "\n"

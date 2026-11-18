@@ -1,5 +1,43 @@
 # Laser Product Studio
 
+## One Build Campaign: three different posters (V41)
+
+The public website exposes ONE campaign generator, Build Campaign. The
+separate standard and AI poster generators are hidden from the normal
+workflow. Legacy endpoints remain for compatibility.
+
+Each verified part number yields:
+- Application / Technical: source-verified purpose, use and specifications,
+  genuine manufacturer photography, different editorial layout, not a large
+  retail price tag.
+- Price Promotion: bold promotional layout, real tool imagery, staff-reviewed
+  price or honest price-on-request, distinct background and headline priority.
+- Product-Selected: a different editorial layout emphasising a category-based
+  third angle, such as timing-kit contents, bearing service, press capacity,
+  lighting performance or EV electrical ratings.
+
+The director plans different role, image, layout, palette, feature and focus
+for each part number. It reads verified product facts and official category
+data, not invented fitment. Gemini may select the third creative direction
+from bounded product-relevant options during the existing concept request;
+if unavailable, a labelled category-specific fallback is used.
+
+When available, each poster can use a different real licensed contextual
+workshop photograph or an official manufacturer application photo. The
+actual product photograph is not AI-redrawn. If real context is unavailable,
+the app uses a safe designed background rather than fake tool photographs.
+
+The single campaign includes a social square, Instagram/Facebook Story,
+website and email banners, three Instagram Story suggestions, one existing
+copy editor with AI rewrite actions, individual downloads/native sharing,
+and an optional ZIP with source/photo attribution and the campaign strategy.
+No automatic downloads or publishing.
+
+This is a product-aware AI-assisted planner, NOT an autonomously trained
+sales model. All outputs require review.
+
+Tests: python -m unittest test_unified_campaign.py
+
 ## Official category to marketing strategy mapping (V40)
 
 The recorded Tool Connection Laser Tools website navigation hierarchy is

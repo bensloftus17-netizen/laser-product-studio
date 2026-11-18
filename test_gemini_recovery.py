@@ -32,7 +32,7 @@ class GeminiRecoveryTests(unittest.TestCase):
     def test_existing_complete_campaign_fallback_remains_available(self):
         page=studio.V7_HOME_PAGE
         self.assertIn("Verified-source fallback campaign",page)
-        self.assertIn("Generate Campaign",page)
+        self.assertIn("Build Campaign",page)
         self.assertIn("const response=await fetch('/api/campaign/'",page)
 
 

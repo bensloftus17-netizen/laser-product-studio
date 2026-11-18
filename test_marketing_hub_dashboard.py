@@ -19,7 +19,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
                            'download','reviewed'):
             self.assertEqual(html.count('id="'+identifier+'"'),1,identifier)
         self.assertIn('class="studio-sidebar"',html)
-        self.assertIn('Generate a Marketing Campaign',html)
+        self.assertIn('Build a Unique Product Campaign',html)
         self.assertIn('Saved Promotions Library',html)
         self.assertIn('Coming soon',html)
         self.assertNotIn('24 Saved Promotions',html)
@@ -43,10 +43,10 @@ class MarketingHubDashboardTests(unittest.TestCase):
     def test_dashboard_is_served(self):
         response=studio.app.test_client().get('/')
         self.assertEqual(response.status_code,200)
-        self.assertIn(b'Generate a Marketing Campaign',response.data)
+        self.assertIn(b'Build a Unique Product Campaign',response.data)
         self.assertIn(b'Saved Promotions Library',response.data)
         self.assertIn(b'campaignCopyText',response.data)
-        self.assertIn(b'static/styles.css?design=v40-catalogue-hierarchy',response.data)
+        self.assertIn(b'static/styles.css?design=v41-unified-campaign',response.data)
 
 
 if __name__=='__main__':

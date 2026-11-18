@@ -145,12 +145,13 @@ class IntelligentMarketingStrategyTests(unittest.TestCase):
         }
         with patch("campaign_hub._concepts",return_value=(concepts, "gemini-assisted", [])), \
              patch("campaign_hub.render_promo",return_value=images), \
-             patch("campaign_hub._native_graphic",return_value=images) as native:
+             patch("campaign_hub._native_graphic",return_value=images) as native, \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             pack = build_campaign(self.bearing,buf.getvalue())
         strategy = pack["manifest"]["marketing_strategy"]
         self.assertEqual(strategy["method"], "gemini-validated-choice")
         self.assertEqual(strategy["proof_point"], self.bearing["features"][1])
-        self.assertTrue(all(call.args[-1] == self.bearing["features"][1]
+        self.assertTrue(all(call.args[4] == self.bearing["features"][1]
                             for call in native.call_args_list))
         with ZipFile(io.BytesIO(pack["archive"])) as z:
             note=z.read("05_Product_Info/Marketing_Strategy.txt").decode("utf-8")
