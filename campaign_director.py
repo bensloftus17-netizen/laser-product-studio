@@ -21,6 +21,8 @@ from marketing_intelligence import (detect_category, rank_verified_features,
 from official_taxonomy import category_from_product_url
 from promo_scene_library import classify_product
 from promo_selling_points import choose_feature
+from promo_art_direction import normalise_art_direction
+from product_evidence_ranker import choose_verified_fact, verified_candidates
 
 ROLES = ("technical_application", "price_promo", "product_selected")
 POSTER_LABELS = ("Application / Technical", "Price-led Promotion", "Recommended Extra Angle")
@@ -74,7 +76,7 @@ LENS_THIRD = {
 CATEGORY_SCENES = {
     "engine_timing": "engine", "bearing_suspension": "wheel_hub",
     "socket_ratchet": "hand_tools", "workshop_press": "press",
-    "diagnostic_electrical": "diagnostic", "lighting_inspection": "engine",
+    "diagnostic_electrical": "diagnostic", "lighting_inspection": "lighting",
     "bodyshop_repair": "suspension", "air_power": "hand_tools",
     "threading_cutting": "hand_tools", "workshop_service": "workshop",
     "accessories_consumables": "hand_tools", "general_hand_tools": "hand_tools",
@@ -130,62 +132,12 @@ def _choose_third(product, requested=None):
 
 
 def _verified_facts(product):
-    facts=[]
-    for item in product.get("features") or []:
-        if not isinstance(item,str):
-            continue
-        if is_related_product_reference(item):
-            continue
-        fact=_clean(item,175)
-        if fact and fact not in facts:
-            facts.append(fact)
-    return facts
+    return verified_candidates(product)
 
 
 def _pick_proof(product, role, theme, excluded):
-    """Prioritise 2-3 DIFFERENT verified facts, never fabricate one."""
-    category,lens,_=_category(product)
-    facts=_verified_facts(product)
-    if not facts:
-        return ""
-    terms={
-        "fitment_coverage":("vehicle","engine","model","application","designed for","fits"),
-        "kit_contents":("include","piece","contents","supplied","set","size","drive"),
-        "workshop_solution":("remove","install","repair","service","without","workshop"),
-        "capacity_specs":("capacity","tonne","load","stroke","pressure","height"),
-        "performance_specs":("lumen","runtime","run time","battery","range","rpm","volt","torque"),
-        "safety_specs":("rated","1000v","volt","protection","standard","test"),
-        "access_function":("access","grip","handle","length","drive","size","design"),
-        "service_workflow":("service","transfer","drain","repair","replace","remove"),
-    }
-    technical_by_category={
-        "engine_timing":("camshaft","crankshaft","timed","belt replacement","engine","application","vehicle"),
-        "bearing_suspension":("bearing","removal","installation","vehicle","application","hub"),
-        "workshop_press":("capacity","pressing","workshop","application"),
-        "socket_ratchet":("drive","ratchet","size","set","tooth"),
-        "diagnostic_electrical":("testing","measurement","diagnostic","range"),
-    }
-    cues=(technical_by_category.get(category,("application","vehicle","engine","timing","fit"))
-          if role=="technical_application"
-          else ("include","supplied","capacity","size","handle") if role=="price_promo"
-          else terms.get(theme,("benefit","use")))
-    source_rank=rank_verified_features(product,category,8)
-    by_fact={value:i for i,value in enumerate(source_rank)}
-    # Model text cannot enter this list; all choices are exact manufacturer facts.
-    scored=[]
-    for index,fact in enumerate(facts):
-        low=fact.casefold()
-        score=sum((len(cues)-i)*5 for i,word in enumerate(cues) if word in low)
-        score+=max(0,8-by_fact.get(fact,9))
-        if fact in excluded:
-            score-=1000
-        # A reference to an additional Laser item is not a strong proof for
-        # the advertised product, especially timing kits.
-        if re.search(r"\b(?:laser\s+)?part\s*(?:no\.?|number)\s*[:#]?\s*\d{3,6}\b",fact,re.I):
-            score-=150
-        scored.append((score,-index,fact))
-    highest=max(scored)
-    return highest[2] if highest[2] not in excluded else ""
+    """Source-only evidence: lead with product function over generic specs."""
+    return choose_verified_fact(product,role,theme,excluded)
 
 
 def _headline(product, role, theme, fact):
@@ -232,8 +184,15 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
     third=_choose_third(product, model_choice.get("third_angle"))
     category,lens,official=_category(product)
     scene=CATEGORY_SCENES.get(category,classify_product(product))
-    photo_variants=("trade","retail","premium")
     family_map=("trade","retail","premium")
+    # Gemini's legacy concept output uses retail/premium/trade order,
+    # while the one-click campaign is technical/price/smart. Map by ROLE
+    # rather than discarding its validated visual art-direction fields.
+    proposed_art={
+        "technical_application":(model_concepts[2] if len(model_concepts)==3 else {}),
+        "price_promo":(model_concepts[0] if len(model_concepts)==3 else {}),
+        "product_selected":(model_concepts[1] if len(model_concepts)==3 else {}),
+    }
     role_focus=("application","price",THIRD_ANGLES[third][1])
     used=set()
     planned=[]
@@ -242,6 +201,11 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
         fact=_pick_proof(product,role,third,used)
         if fact:used.add(fact)
         variation,seed=_variation(product,role,category)
+        model_art=proposed_art[role].get("art_direction") if isinstance(
+            proposed_art[role],dict) else None
+        art=normalise_art_direction(model_art,family_map[i],variation)
+        if model_art and isinstance(model_art,dict):
+            variation=art["layout_variant"]
         # AI's wording is used only if it is a literal manufacturer feature.
         # Every generated display headline retains the genuine product noun.
         facts=[fact] if fact else []
@@ -272,9 +236,13 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                 "layout_family":family_map[i],
                 "scene_category":scene,
                 "scene_index":seed+i,
-                "accent":CATEGORY_ACCENTS.get(category,CATEGORY_ACCENTS["general_hand_tools"])[i],
-                "price_style":("plaque","panel","tag")[i],
-                "photo_focus":("right","left","centre")[variation],
+                "accent":art["accent"] if model_art else CATEGORY_ACCENTS.get(
+                    category,CATEGORY_ACCENTS["general_hand_tools"])[i],
+                "price_style":art["price_style"] if model_art else ("plaque","panel","tag")[i],
+                "photo_focus":art["photo_focus"] if model_art else ("right","left","centre")[variation],
+                "art_direction":art,
+                "preferred_variant":variation,
+                "creative_source":"gemini-bounded-art-direction" if model_art else "category-aware-composition",
                 "purpose":role_label,
                 "supporting_image_rule":"real approved contextual photo, never a redrawn tool",
             },
@@ -282,7 +250,8 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
         planned.append(concept)
         scenes.append({
             "role":role,"layout":family_map[i],"scene_category":scene,
-            "variation":variation,"why":(
+            "variation":variation,"art_source":concept["visual_plan"]["creative_source"],
+            "art_direction":art,"why":(
                 "Explains documented application and specifications" if i==0
                 else "Promotes confirmed product price or price on request" if i==1
                 else "Uses "+THIRD_ANGLES[third][0].lower()+

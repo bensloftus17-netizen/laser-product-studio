@@ -30,6 +30,7 @@ SCENE_PHOTOS = {
     "press": (5962644, 8985517),
     "welding": (10551343, 13296060),
     "workshop": (8986138, 15489247),
+    "lighting": (8985917, 8985519),
 }
 SCENE_LABELS = {
     "battery": "Battery service / charging leads",
@@ -42,6 +43,7 @@ SCENE_LABELS = {
     "press": "Workshop machinery",
     "welding": "Automotive welding",
     "workshop": "Vehicle service workshop",
+    "lighting": "Automotive workshop and under-bonnet access (context only)",
 }
 
 # Prioritise the *title*. Broader description terms should not override a
@@ -56,6 +58,7 @@ RULES = (
     ("welding", r"\b(?:weld(?:er|ing)?|solder|spot[\s-]?weld|mig|tig)\b"),
     ("engine", r"\b(?:glow[\s-]?plug|injector|pulley|crankshaft|camshaft|timing|engine|cylinder[\s-]?head|valve|turbo|puller|flywheel)\b"),
     ("hand_tools", r"\b(?:ratchet|socket|spanner|wrench|screwdriver|hex[\s-]?key|bit[\s-]?set|torx|pliers)\b"),
+    ("lighting", r"\b(?:work[\s-]?lamp|inspection[\s-]?lamp|work[\s-]?light|head[\s-]?lamp|torch|inspection[\s-]?light)\b"),
 )
 
 
@@ -124,6 +127,13 @@ SCENE_CANDIDATES = {
         (15489247, "Mechanics at a professional car garage", .51, .50),
         (8985917, "Mechanic in professional workshop", .50, .50),
         (8985517, "Garage workshop machinery", .48, .50),
+    ],
+    # Only workshop-context photographs. Do not claim a stock photograph
+    # demonstrates the exact work lamp or depicts its light output.
+    "lighting": [
+        (8985917, "Mechanic in professional automotive workshop", .50, .50),
+        (8985519, "Technician working on a vehicle engine", .53, .48),
+        (15489247, "Mechanics in a professional car garage", .49, .50),
     ],
 }
 FAMILY_SCENE_STYLES = {

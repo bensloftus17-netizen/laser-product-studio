@@ -13,7 +13,8 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 from poster import font
 from brand_assets import get_brand_image
 from campaign_art_quality import inspected_product
-from poster_quality import record_text
+from poster_quality import record_text, record_product
+from promo_art_direction import draw_background_motif
 
 W,H=1200,1500
 NAVY="#071F37"
@@ -117,18 +118,23 @@ def product_photo(canvas, blob, bounds, *, scale=1.0):
             lambda value:int(value*.32)))
         canvas.alpha_composite(shadow,(x+8,y+14))
     canvas.alpha_composite(image,(x,y))
+    record_product((x,y,x+image.width,y+image.height),
+                   image.width*image.height/max(1,W*H),info["isolated"])
     return {"isolated":info["isolated"],"needs_manual_cutout":info["needs_manual_cutout"],
             "position":(x,y,x+image.width,y+image.height)}
 
 
-def actual_scene(canvas,blob,box,brightness=.72,blur=1.2):
+def actual_scene(canvas,blob,box,brightness=.72,blur=1.2,focus="centre"):
     """Real context remains a separate background region, never a fake tool."""
     if not blob:return False
     x0,y0,x1,y1=box
     try:
         pic=Image.open(io.BytesIO(blob)).convert("RGB")
         pic.thumbnail((2100,2100),Image.Resampling.LANCZOS)
-        cropped=ImageOps.fit(pic,(x1-x0,y1-y0),Image.Resampling.LANCZOS)
+        centred={"left":(.32,.5),"centre":(.5,.5),"right":(.68,.5)}.get(
+            focus,(.5,.5))
+        cropped=ImageOps.fit(pic,(x1-x0,y1-y0),Image.Resampling.LANCZOS,
+                             centering=centred)
         cropped=ImageEnhance.Brightness(cropped).enhance(brightness)
         if blur:cropped=cropped.filter(ImageFilter.GaussianBlur(blur))
         canvas.paste(cropped,(x0,y0))
@@ -187,12 +193,20 @@ def _story_copy(concept):
     return text
 
 
-def _contextual_base(scene,variant=0,tone="#07243C"):
+def _contextual_base(scene,variant=0,tone="#07243C",art=None):
+    art=art or {}
     canvas=Image.new("RGBA",(W,H),tone)
     if scene:
         x0,y0,x1,y1=(0,190,1200,1240)
+        mood={"bright":1.13,"balanced":1.0,"dramatic":.83}.get(
+            art.get("background_mood"),1.0)
         actual_scene(canvas,scene,(x0,y0,x1,y1),
-                     brightness=(.60,.52,.68)[variant%3],blur=1.7)
+                     brightness=(.60,.52,.68)[variant%3]*mood,blur=1.7,
+                     focus=art.get("photo_focus","centre"))
+    # Decorative art direction is applied only to the background, never
+    # to manufacturer tool pixels or factual copy.
+    if art.get("graphic_motif"):
+        canvas=draw_background_motif(canvas,art)
     # Brand-blue gradient overlay, not an arbitrary photo covered in white.
     shade=Image.new("RGBA",(W,H),(0,0,0,0))
     draw=ImageDraw.Draw(shade)
@@ -214,7 +228,9 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
     part=product.get("part","")
     variation=int(concept.get("variant") or 0)%3
     accent=(concept.get("visual_plan") or {}).get("accent","#15B6E4")
-    canvas=_contextual_base(scene,variation,tone="#08273F")
+    plan=concept.get("visual_plan") or {}
+    art=plan.get("art_direction") or {}
+    canvas=_contextual_base(scene,variation,tone="#08273F",art=art)
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,0,W,190),fill="#082541")
     d.rectangle((0,181,W,192),fill=accent)
@@ -223,13 +239,14 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
     d.rectangle((46,248,58,303),fill=accent)
     fitted(d,"APPLICATION / TECHNICAL",(81,252,1120,307),
            (33,30,27),accent,1)
-    fitted(d,product.get("title","Laser Tools product"),
+    fitted(d,concept.get("headline") or product.get("title","Laser Tools product"),
            (58,331,1124,540),(65,59,52,45,40,35,30),WHITE,3)
     # Three distinct approved compositions; larger product, controlled scale.
     if variation==0:hero=(395,550,1155,1175)
     elif variation==1:hero=(382,555,1160,1195)
     else:hero=(404,565,1170,1186)
-    product_photo(canvas,official_photo,hero,scale=1.08)
+    product_photo(canvas,official_photo,hero,
+                  scale=min(1.16,max(.86,art.get("product_scale",104)/100)))
     d=ImageDraw.Draw(canvas,"RGBA")
     # A small technical information rail balances the tool, not a massive
     # white product photograph panel.
@@ -255,7 +272,7 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
         if str(x).strip() and str(x).strip()!=str(concept.get("selling_point") or "").strip()
     ]
     secondary=_story_copy({"selling_point":verified[0]}) if verified else ""
-    fitted(d,secondary or (fact if fact else "Confirm applications with the official product record."),
+    fitted(d,secondary or "Check the official product record for full specifications.",
            (62,1349,1133,1427),(28,25,22,19,17),WHITE,3,bold=False)
     fitted(d,"DRAFT / VERIFY APPLICATIONS BEFORE PUBLICATION",
            (61,1462,1132,1487),(17,15,13),"#B9D7EB",1,bold=False)
@@ -269,7 +286,8 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     theme=str(concept.get("name") or "PRODUCT HIGHLIGHT")
     variation=int(concept.get("variant") or 0)%3
     accent=plan.get("accent","#1BB6D4")
-    canvas=_contextual_base(scene,variation,tone="#06223A")
+    art=plan.get("art_direction") or {}
+    canvas=_contextual_base(scene,variation,tone="#06223A",art=art)
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,0,W,186),fill="#081E34")
     d.rectangle((0,175,W,190),fill=accent)
@@ -277,7 +295,7 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     co_brand(canvas,distributor)
     fitted(d,"LASER / PRODUCT SPOTLIGHT",(54,243,1135,290),
            (31,27,23),accent,1)
-    fitted(d,product.get("title","Laser Tools product"),
+    fitted(d,concept.get("headline") or product.get("title","Laser Tools product"),
            (52,314,1146,523),(67,61,54,48,42,36,30),WHITE,3)
     # A broad colored architectural shape behind, but NEVER white paper.
     # Photographic workshop context remains on the right and the original
@@ -294,7 +312,8 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
         d.polygon([(0,555),(690,633),(733,1202),(0,1202)],
                   fill=(8,57,88,226))
         hero=(118,554,1138,1185)
-    product_photo(canvas,official_photo,hero,scale=1.05)
+    product_photo(canvas,official_photo,hero,
+                  scale=min(1.16,max(.86,art.get("product_scale",104)/100)))
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,1201,W,H),fill=(6,29,52,248))
     d.rectangle((54,1237,1144,1247),fill=accent)

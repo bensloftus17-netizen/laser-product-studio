@@ -94,6 +94,11 @@ def visual_review(data:bytes,role:str,*,source_info=None,text_status=None):
         reasons.append("Text is outside safe margins")
     if status.get("overlaps"):
         reasons.append("Headline or selling point overlaps")
+    if (status.get("product_visible_fraction") is not None and
+            status["product_visible_fraction"]<.028):
+        reasons.append("Product is too small or visually insignificant")
+    if status.get("missing_headline"):
+        reasons.append("Promotional headline is missing")
     # High score rewards breathing room and photographic contrast without
     # claiming a human/AI style judgement is mathematically verifiable.
     score=100-int(max(0,white_fraction-.11)*88)
@@ -107,11 +112,13 @@ def visual_review(data:bytes,role:str,*,source_info=None,text_status=None):
         "white_fraction":round(white_fraction,4),
         "contrast":round(colour_range,2),
         "criteria":["dimensions","large_white_areas","scene_contrast",
-                    "text_safe_area","manufacturer_cutout_confidence"],
+                    "text_safe_area","headline_presence","product_hero_area",
+                    "manufacturer_cutout_confidence"],
     }
 
 
-def choose_best(render,role,source_blob,variants=(0,1,2)):
+def choose_best(render,role,source_blob,variants=(0,1,2),
+                *,preferred_variant=None,scene_relevance=None):
     """Render three different safe candidate compositions and select best.
 
     Best-of-N is about real layout/photography treatment; each candidate
@@ -125,6 +132,13 @@ def choose_best(render,role,source_blob,variants=(0,1,2)):
         try:
             payload,geometry=render(variant)
             audit=visual_review(payload,role,source_info=info,text_status=geometry)
+            # Prefer Gemini's bounded art direction when scores are close,
+            # never to override clipping, cutout or other failed QA.
+            if (audit["passed"] and type(preferred_variant) is int
+                    and variant==preferred_variant):
+                audit["score"]=min(100,audit["score"]+3)
+            if scene_relevance and scene_relevance.get("warning"):
+                audit["warnings"].append(scene_relevance["warning"])
         except Exception as exc:
             audit={"passed":False,"score":0,"issues":["Render failed: "+type(exc).__name__],
                    "warnings":[]}
@@ -167,3 +181,24 @@ def campaign_consistency(concepts):
     if len([x for x in proofs if x])>1 and len(set(x for x in proofs if x))==1:
         issues.append("All three posters repeat the same selling point")
     return issues
+
+
+
+def photo_relevance(product,selected_category,reference):
+    """Give users a traceable relevance decision, not a false photo claim.
+
+    References can only come from the curated stock library or official
+    manufacturer application pictures. No arbitrary Gemini URL is trusted.
+    Unknown or mismatched stock contexts are rejected upstream, because an
+    unrelated laboratory/office is worse than a clean branded background.
+    """
+    source=str((reference or {}).get("source") or "")
+    actual=(reference or {}).get("category")
+    if source=="No external photograph used":
+        return {"score":0,"supported":True,"warning":"No suitable real workshop photograph; branded background used"}
+    if source=="Official manufacturer application photo":
+        return {"score":100,"supported":True,"warning":None}
+    if source=="Pexels free commercial-use photo" and actual==selected_category:
+        return {"score":80,"supported":True,"warning":None}
+    return {"score":0,"supported":False,
+            "warning":"Photo context did not match this product category"}
