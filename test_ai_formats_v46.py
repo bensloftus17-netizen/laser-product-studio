@@ -53,7 +53,25 @@ EMAIL={
     "proof_feature_index":1,"headline_style":"compact",
     "accent":"#13B5EC",
 }
-FOUR=dict(zip(FORMAT_ORDER,(SQUARE,STORY,WEB,EMAIL)))
+LINKEDIN={
+    "zones":{"headline":[55,240,465,205],
+             "product":[605,235,315,500],
+             "proof":[60,590,455,160]},
+    "background":"workshop-photo","mood":"editorial",
+    "headline_role":"technical_application","scene_role":"technical_application",
+    "proof_feature_index":2,"headline_style":"editorial",
+    "accent":"#40C1E8",
+}
+LANDSCAPE={
+    "zones":{"headline":[60,245,470,200],
+             "product":[590,230,330,520],
+             "proof":[65,600,445,145]},
+    "background":"industrial","mood":"energetic",
+    "headline_role":"product_selected","scene_role":"product_selected",
+    "proof_feature_index":1,"headline_style":"massive",
+    "accent":"#D9E75B",
+}
+FOUR=dict(zip(FORMAT_ORDER,(SQUARE,STORY,WEB,EMAIL,LINKEDIN,LANDSCAPE)))
 FEATURES=PRODUCT["features"]
 HEADLINES={
     "technical_application":"Ratchet Set 4pc",
@@ -73,7 +91,7 @@ def cutout_stub(blob):
 
 class OriginalFormatCampaignTests(unittest.TestCase):
     def test_all_four_have_genuinely_separate_design_and_native_sizes(self):
-        self.assertEqual(len(FORMATS),4)
+        self.assertEqual(len(FORMATS),6)
         self.assertIn("NEVER copy/scale",format_instruction())
         shapes=[]
         for kind,raw in FOUR.items():
@@ -87,6 +105,8 @@ class OriginalFormatCampaignTests(unittest.TestCase):
         self.assertEqual(FORMATS["social_story"][:2],(1080,1920))
         self.assertEqual(FORMATS["website_banner"][:2],(1600,600))
         self.assertEqual(FORMATS["email_header"][:2],(1200,420))
+        self.assertEqual(FORMATS["linkedin_graphic"][:2],(1200,627))
+        self.assertEqual(FORMATS["landscape_ad"][:2],(1600,900))
 
     def test_rejects_overlap_bad_mobile_safe_area_and_untrusted_inputs(self):
         for kind,safe in FOUR.items():
@@ -223,7 +243,7 @@ class OriginalFormatCampaignTests(unittest.TestCase):
                  "passed":True,"render_engine":"ai-original-format-canvas"})),\
              patch("campaign_hub._native_graphic",return_value=png) as old:
             pack=build_campaign(PRODUCT,image_bytes(),use_gemini=True)
-        self.assertEqual(old.call_count,3)
+        self.assertEqual(old.call_count,5)
         self.assertEqual(
             pack["manifest"]["format_artwork_quality"]["social_square"]["render_engine"],
             "ai-original-format-canvas")
