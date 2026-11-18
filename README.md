@@ -1,3 +1,39 @@
+## V45 — freeform AI creative director, genuine-image gates and visual review
+
+**Build Campaign** now asks Gemini, in its existing campaign concept request, to
+invent the **actual 1200×1500 compositions** of all three poster roles. The model
+chooses each headline, genuine product, proof and price zone using arbitrary
+0–1000 artboard coordinates; mood, background, photo focus, accents and motif
+are also model-directed. A new Pillow renderer (`flexible_canvas.py`) builds
+those model-authored placements without switching to the old family templates.
+
+The renderer itself **never accepts model-created product imagery or claims**:
+it uses the exact official tool photo, server-verified price, approved real
+workshop contexts and manufacturer feature strings. Branding and publication
+disclaimer occupy fixed safe areas. Every AI text zone must be large enough,
+stay within margin bounds and avoid collisions. If unsafe model geometry is
+returned, the existing documented legacy composition fallback is used and
+explicitly marked rather than falsely called AI-directed.
+
+New source-photo preflight (`asset_quality.py`) rejects undersized / blurry
+product originals, unreliable white-background isolation and severe cutout
+fringes. Poster quality checks now evaluate real rendered coordinates,
+headline fit, product prominence, excessive white backgrounds and contrast.
+The new `creative_qa.py` can send a downsampled batch of the *three completed
+posters* to Gemini vision for an independent, bounded visual critique; serious
+defects trigger rejection, and repairable issues get one visual variation
+re-render and one further review. When the critic is unavailable, its absence
+is disclosed: only deterministic QA is claimed. Campaign-level distinctness
+checks inspect composition signatures and rendered pixel difference before
+delivery. Bad artwork is rejected, never silently exported as successful.
+
+The ZIP manifest now contains creative-engine origin, input asset quality,
+independent visual review status and three-poster distinctness report. This
+version does not train on design taste or guarantee independent brand approval;
+every campaign remains a review-required draft.
+
+Run: `python -m unittest -v test_ai_creative_director_v45.py`
+
 ## V44 — product-specific creative decisions and direct poster editing
 
 Five improvements build on the existing one-click campaign without creating a
