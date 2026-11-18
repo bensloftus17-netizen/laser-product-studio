@@ -251,6 +251,10 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             if type(x) is int and 0<=x<len(features) and features[x] not in selected:
                 selected.append(features[x])
             if len(selected)>=3:break
+        # Keep the model\'s deliberately chosen *verified* facts separate
+        # from automatic filler. The director may honour these as the proof
+        # priority, but never accept generated text as manufacturer evidence.
+        ai_selected_facts=list(selected)
         # Include verified features where Gemini omitted evidence references.
         for item in features:
             if len(selected)>=3:break
@@ -268,6 +272,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "variant":direction["layout_variant"],
             "art_direction":direction,
             "creative_canvas":c.get("creative_canvas") if isinstance(c.get("creative_canvas"),dict) else None,
+            "ai_verified_features":ai_selected_facts,
             "copy_direction":normalise_copy_direction(c.get("copy_direction")),
             "features":selected,
             "part":str(product.get("part","")),
