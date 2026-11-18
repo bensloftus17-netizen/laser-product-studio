@@ -184,19 +184,37 @@ def _pick_proof(product, role, theme, excluded):
         if re.search(r"\b(?:laser\s+)?part\s*(?:no\.?|number)\s*[:#]?\s*\d{3,6}\b",fact,re.I):
             score-=150
         scored.append((score,-index,fact))
-    return max(scored)[2]
+    highest=max(scored)
+    return highest[2] if highest[2] not in excluded else ""
 
 
 def _headline(product, role, theme, fact):
-    """Genuine product name anchors every headline; no made-up outcomes."""
-    title=re.sub(r"^laser\s+tools?\s*","",_clean(product.get("title"),100),flags=re.I).strip()
-    if role=="technical_application":
-        return title[:74]
+    """A compact, verified product name is better than a 5-line price headline.
+
+    Only extract contiguous words present in the official title; do not
+    rewrite the tool identity or fabricate a feature/benefit.
+    """
+    title=re.sub(r"^laser\s+tools?\s*","",
+                 _clean(product.get("title"),145),flags=re.I).strip()
+    if role=="technical_application":return title[:100]
     if role=="price_promo":
-        return title[:74]
-    # Smart poster's label points to a *type of evidence*, not an
-    # unverifiable benefit or a promised timesaving/performance outcome.
-    return (THIRD_ANGLES[theme][0]+" — "+title)[:92]
+        if len(title)<48:return title
+        first=re.split(r"\s+-\s+(?:for\s+|\d|50th\b)",title,maxsplit=1,flags=re.I)[0]
+        if 12<len(first)<48:return first
+        noun=re.search(
+            r"\b(?:front wheel bearing|engine timing|ratchet|socket|impact wrench|"
+            r"workshop press|hydraulic press|inspection lamp|battery charger|"
+            r"ball joint|diagnostic scanner|camshaft locking|torque wrench)"
+            r"(?:\s+[\w./-]+){0,3}",title,flags=re.I)
+        if noun and 12<=len(noun.group(0))<=48:
+            return noun.group(0)
+        words=title.split()
+        short=[]
+        for word in words:
+            if len(" ".join(short+[word]))>48:break
+            short.append(word)
+        return " ".join(short) or title[:48]
+    return title[:100]
 
 
 def _variation(product, role, category):
@@ -236,7 +254,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
             "id":i,"family":family_map[i],"variant":variation,
             "focus":role_focus[i],
             "focus_label":("TECHNICAL / APPLICATION" if i==0 else
-                           "PRICE / PRODUCT PROMOTION" if i==1 else
+                           "LASER TOOLS · PRODUCT OFFER" if i==1 else
                            "PRODUCT-SPECIFIC / "+THIRD_ANGLES[third][0].upper()),
             "campaign_role":role,
             "third_angle":third if i==2 else None,
@@ -244,7 +262,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
             "headline":title,
             "subline":fact or _clean(product.get("title"),110),
             "angle":role_label+" using verified manufacturer information",
-            "features":facts,
+            "features":([] if role=="price_promo" else facts),
             "selling_point":fact,
             "copy_direction":{"tone":"professional",
                               "hook":"application" if i==0 else "product" if i==1 else "feature",
@@ -255,7 +273,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                 "scene_category":scene,
                 "scene_index":seed+i,
                 "accent":CATEGORY_ACCENTS.get(category,CATEGORY_ACCENTS["general_hand_tools"])[i],
-                "price_style":("plaque","bubble","panel")[i],
+                "price_style":("plaque","panel","tag")[i],
                 "photo_focus":("right","left","centre")[variation],
                 "purpose":role_label,
                 "supporting_image_rule":"real approved contextual photo, never a redrawn tool",
