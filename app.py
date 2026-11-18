@@ -2475,8 +2475,10 @@ def _get_campaign_pack(token):
         return entry['bundle'] if entry and entry['expires'] >= now else None
 
 
-def _assemble_campaign_bundle(part, body):
-    """One canonical product/price/imagery validation path for sync and jobs."""
+def _assemble_campaign_bundle(part, body, progress=None):
+    """Source-safe generator for both synchronous and progressive campaigns."""
+    if progress:
+        progress("verifying_product")
     product, image = lookup(part, uk_url=body.get('official_url') or None)
     if not image:
         raise ValueError('A genuine official product photograph is required.')
@@ -2489,6 +2491,9 @@ def _assemble_campaign_bundle(part, body):
         if product.get('application_photo_source')
         and product.get('application_photo_source') != product.get('photo_source')
         else None)
+    if progress is not None:
+        return build_campaign(product, image, distributor,
+                              application_photo=official_context, progress=progress)
     return build_campaign(product, image, distributor,
                           application_photo=official_context)
 
@@ -2541,6 +2546,54 @@ def one_click_campaign(part):
 CAMPAIGN_JOBS={}
 CAMPAIGN_JOBS_LOCK=threading.Lock()
 CAMPAIGN_JOB_TTL=20*60
+# Nine independent campaign artwork files, excluding the optional QR code.
+from campaign_hub import FOLDERS as CAMPAIGN_ARTWORK
+PROGRESS_ASSETS=tuple(CAMPAIGN_ARTWORK)
+
+
+def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report=None):
+    """Atomically publish only fully validated PNGs to the job's bearer token.
+
+    Byte payloads never enter JSON status responses, and intermediate rejects
+    are never exposed through the download endpoint.
+    """
+    with CAMPAIGN_JOBS_LOCK:
+        job=CAMPAIGN_JOBS.get(job_id)
+        if job is None or job['status'] not in ('queued','running'):
+            return
+        if asset_id is not None:
+            if asset_id not in PROGRESS_ASSETS:
+                raise ValueError("Unexpected campaign asset ID")
+            if stage not in ('rendering','quality_checking','ready','failed'):
+                raise ValueError("Unexpected per-asset quality state")
+            state=job['assets'][asset_id]
+            if stage=='ready':
+                if not isinstance(payload,bytes) or not payload.startswith(b'\\x89PNG\\r\\n\\x1a\\n'):
+                    raise ValueError("Validated campaign artwork must be PNG bytes")
+                job['preview_images'][asset_id]=payload
+            if stage=='failed':
+                reason=(report or {}).get('issues') or ["Artwork failed verification"]
+                state['error']=str(reason[0])[:180]
+            state['status']=stage
+        else:
+            if stage not in ('verifying_product','planning','finding_context',
+                             'rendering_posters','reviewing_posters',
+                             'rendering_formats','finalising_pack'):
+                raise ValueError("Unexpected campaign progress stage")
+            job['stage']=stage
+
+
+def _progress_payload(job):
+    return {
+        'status':job['status'], 'part':job['part'],
+        'stage':job.get('stage','queued'),
+        'ready_count':sum(a['status']=='ready' for a in job['assets'].values()),
+        'total_assets':len(PROGRESS_ASSETS),
+        'assets':{k:dict(v) for k,v in job['assets'].items()},
+    }
+
+
+
 
 
 def _run_campaign_job(job_id,part,body):
@@ -2548,24 +2601,34 @@ def _run_campaign_job(job_id,part,body):
         if job_id not in CAMPAIGN_JOBS:return
         CAMPAIGN_JOBS[job_id]['status']='running'
     try:
-        bundle=_assemble_campaign_bundle(part,body)
+        # Each approved poster or native-format PNG is released to the
+        # authenticated job as soon as its existing QA has passed.
+        bundle=_assemble_campaign_bundle(part,body,progress=lambda *args:
+            _campaign_progress_update(job_id,*args))
         token=_save_campaign_bundle(bundle)
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
-                CAMPAIGN_JOBS[job_id].update(
-                    status='ready',token=token,error=None,
-                    expires=time.time()+CAMPAIGN_PACK_TTL)
+                job=CAMPAIGN_JOBS[job_id]
+                # Compatibility for tests and any older bundle providers
+                # without progressive callbacks; the final pack is validated.
+                for asset in bundle['manifest']['images']:
+                    key=asset['id']
+                    if key in job['assets'] and key in bundle['images']:
+                        job['assets'][key]['status']='ready'
+                job['preview_images'].clear()  # Avoid duplicate PNG bytes in RAM
+                job.update(status='ready',stage='complete',token=token,error=None,
+                           expires=time.time()+CAMPAIGN_PACK_TTL)
     except (LookupErrorPublic,ValueError,RuntimeError) as exc:
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
-                CAMPAIGN_JOBS[job_id].update(status='failed',
-                                             error=str(exc)[:350])
+                CAMPAIGN_JOBS[job_id].update(
+                    status='failed',stage='failed',error=str(exc)[:350])
     except Exception:
         app.logger.exception('Async mobile campaign rendering failed')
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
                 CAMPAIGN_JOBS[job_id].update(
-                    status='failed',
+                    status='failed',stage='failed',
                     error='Campaign could not be completed. Please retry or check the application logs.')
 
 
@@ -2587,7 +2650,9 @@ def start_mobile_campaign(part):
                 return jsonify(error='Two campaigns are already being prepared. Please retry shortly.'),429
             job_id=secrets.token_urlsafe(24)
             CAMPAIGN_JOBS[job_id]={
-                'part':part,'status':'queued','token':None,
+                'part':part,'status':'queued','stage':'queued','token':None,
+                'assets':{k:{'status':'queued'} for k in PROGRESS_ASSETS},
+                'preview_images':{},
                 'error':None,'expires':now+CAMPAIGN_JOB_TTL}
         try:
             threading.Thread(target=_run_campaign_job,
@@ -2619,18 +2684,47 @@ def mobile_campaign_progress(job_id):
             return jsonify(error='Campaign job expired. Please generate it again.'),404
         snapshot=dict(job)
     status=snapshot['status']
+    summary=_progress_payload(snapshot)
     if status=='ready':
         bundle=_get_campaign_pack(snapshot['token'])
         if bundle is None:
             return jsonify(error='Campaign artwork has expired. Generate it again.'),404
-        response=jsonify(status='ready',token=snapshot['token'],
-                         manifest=bundle['manifest'],part=snapshot['part'])
+        response=jsonify(**summary, token=snapshot['token'],
+                         manifest=bundle['manifest'])
     elif status=='failed':
-        response=jsonify(status='failed',error=snapshot['error'],
-                         part=snapshot['part'])
+        response=jsonify(**summary,error=snapshot['error'])
     else:
-        response=jsonify(status=status,part=snapshot['part'])
+        response=jsonify(**summary)
     response.headers['Cache-Control']='private, no-store'
+    return response
+
+
+@app.get('/api/campaign/job-assets/<job_id>/<asset_id>')
+def progressive_campaign_asset(job_id, asset_id):
+    """Preview or individually download one approved asset before ZIP exists."""
+    if (not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',job_id)
+            or asset_id not in PROGRESS_ASSETS):
+        return jsonify(error='Unknown campaign artwork.'),404
+    with CAMPAIGN_JOBS_LOCK:
+        job=CAMPAIGN_JOBS.get(job_id)
+        if not job or job['expires']<time.time():
+            return jsonify(error='Campaign artwork has expired.'),404
+        item=job['assets'][asset_id]
+        if item['status']!='ready':
+            return jsonify(error='This image is still generating or failed quality review.'),409
+        payload=job['preview_images'].get(asset_id)
+        token=job.get('token')
+        part=job['part']
+    if payload is None and token:
+        bundle=_get_campaign_pack(token)
+        payload=bundle['images'].get(asset_id) if bundle else None
+    if payload is None:
+        return jsonify(error='Artwork is no longer available.'),404
+    response=send_file(
+        io.BytesIO(payload), mimetype='image/png',
+        as_attachment=request.args.get('download')=='1',
+        download_name='LASER_'+part+'_'+asset_id+'.png')
+    response.headers['Cache-Control']='no-store, private'
     return response
 
 
