@@ -11,6 +11,7 @@ from __future__ import annotations
 from marketing_intelligence import (PROFILES, detect_category, rank_verified_features,
                                    is_related_product_reference)
 from promo_selling_points import choose_feature
+from official_taxonomy import category_from_product_url, select_marketing_fact
 
 CHANNELS = {
     "email": {"label": "Targeted product email", "purpose": "Send a concise, relevant product introduction to a researched prospect."},
@@ -132,16 +133,33 @@ def _verified_features(product):
     return features
 
 
+def _official_classification(product):
+    return product.get("official_taxonomy") or category_from_product_url(
+        product.get("source"), product.get("part"))
+
+
 def strategy_options(product):
     """Only these options may be selected by a model for this product."""
     category, evidence = detect_category(product)
-    audiences = AUDIENCE_OPTIONS.get(category, AUDIENCE_OPTIONS["general_hand_tools"])
+    official = _official_classification(product)
+    if official:
+        audiences = [
+            {"id": "category_audience_"+str(i), "label": name,
+             "reason": official["marketing"]["reason"]}
+            for i, name in enumerate(official["marketing"]["audiences"])
+        ]
+    else:
+        audiences = [
+            {"id": code, "label": label, "reason": reason}
+            for code, label, reason in AUDIENCE_OPTIONS.get(
+                category, AUDIENCE_OPTIONS["general_hand_tools"])
+        ]
     return {
         "category": category,
-        "category_label": PROFILES[category]["label"],
+        "category_label": (official["breadcrumb"] if official else PROFILES[category]["label"]),
         "category_evidence": evidence,
-        "audiences": [{"id": code, "label": label, "reason": reason}
-                      for code, label, reason in audiences],
+        "official_category": official,
+        "audiences": audiences,
         "focus_options": list(FOCUSES),
         "channel_options": [{"id": name, "label": details["label"]}
                             for name, details in CHANNELS.items()],
@@ -154,11 +172,16 @@ def explain_strategy(product, ai_choice=None):
     """Build source-based strategy; ignore all unconstrained model claims."""
     options = strategy_options(product)
     category = options["category"]
+    official = options.get("official_category")
+    lens = (official or {}).get("marketing") or {}
     audiences = options["audiences"]
     facts = _verified_features(product)
     source = product.get("source") or ""
-    default_focus = DEFAULT_FOCUS[category]
-    recommended_fact = choose_feature(product, default_focus)
+    default_focus = lens.get("focus") or DEFAULT_FOCUS[category]
+    recommended_fact = (
+        select_marketing_fact(product, facts, lens) if lens
+        else choose_feature(product, default_focus)
+    )
     index = facts.index(recommended_fact) if recommended_fact in facts else 0
 
     choice = ai_choice if isinstance(ai_choice, dict) else {}
@@ -186,7 +209,7 @@ def explain_strategy(product, ai_choice=None):
     else:
         audience = audiences[0]
         focus = default_focus
-        channels = list(DEFAULT_CHANNELS[category])
+        channels = list(lens.get("channels") or DEFAULT_CHANNELS[category])
 
     # Do not claim verified pricing when missing. This affects the actual
     # campaign emphasis, not just dashboard wording.
@@ -201,13 +224,15 @@ def explain_strategy(product, ai_choice=None):
             proof = chosen
         elif not facts:
             proof = ""
+    if lens and not accepted and facts:
+        proof = select_marketing_fact(product, facts, lens)
     if not proof:
         ranked = rank_verified_features(product, category, 1)
         proof = ranked[0] if ranked else ""
 
     channel_details = [{"id": c, **CHANNELS[c]} for c in channels]
     why = (
-        audience["reason"] + " Recommend " + FOCUSES[focus].lower()
+        (lens.get("reason") or audience["reason"]) + " Recommend " + FOCUSES[focus].lower()
         + " content using a manufacturer-supplied fact, then lead with "
         + " and ".join(CHANNELS[c]["label"].lower() for c in channels) + "."
     )
@@ -215,6 +240,10 @@ def explain_strategy(product, ai_choice=None):
         "category": category,
         "category_label": options["category_label"],
         "category_evidence": options["category_evidence"],
+        "official_category_path": official["path"] if official else [],
+        "official_category_source": official["source"] if official else None,
+        "marketing_lens": {"id": lens.get("id"), "label": lens.get("label"),
+                           "reason": lens.get("reason")} if lens else None,
         "method": "gemini-validated-choice" if accepted else "category-rules-fallback",
         "method_label": (
             "Gemini-selected from verified options"
