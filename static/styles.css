@@ -991,3 +991,15 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .asset-workspace .campaign-asset-actions{gap:8px}
  .asset-workspace .campaign-download-choice{flex-wrap:wrap}
 }
+
+/* Mobile recovery controls are outside .asset-workspace; do not override
+   their [hidden] attribute with the author-level flex display rule. */
+.campaign-mobile-recovery[hidden],.preview-campaign-callout[hidden]{display:none!important}
+.preview-campaign-callout{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:11px;border:1px solid #b8d8ed;border-radius:10px;
+  background:#eff8ff;padding:14px;margin:9px 0 14px;color:#17425e;
+  font-size:12px;line-height:1.55}
+.preview-campaign-callout p{margin:0;flex:1;min-width:200px}
+.preview-campaign-callout button{background:#f5c23e;color:#183147;
+  border:0;border-radius:8px;padding:11px 13px;cursor:pointer;
+  font-size:12px;font-weight:850}
