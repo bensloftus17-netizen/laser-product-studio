@@ -65,6 +65,7 @@ class CampaignHubTests(unittest.TestCase):
             "04_Copy/All_Channels.txt", "04_Copy/All_Channels.json",
             "05_Product_Info/Official_Product_QR.png",
             "05_Product_Info/Campaign_Summary.pdf",
+            "05_Product_Info/Marketing_Strategy.txt",
             "05_Product_Info/Source_Record.json",
             "05_Product_Info/READ_FIRST.txt", "Campaign_Manifest.json",
         }

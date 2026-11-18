@@ -1,5 +1,36 @@
 # Laser Product Studio
 
+## Product-specific AI marketing strategy (V39)
+
+The campaign builder now produces an explainable strategy, not just generic
+promotional posters. It identifies the tool category from the official
+manufacturer record, suggests possible audiences, chooses a lead marketing
+angle, recommends channels and identifies a verbatim manufacturer proof point.
+A specialist bearing kit can prioritise verified vehicle applications and
+trade email; a ratchet set can prioritise documented set contents and social
+marketing; a workshop press can prioritise confirmed capacity and technical
+product listings.
+
+The existing single Gemini concepts request can additionally choose among
+strictly supplied audience IDs, sales angles, channel choices and manufacturer
+feature indexes. campaign_strategy.py validates all selections before use.
+Unverified claims, customer leads, fitment and prices cannot be introduced by
+the AI plan. When Gemini fails or returns unsupported choices, the application
+labels the product-aware rules fallback. No extra Gemini call is needed.
+
+The new Recommended marketing approach panel explains who might buy the tool,
+which channels may work best, why the recommended selling angle makes sense,
+and which manufacturer evidence supports it. The recommended campaign angle
+is highlighted and the selected proof is used in social/website/email graphics.
+The strategy is included in Campaign_Manifest.json, the campaign PDF and the
+Marketing_Strategy.txt export.
+
+IMPORTANT: Suggested audiences are unqualified marketing hypotheses for the
+trainee sales team to validate, not verified customer leads or order forecasts.
+Technical and company approval remains required before publication.
+
+Tests: python -m unittest test_campaign_strategy.py
+
 ## AI-assisted rewrite buttons (V34)
 
 The single shared marketing copy editor now includes five quick rewrite styles:
