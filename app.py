@@ -20,7 +20,8 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
-from official_taxonomy import apply_official_taxonomy, taxonomy_snapshot
+from official_taxonomy import (apply_official_taxonomy, taxonomy_snapshot,
+                               catalogue_url_for_part)
 from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
@@ -1576,7 +1577,9 @@ def lookup(part,session=requests,force=False,uk_url=None):
     # Official UK pages are best for English product wording and genuine GBP RRP.
     uk_candidates=[]
     if uk_url:uk_candidates.append(uk_url)
-    if part in OFFICIAL_UK_PRODUCTS:uk_candidates.append(OFFICIAL_UK_PRODUCTS[part])
+    indexed_url = OFFICIAL_UK_PRODUCTS.get(part) or catalogue_url_for_part(part)
+    if indexed_url:
+        uk_candidates.append(indexed_url)
     else:
         discovered=search_official_uk_product(part,session)
         if discovered:uk_candidates.append(discovered)
