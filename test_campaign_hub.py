@@ -66,6 +66,8 @@ class CampaignHubTests(unittest.TestCase):
             "02_Social/Instagram_Facebook_Story.png",
             "03_Web_Email/Website_Banner.png",
             "03_Web_Email/Email_Header.png",
+            "02_Social/LinkedIn_Graphic.png",
+            "03_Web_Email/Landscape_Advert.png",
             "04_Copy/All_Channels.txt", "04_Copy/All_Channels.json",
             "04_Copy/Instagram_Story_Suggestions.txt",
             "05_Product_Info/Official_Product_QR.png",
@@ -84,6 +86,8 @@ class CampaignHubTests(unittest.TestCase):
                 ("02_Social/Instagram_Facebook_Story.png", (1080, 1920)),
                 ("03_Web_Email/Website_Banner.png", (1600, 600)),
                 ("03_Web_Email/Email_Header.png", (1200, 420)),
+                ("02_Social/LinkedIn_Graphic.png", (1200, 627)),
+                ("03_Web_Email/Landscape_Advert.png", (1600, 900)),
             ]:
                 with Image.open(io.BytesIO(zip_file.read(key))) as image:
                     self.assertEqual(image.size, size)
@@ -114,7 +118,7 @@ class CampaignHubTests(unittest.TestCase):
         body = res.get_json()
         token = body["token"]
         self.assertEqual(body["manifest"]["part"], "9364")
-        self.assertEqual(len(body["manifest"]["images"]), 8)
+        self.assertEqual(len(body["manifest"]["images"]), 10)
         self.assertIn("private", res.headers["Cache-Control"])
         download = studio.app.test_client().get("/api/campaign/download/" + token)
         self.assertEqual(download.status_code, 200)
