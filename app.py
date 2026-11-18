@@ -2390,6 +2390,24 @@ def edit_campaign_asset(token, asset_id):
         return jsonify(error='Could not update this poster. Original campaign is unchanged.'),500
 
 
+@app.get('/api/campaign/manifest/<token>')
+def resume_campaign_manifest(token):
+    """Recover already completed mobile campaign after Safari tab suspension.
+
+    This only reads an existing short-lived in-memory draft, never repeats
+    the Gemini request or creates new artwork. Possession of the same
+    unguessable campaign token already grants its existing PNG/ZIP downloads.
+    """
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return jsonify(error='Invalid or expired campaign link.'), 404
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='This campaign has expired. Generate a new one.'), 404
+    response = jsonify(token=token, manifest=bundle['manifest'])
+    response.headers['Cache-Control']='private, no-store, max-age=0'
+    return response
+
+
 @app.get('/api/campaign/download/<token>')
 def download_campaign(token):
     bundle = _get_campaign_pack(token)
