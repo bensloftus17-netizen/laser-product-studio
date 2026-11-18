@@ -304,7 +304,7 @@ def short_features(p,n=3):
 
 
 def png(im):
-    buffer=io.BytesIO();im.save(buffer,'PNG',optimize=True)
+    buffer=io.BytesIO();im.save(buffer,'PNG',optimize=False,compress_level=3)
     return buffer.getvalue()
 
 def page_footer(d,W,H,p,color=NAVY):
