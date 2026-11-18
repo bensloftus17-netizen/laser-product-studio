@@ -93,7 +93,7 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
     def test_bespoke_third_angles_for_real_tool_families(self):
         desired=[
             (self.timing,"kit_contents","engine"),
-            (self.socket,"access_function","hand_tools"),
+            (self.socket,"kit_contents","hand_tools"),
             (self.press,"capacity_specs","press"),
             (self.bearing,"workshop_solution","wheel_hub"),
         ]
