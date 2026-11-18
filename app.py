@@ -1691,8 +1691,15 @@ def lookup(part,session=requests,force=False,uk_url=None):
                 if 'pdf' in r.headers.get('Content-Type','').lower() or r.content.startswith(b'%PDF'):
                     candidate,image_bytes=parse_pis_pdf(r.content,part,r.url)
                 else:candidate=parse_html(r.content,part,r.url)
+                # Product information sheets may mix English headings with
+                # short German specification lines. Normalise those verified
+                # numeric labels before checking/choosing the source, rather
+                # than rejecting the entire official product record.
+                candidate=normalise_product_language(candidate)
                 if is_french(candidate['title']+' '+candidate['description']):
                     errors.append('Manufacturer page not in English');continue
+                if not candidate.get('features') and not candidate.get('specs'):
+                    errors.append('Manufacturer page has no verified English facts');continue
                 product=candidate
                 break
             except Exception as e:errors.append(str(e)[:180])
@@ -1703,8 +1710,9 @@ def lookup(part,session=requests,force=False,uk_url=None):
             try:
                 r=official_get(url,session,content_types=['pdf'])
                 sheet,photo=parse_pis_pdf(r.content,part,r.url)
+                sheet=normalise_product_language(sheet)
                 if is_french(sheet['title']+' '+sheet['description']):continue
-                sheet['features']=english_only_features(sheet.get('features',[]))
+                if not sheet.get('features') and not sheet.get('specs'):continue
                 if not product:product=sheet
                 else:
                     product['features']=product['features'] or sheet['features']
