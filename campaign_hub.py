@@ -200,7 +200,7 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
     part = _clean(product.get("part"), 18)
     price = _price_line(product)
     if kind == "social_square":
-        d.rectangle((0, 210, width, height), fill=BLUE if not scene else (4,55,98,190))
+        if not scene:d.rectangle((0, 210, width, height), fill=BLUE)
         d.polygon([(0, 1000), (1080, 820), (1080, 1080), (0, 1080)], fill=NAVY)
         _brand(canvas, part, distributor)
         _fitted(d, title, (50, 200, 1025, 370), (64, 56, 48, 42, 36), WHITE, 3)
@@ -208,7 +208,7 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
         d.rounded_rectangle((62, 896, 1015, 1020), radius=10, fill=WHITE)
         _fitted(d, price, (90, 918, 980, 1001), (47, 41, 35, 28, 23), TEXT, 2)
     elif kind == "social_story":
-        d.rectangle((0, 200, width, height), fill=BLUE if not scene else (5,64,105,180))
+        if not scene:d.rectangle((0, 200, width, height), fill=BLUE)
         d.polygon([(0, 1620), (1080, 1400), (1080, 1920), (0, 1920)], fill=NAVY)
         _brand(canvas, part, distributor)
         _fitted(d, title, (58, 258, 1022, 515), (81, 72, 60, 52, 44), WHITE, 4)
