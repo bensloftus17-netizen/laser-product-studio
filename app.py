@@ -907,7 +907,7 @@ function renderProgressGallery(jobId,data){
    '<div class="campaign-progress-preview"><a id="progress-open-'+id+
     '" target="_blank" rel="noopener noreferrer" hidden>'+
    '<img id="progress-img-'+id+'" alt="'+label+' verified marketing graphic" loading="lazy" hidden></a>'+
-   '<span id="progress-placeholder-'+id+'">Artwork preparing…</span></div>'+
+   '<span id="progress-placeholder-'+id+'">Waiting for quality-checked artwork…</span></div>'+
    '<b>'+label+'</b><span id="progress-state-'+id+
     '" class="campaign-progress-state" role="status">Queued</span>'+
    '<a id="progress-save-'+id+
@@ -922,7 +922,10 @@ function renderProgressGallery(jobId,data){
  const stage=PROGRESS_STAGE_LABELS[data.stage]||'Working on the campaign…';
  const ready=PROGRESS_FORMATS.filter(([id])=>assets[id]&&assets[id].status==='ready').length;
  $('campaignProgressCount').textContent=ready+' of 9 graphics ready';
- $('campaignProgressStage').textContent=stage;
+ const elapsed=Math.max(0,Math.floor(Number(data.elapsed_seconds)||0));
+ const elapsedLabel=Math.floor(elapsed/60)+'m '+String(elapsed%60).padStart(2,'0')+'s';
+ $('campaignProgressStage').textContent=stage+' · '+elapsedLabel+
+   (ready===0&&elapsed>=120?' · No artwork has passed review yet. High-quality generation is still running on the limited server.':'');
  $('campaignProgressZip').textContent=data.status==='failed'
     ?'Full ZIP unavailable: the campaign did not pass every required check. Ready PNGs remain downloadable until the job expires.'
     :'Full ZIP preparing. Finished, quality-checked PNGs can be viewed or downloaded below.';
@@ -934,6 +937,16 @@ function renderProgressGallery(jobId,data){
     ready:'Ready · passed checks',failed:'Quality check failed'}[status]||'Queued';
   $('progress-state-'+id).textContent=message;
   $('progress-card-'+id).dataset.status=status;
+  if(status!=='ready'){
+   const context={queued:(data.stage==='planning'?'AI creative planning…':
+     data.stage==='finding_context'?'Finding verified photography…':
+     data.stage==='reviewing_posters'?'Awaiting poster review…':
+     'Waiting in quality queue…'),
+    rendering:'Rendering full-resolution artwork…',
+    quality_checking:'Checking artwork quality…',
+    failed:'Artwork rejected by quality checks'};
+   $('progress-placeholder-'+id).textContent=context[status]||'Preparing artwork…';
+  }
   if(status==='ready'&&!progressDisplayed.has(id)){
    const url='/api/campaign/job-assets/'+encodeURIComponent(jobId)+'/'+id;
    const img=$('progress-img-'+id),open=$('progress-open-'+id),save=$('progress-save-'+id);
@@ -994,8 +1007,10 @@ async function pollMobileCampaign(job_id){
   renderProgressGallery(job_id,data);
   if(data.status==='ready'&&data.manifest&&data.token)return data;
   if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
-  $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+(PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+' You can open finished PNGs while the rest is created.';
-  await new Promise(resolve=>setTimeout(resolve,2400));
+  $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+(PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+
+   ' · '+Math.floor((Number(data.elapsed_seconds)||0)/60)+' minutes elapsed. Finished PNGs appear as soon as they pass quality checks.';
+  // Lower status traffic while the small Render instance is doing heavy artwork work.
+  await new Promise(resolve=>setTimeout(resolve,4500));
  }
  throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
 }
@@ -2671,12 +2686,15 @@ def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report
                              'rendering_formats','finalising_pack'):
                 raise ValueError("Unexpected campaign progress stage")
             job['stage']=stage
+        job['last_activity_at']=time.time()
 
 
 def _progress_payload(job):
     return {
         'status':job['status'], 'part':job['part'],
         'stage':job.get('stage','queued'),
+        'elapsed_seconds':max(0,int(time.time()-job.get('started_at',time.time()))),
+        'stage_age_seconds':max(0,int(time.time()-job.get('last_activity_at',time.time()))),
         'ready_count':sum(a['status']=='ready' for a in job['assets'].values()),
         'total_assets':len(PROGRESS_ASSETS),
         'assets':{k:dict(v) for k,v in job['assets'].items()},
@@ -2736,14 +2754,21 @@ def start_mobile_campaign(part):
                 if CAMPAIGN_JOBS[key]['expires']<now:
                     CAMPAIGN_JOBS.pop(key,None)
             active=sum(v['status'] in ('queued','running') for v in CAMPAIGN_JOBS.values())
-            if active>=2:
-                return jsonify(error='Two campaigns are already being prepared. Please retry shortly.'),429
+            # Free Render has ~0.15 CPU and 512 MB RAM. Concurrent high-resolution
+            # campaigns saturate it and prevent even the first image from arriving.
+            # Run a single full-quality job instead of sacrificing artwork QA.
+            if active>=1:
+                response=jsonify(error='Another full-quality campaign is already generating. The server can handle one at a time; please retry once it finishes.')
+                response.status_code=429
+                response.headers['Retry-After']='45'
+                return response
             job_id=secrets.token_urlsafe(24)
             CAMPAIGN_JOBS[job_id]={
                 'part':part,'status':'queued','stage':'queued','token':None,
                 'assets':{k:{'status':'queued'} for k in PROGRESS_ASSETS},
                 'preview_images':{},
-                'error':None,'expires':now+CAMPAIGN_JOB_TTL}
+                'error':None,'expires':now+CAMPAIGN_JOB_TTL,
+                'started_at':now,'last_activity_at':now}
         try:
             threading.Thread(target=_run_campaign_job,
                 args=(job_id,part,body),daemon=True,
