@@ -43,7 +43,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
     def test_dashboard_is_served(self):
         response=studio.app.test_client().get('/')
         self.assertEqual(response.status_code,200)
-        self.assertIn(b'Generate a Marketing Campaign',response.data)
+        self.assertIn(b'Build a Unique Product Campaign',response.data)
         self.assertIn(b'Saved Promotions Library',response.data)
         self.assertIn(b'campaignCopyText',response.data)
         self.assertIn(b'static/styles.css?design=v41-unified-campaign',response.data)
