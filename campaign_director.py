@@ -76,7 +76,7 @@ LENS_THIRD = {
 CATEGORY_SCENES = {
     "engine_timing": "engine", "bearing_suspension": "wheel_hub",
     "socket_ratchet": "hand_tools", "workshop_press": "press",
-    "diagnostic_electrical": "diagnostic", "lighting_inspection": "engine",
+    "diagnostic_electrical": "diagnostic", "lighting_inspection": "lighting",
     "bodyshop_repair": "suspension", "air_power": "hand_tools",
     "threading_cutting": "hand_tools", "workshop_service": "workshop",
     "accessories_consumables": "hand_tools", "general_hand_tools": "hand_tools",
