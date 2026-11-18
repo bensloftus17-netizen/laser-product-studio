@@ -1,3 +1,41 @@
+## V48 — genuine progressive campaign generation (no quality shortcuts)
+
+Full campaigns now **appear one artwork at a time**, on both desktop and mobile.
+Each job returns immediately with an unguessable bearer ID. The frontend
+shows nine separate queued/rendering/quality-checking/ready/failed cards,
+polls its job and reveals each real finished PNG as soon as the original
+quality controls approve it. Ready images can be opened or downloaded before
+the full campaign is complete. A complete ZIP is only available when all nine
+graphics and the manifest/review files have been generated successfully.
+
+**Quality is unchanged:** the three original posters are withheld until
+the existing batch distinctness and AI visual-critic review passes. A poster
+rejected for clipping, white borders, blur, illegible text or duplication is
+never streamed as ready. Subsequent square/Story/website/email/LinkedIn/
+landscape artwork is emitted after that format's normal approved render and
+quality selection; failed assets are recorded individually. A failed format
+does **not** erase prior quality-approved images, but it **does** block the
+full ZIP. This is progressive delivery, not a faster lower-fidelity mode.
+
+Server: `build_campaign(..., progress=callback)` emits trusted stage and
+validated PNG events; the existing synchronous API continues to produce
+identical archives. The bounded background job stores temporary bytes only
+until its normal complete pack is available, then releases duplicate RAM.
+`GET /api/campaign/jobs/<job_id>` reports only statuses and counts.
+`GET /api/campaign/job-assets/<job_id>/<asset_id>` serves only approved
+PNG bytes to the bearer token, with optional `?download=1`. No partial ZIP,
+product artwork URL injection or unapproved renders are exposed.
+
+The browser uses the same resumable jobs for mobile and desktop. It maintains
+nine persistent cards without reloading existing PNGs on every poll and makes
+clear which assets have not passed review. Existing 15-minute retention and
+worker-restart limitations still apply; Redis/Postgres would be needed for
+durable, cross-worker recovery. No extra image quality sacrifices, source
+modifications or skipped visual checks are introduced.
+
+Tests: `python -m unittest -v test_progressive_campaign_v48.py`, plus the
+existing entire CI suite and Node JavaScript syntax checks.
+
 ## V47 — mobile full-campaign reliability, Safari recovery, and accurate previews
 
 The iPhone Safari live log showed that a complete campaign API request returned
