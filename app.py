@@ -438,6 +438,9 @@ function installMarketingHubLayout(){
  // Relocate existing functional controls into the approved dashboard structure.
  // IDs and event handlers remain unchanged; no duplicate editors or poster APIs.
  const assets=$('assetWorkspace'),copy=$('copyWorkspace');
+ // The original content pane is hidden after relocating the dashboard.
+ // Move progress into the visible workspace too, or all nine cards vanish.
+ assets.appendChild($('campaignProgress'));
  assets.appendChild($('previews'));
  assets.appendChild($('campaignResults'));
  copy.appendChild($('unifiedCopyStudio'));
