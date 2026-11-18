@@ -272,7 +272,7 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
         if str(x).strip() and str(x).strip()!=str(concept.get("selling_point") or "").strip()
     ]
     secondary=_story_copy({"selling_point":verified[0]}) if verified else ""
-    fitted(d,secondary or (fact if fact else "Confirm applications with the official product record."),
+    fitted(d,secondary or "Check the official product record for full specifications.",
            (62,1349,1133,1427),(28,25,22,19,17),WHITE,3,bold=False)
     fitted(d,"DRAFT / VERIFY APPLICATIONS BEFORE PUBLICATION",
            (61,1462,1132,1487),(17,15,13),"#B9D7EB",1,bold=False)
