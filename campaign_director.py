@@ -16,7 +16,8 @@ from __future__ import annotations
 import hashlib
 import re
 
-from marketing_intelligence import detect_category, rank_verified_features
+from marketing_intelligence import (detect_category, rank_verified_features,
+                                    is_related_product_reference)
 from official_taxonomy import category_from_product_url
 from promo_scene_library import classify_product
 from promo_selling_points import choose_feature
@@ -106,7 +107,10 @@ def _category(product):
 def third_angle_options(product):
     """Only permitted category-relevant extra angles; no model free text."""
     category,lens,_=_category(product)
-    primary=LENS_THIRD.get(lens.get("id")) or CATEGORY_THIRD.get(category,"access_function")
+    primary=CATEGORY_THIRD.get(category) or LENS_THIRD.get(lens.get("id")) or "access_function"
+    # The first poster is always application/technical; do not use another
+    # application/fitment poster as the supposedly new third creative.
+    if primary=="fitment_coverage":primary="workshop_solution"
     alternate={
         "fitment_coverage":"kit_contents",
         "kit_contents":"workshop_solution",
@@ -129,6 +133,8 @@ def _verified_facts(product):
     facts=[]
     for item in product.get("features") or []:
         if not isinstance(item,str):
+            continue
+        if is_related_product_reference(item):
             continue
         fact=_clean(item,175)
         if fact and fact not in facts:
