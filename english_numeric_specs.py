@@ -24,6 +24,14 @@ NUMERIC_LABELS = {
     "akkukapazität": "Battery capacity",
     "ladezeit": "Charging time",
 }
+# English-only conversion for the precise, source-verified spanner-head sizes
+# in part 9469. Do not translate free-form German selling claims.
+INTERCHANGEABLE_HEADS_RE = re.compile(
+    r"^\s*Auswechselbare\s+Schlüsselköpfe\s*:\s*"
+    r"(?P<sizes>\d{1,3}(?:\s*,\s*\d{1,3})*(?:\s+und\s+\d{1,3})?)"
+    r"\s*mm\.?\s*$", re.I,
+)
+
 LABEL_RE = re.compile(
     r"^\s*(?P<label>" + "|".join(re.escape(s) for s in NUMERIC_LABELS) +
     r")\s*:\s*(?P<value>\d[\d.,\s×xX/+%-]*\s*"
@@ -41,7 +49,10 @@ RAW_GERMAN_TECH = re.compile(
     r"unbekannte|angaben|zubehör|werkstoff|beschreibung|"
     r"eigengewicht|gesamtgewicht|kabellänge|lichtleistung|"
     r"netzteil|mitgeliefert|lieferung|bedienungsanleitung|"
-    r"anzahl|maße|farbtemperatur|geeignet)\b",
+    r"anzahl|maße|farbtemperatur|geeignet|"
+    r"auswechselbar\w*|wechselbar\w*|schlüsselköpfe|schluesselkoepfe|"
+    r"maulschlüssel|schraubenschlüssel|steckschlüssel|schlüsselweite\w*|"
+    r"schlüsselgröße\w*|aufsätze|spannweite|drehmomentschlüssel)\b",
     re.I,
 )
 
@@ -58,6 +69,12 @@ def translate_known_numeric_labels(text):
     original=" ".join(str(text or "").split()).strip()
     if not original or not RAW_GERMAN_TECH.search(original):
         return original
+    heads=INTERCHANGEABLE_HEADS_RE.fullmatch(original)
+    if heads:
+        # Preserve each official size and unit; translate only the heading
+        # and the list conjunction ("und" -> "and").
+        sizes=re.sub(r"\s+und\s+"," and ",heads.group("sizes"),flags=re.I)
+        return f"Interchangeable spanner heads: {sizes} mm."
     # Split only between complete technical statements, not at decimal points.
     parts=re.split(r"(?<=\.)\s+(?=[A-Za-zÄÖÜäöüß])",original)
     if not parts:
