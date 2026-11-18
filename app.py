@@ -35,7 +35,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v44-creative-editor">
+<link rel="stylesheet" href="/static/styles.css?design=v47-mobile-recovery">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -82,6 +82,10 @@ V7_HOME_PAGE = r'''
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
 <div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
+<div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
+ <span id="campaignRecoveryText">Your last campaign may still be available.</span>
+ <button type="button" id="campaignResume">Reopen campaign</button>
+</div>
 <details id="campaignSettings" class="campaign-settings">
  <summary>Distributor branding, product lookup and pricing settings <span>Optional</span></summary>
  <div class="campaign-settings-content">
@@ -148,6 +152,10 @@ V7_HOME_PAGE = r'''
 </details>
 <div class="content"><aside class="record-panel"><div class="panel-heading"><span class="panel-step">02</span><div><div class="sectioncap">OFFICIAL PRODUCT RECORD</div><h2>Review product details</h2><p>Check the information before sharing.</p></div></div><div id="record" class="record"><div class="placeholder"><div class="placeholder_icon">⌕</div><b>Search for a product</b><p>Official details and photography appear here.</p></div></div></aside>
 <section class="right"><div class="previewtop"><div class="panel-heading"><span class="panel-step">03</span><div><div class="sectioncap">YOUR MARKETING ASSETS</div><h2>Campaign posters</h2><p>Three different roles, layouts and verified selling points for this specific tool.</p></div></div><span class="formats-chip">3 FORMATS</span></div>
+<div id="previewCampaignCallout" class="preview-campaign-callout" hidden>
+ <p><b>These are only three quick previews.</b> To generate the complete AI marketing campaign, including all nine graphics and the downloadable pack, choose Build Full Campaign.</p>
+ <button type="button" id="previewBuildFull">Build All 9 Graphics</button>
+</div>
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
@@ -170,7 +178,7 @@ V7_HOME_PAGE = r'''
 </section>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
 <div class="campaign-role-note">These posters serve different purposes: technical/application, price promotion and a third category-specific marketing angle. The actual Laser Tools product photo is always genuine.</div>
-<h4>Three posters · Story · Social · Banners</h4><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
+<h4>Three posters · Story · Social · Banners</h4><p id="campaignAssetCount" class="campaign-count" role="status" aria-live="polite"></p><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
 
 <section class="campaign-poster-editor" id="campaignPosterEditor" hidden aria-label="Edit selected poster">
  <div class="poster-edit-heading"><div><span class="sectioncap">EDIT VERIFIED CAMPAIGN POSTER</span><h4 id="posterEditTitle">Edit one poster</h4><p>Manufacturer photo, part number and verified price remain locked.</p></div><button type="button" id="posterEditClose" class="ai-secondary">Close</button></div>
@@ -350,7 +358,13 @@ function prepareShareButton(button){
  }).finally(()=>{if(button.dataset.shareUrl===url)delete button.dataset.shareLoading;});
 }
 function prepareShareButtons(root){
- if(root)root.querySelectorAll('button[data-share-url]').forEach(prepareShareButton);
+ // On mobile, eagerly fetching a 5 MB ZIP plus every PNG for sharing can
+ // exhaust Safari memory just as its artwork gallery is being displayed.
+ // Preload ONLY after the user requests that individual share file.
+ if(root)root.querySelectorAll('button[data-share-url]').forEach(button=>{
+  button.disabled=false;
+  button.title='Tap once to prepare this file; tap again to open the share sheet';
+ });
 }
 document.addEventListener('click',event=>{
  const button=event.target.closest('button[data-share-url]');
@@ -452,7 +466,7 @@ document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventLis
 
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
+function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  legacyShareFile=null;$('legacyShareZip').disabled=true;
  const id=selectedDistributor(),target=$('distributorPreview');
@@ -467,12 +481,12 @@ function updateDistributorPreview(){
      (labels[id]+' branding applied to all three poster previews. Review before downloading.'),'success');
  }
 }
-function reset(){legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
+function reset(){$('previewCampaignCallout').hidden=true;legacyShareFile=null;$('legacyShareZip').disabled=true;$('generateAI').disabled=true;clearAiDesigns();clearCampaign();refreshWorkspaceHeading(null);setProgress(1);active=null;activePhoto=null;staffApplied=null;$('staffRrp').value='';$('staffRrpBasis').value='ex';$('staffReview').checked=false;$('reviewed').checked=false;$('reviewed').disabled=true;$('download').disabled=true;$('previews').innerHTML='<div class="posterempty">Retrieving genuine product details and photograph…</div>';}
 function setProgress(stage){document.querySelectorAll('.step[data-step]').forEach(el=>{const n=Number(el.dataset.step);el.classList.toggle('active',n===stage);el.classList.toggle('complete',n<stage);if(n===stage)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});}
 function productCard(p,photo){const fs=(p.features||[]).filter(x=>x.length<180);const specs=Object.entries(p.specs||{}).slice(0,8).map(([k,v])=>'<div class="spec"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('');const warns=(p.warnings||[]).map(x=>'<p class="warn">'+esc(x)+'</p>').join('');const full=String(p.description||'');const desc=full.length>250?full.slice(0,244).replace(/\s+\S*$/,'')+'…':full;const staff=String(p.price_source||'').startsWith('Staff entry');return '<div class="found"><div class="sourcepill">✓ Official manufacturer record</div><h3><span class="sku-label">PART NO. '+esc(p.part)+'</span>'+esc(p.title)+'</h3><div class="recordphoto">'+(photo?'<img src="'+esc(photo)+'" alt="Official Laser Tools product image">':'<div class="nophoto">No verified photograph</div>')+'</div><div class="price"><span>'+(p.price?(staff?'Staff-reviewed draft RRP':'Manufacturer UK RRP'):'PRICE')+'</span><b>'+esc(p.price||'On request')+'</b><small>'+esc(p.price_status||(p.price?'Confirm before publishing':'No verified RRP available'))+'</small></div><div class="marketing-direction" id="product-marketing-direction"><div class="marketing-direction-title"><span class="marketing-direction-icon">✦</span><span>PRODUCT-AWARE MARKETING</span></div><div class="marketing-family"><b>'+esc(((p.marketing_direction||{}).site_category_path||[]).length
  ?(p.marketing_direction.site_category_path.join(' › '))
  :((p.marketing_direction||{}).category_label||'Category not confirmed'))+'</b><span class="marketing-mode">'+esc((p.marketing_direction||{}).visual_style||'workshop_essential')+'</span></div><div class="marketing-angle">'+esc((p.marketing_direction||{}).marketing_angle||'Verified product features and benefits')+'</div><div class="marketing-support">Automatically selects marketing priorities from the official product record. Review before publishing.</div></div><div class="record-summary"><h4>Product overview</h4><p>'+esc(desc)+'</p></div>'+(fs.length?'<div class="key-list"><h4>Key features</h4><ul>'+fs.slice(0,3).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'<details class="record-details"><summary>View all product information</summary><div class="record-full"><h4>Full description</h4><p>'+esc(full)+'</p><h4>Features</h4><ul>'+fs.slice(0,8).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><h4>Specifications</h4>'+(specs||'No further verified specifications')+'</div></details><div class="sourceinfo"><div>Source checked: '+esc(p.source_checked||'Not available')+'</div><a href="'+esc(p.source||'#')+'" target="_blank" rel="noopener noreferrer">Official product page ↗</a></div>'+warns+'</div>';}
-function showPreviews(p,photo){if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><div class="asset-links"><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a><a download="LASER_'+esc(p.part)+'_'+key+'.png" href="'+url+'">Download PNG</a><button type="button" class="asset-share-button share-primary" data-share-url="'+esc(url)+'" data-share-filename="LASER_'+esc(p.part)+'_'+key+'.png">↗ Share to apps</button></div></div></article>';}).join('');prepareShareButtons($('previews'));}
+function showPreviews(p,photo){$('previewCampaignCallout').hidden=!photo;if(!photo){$('previews').innerHTML='<div class="posterempty">No verified image was found. Posters are withheld rather than inventing a tool photograph.</div>';return;}const layouts=String(p.technical_layout||'').toLowerCase();const marketing=p.marketing_direction||{};const styles=[['Hero','01','Promotional advert',marketing.marketing_angle||'Product-led campaign'],['Technical','02','Technical information',layouts?layouts+' detail layout':'Product breakdown'],['Price','03','RRP / sales poster','Price-led customer sales material']];$('previews').innerHTML=styles.map(([key,num,title,desc])=>{const url='/api/poster/'+encodeURIComponent(p.part)+'/'+key+'?design=v19&distributor_brand='+encodeURIComponent(selectedDistributor())+(staffApplied?'&staff_rrp_ex='+encodeURIComponent(staffApplied)+'&staff_rrp_reviewed=1&staff_rrp_basis='+encodeURIComponent(staffBasis):'');return '<article class="posteritem"><div class="poster-cardheading">'+num+' / '+title+'</div><div class="posterthumb"><img loading="lazy" src="'+url+'" alt="'+esc(title)+' preview" onerror="this.onerror=null;this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<span class=loaderror>Preview unavailable. Open full size to retry.</span>\')"></div><div class="posteritemfoot"><div><b>'+title+'</b><small>'+esc(desc)+'</small></div><div class="asset-links"><a target="_blank" rel="noopener noreferrer" href="'+url+'">View full size ↗</a><a download="LASER_'+esc(p.part)+'_'+key+'.png" href="'+url+'">Download PNG</a><button type="button" class="asset-share-button share-primary" data-share-url="'+esc(url)+'" data-share-filename="LASER_'+esc(p.part)+'_'+key+'.png">↗ Share to apps</button></div></div></article>';}).join('');prepareShareButtons($('previews'));}
 // Render's free-hosting wake/deploy screen is HTML, NOT our product JSON.
 // Never show a raw "Unexpected token <" error. GET lookups can safely retry;
 // AI POST requests are not replayed because they may invoke a model.
@@ -790,8 +804,141 @@ $('aiPosterClose').addEventListener('click',()=>$('aiPosterPreview').close());
 $('aiPosterPreview').addEventListener('click',e=>{if(e.target.id==='aiPosterPreview')e.target.close();});
 
 function campaignAssetUrl(id){return '/api/campaign/assets/'+encodeURIComponent(campaignData.token)+'/'+encodeURIComponent(id);}
+function renderCampaignGallery(data){
+ const m=data.manifest||{};
+ if(!Array.isArray(m.images)||m.images.filter(item=>item.id!=='source_qr').length<9){
+  throw new Error('The campaign response is incomplete. No missing artwork will be shown as finished.');
+ }
+ const artworkCount=m.images.filter(item=>item.id!=='source_qr').length;
+ $('campaignAssetCount').textContent='All '+artworkCount+' campaign artwork files are ready. Scroll down to view every format; tap a graphic to open it.';
+ $('assetWorkspaceStatus').textContent='Complete campaign available: '+artworkCount+' native artwork formats. Scroll to browse them all.';
+ const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
+ social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
+ email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
+ $('campaignAssets').innerHTML=m.images.map((asset,index)=>
+  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="'+(index<3?'eager':'lazy')+'" decoding="async" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><small class="campaign-asset-load" data-load-state>Loading preview…</small><button class="campaign-asset-retry" type="button" data-retry-asset="'+esc(asset.id)+'" hidden>Retry image</button><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
+  '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
+  '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
+  (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
+
+ $('previews').hidden=true;
+ $('previewCampaignCallout').hidden=true;
+ $('campaignResults').hidden=false;
+ $('campaignRecovery').hidden=true;
+}
+$('campaignAssets').addEventListener('load',event=>{
+ if(event.target.tagName!=='IMG')return;
+ const card=event.target.closest('.campaign-asset');
+ const status=card&&card.querySelector('[data-load-state]');
+ if(status)status.textContent='Preview loaded';
+},true);
+$('campaignAssets').addEventListener('error',event=>{
+ if(event.target.tagName!=='IMG')return;
+ const card=event.target.closest('.campaign-asset');
+ if(!card)return;
+ const state=card.querySelector('[data-load-state]');
+ const retry=card.querySelector('[data-retry-asset]');
+ if(state)state.textContent='Preview did not load. The full ZIP may still be available.';
+ if(retry)retry.hidden=false;
+},true);
+$('campaignAssets').addEventListener('click',event=>{
+ const control=event.target.closest('[data-retry-asset]');
+ if(!control)return;
+ const card=control.closest('.campaign-asset');
+ const img=card&&card.querySelector('img');
+ if(!img)return;
+ control.hidden=true;
+ const state=card.querySelector('[data-load-state]');
+ if(state)state.textContent='Retrying preview…';
+ const base=img.src.split('?')[0];
+ img.src=base+'?retry='+Date.now();
+});
+
+
+// Safari may close or suspend the page while a full set of artwork is being
+// generated. Store only the short-lived bearer token for this draft in the
+// browser session; never store product photos, customer data or API keys.
+const CAMPAIGN_RESUME_KEY='laser-campaign-resume-v47';
+function getRecoverableCampaign(){
+ try{
+  const state=JSON.parse(sessionStorage.getItem(CAMPAIGN_RESUME_KEY)||'null');
+  if(!state||Date.now()-state.savedAt>14*60*1000)return null;
+  if(state.status==='running'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.job_id))return state;
+  if(state.status==='ready'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.token))return state;
+ }catch(error){}
+ return null;
+}
+function updateCampaignRecovery(){
+ const state=getRecoverableCampaign();
+ const panel=$('campaignRecovery');
+ panel.hidden=!state;
+ if(state){
+  $('campaignRecoveryText').textContent=
+    (state.status==='running'?'Campaign still preparing':'Finished campaign available')+
+    ' · LASER '+state.part;
+  $('campaignResume').textContent=state.status==='running'?'Check campaign status':'Reopen all artwork';
+ }
+}
+function rememberMobileJob(job_id,part){
+ try{sessionStorage.setItem(CAMPAIGN_RESUME_KEY,
+  JSON.stringify({job_id,part,status:'running',savedAt:Date.now()}));}catch(error){}
+ updateCampaignRecovery();
+}
+function rememberFinishedCampaign(data){
+ try{sessionStorage.setItem(CAMPAIGN_RESUME_KEY,
+  JSON.stringify({token:data.token,part:data.manifest.part,
+                  status:'ready',savedAt:Date.now()}));}catch(error){}
+ updateCampaignRecovery();
+}
+async function pollMobileCampaign(job_id){
+ // A finished campaign is looked up by a short-lived job ID, not regenerated.
+ // Normal tab suspension pauses JS polling but does not cancel server work.
+ for(let attempt=0;attempt<125;attempt++){
+  const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
+                             {cache:'no-store',headers:{Accept:'application/json'}});
+  const data=await readApiJson(response);
+  if(data.status==='ready'&&data.manifest&&data.token)return data;
+  if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
+  $('campaignStatus').textContent='Creating your complete campaign: 3 posters and 6 more original marketing formats. Please keep this tab open, or reopen your campaign when you return.';
+  await new Promise(resolve=>setTimeout(resolve,2400));
+ }
+ throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
+}
+async function resumeLastMobileCampaign(){
+ const state=getRecoverableCampaign();
+ if(!state||inflight)return;
+ const button=$('campaignResume');
+ button.disabled=true;
+ try{
+  $('campaignStatus').textContent='Recovering your finished campaign without regenerating artwork…';
+  const data=state.status==='running'
+   ?await pollMobileCampaign(state.job_id)
+   :await readApiJson(await fetch('/api/campaign/manifest/'+encodeURIComponent(state.token),
+        {cache:'no-store',headers:{Accept:'application/json'}}));
+  rememberFinishedCampaign(data);
+  $('part').value=data.manifest.part;
+  if(!active||active.part!==data.manifest.part){
+    active={part:data.manifest.part,title:data.manifest.title};
+    activePhoto='/api/photo/'+encodeURIComponent(data.manifest.part);
+  }
+  showCampaign(data);
+  $('campaignStatus').textContent='Recovered your complete campaign. Scroll through the artwork and use Download complete ZIP for every format.';
+ }catch(error){
+  $('campaignStatus').textContent=error.message||'Could not reopen the last campaign.';
+  if(!String(error.message||'').toLowerCase().includes('still processing')){
+   try{sessionStorage.removeItem(CAMPAIGN_RESUME_KEY);}catch(e){}
+  }
+ }finally{
+  button.disabled=false;
+  updateCampaignRecovery();
+ }
+}
+$('campaignResume').addEventListener('click',resumeLastMobileCampaign);
+updateCampaignRecovery();
+
 function showCampaign(data){
  campaignData=data;
+ renderCampaignGallery(data);
  const m=data.manifest;
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
  const freeform=m.creative_plan&&m.creative_plan.render_engine==='ai-authored-freeform-layout';
@@ -819,7 +966,7 @@ function showCampaign(data){
  const originalCount=nativeKinds.filter(k=>formatChecks[k]?.render_engine==='ai-original-format-canvas').length;
  if(nativeKinds.every(k=>formatChecks[k])){
     $('campaignQuality').textContent+=' · '+originalCount+'/6 marketing formats have their own AI-designed layouts.'+
-      (originalCount<4?' Formats using the older renderer still require manual design review.':'');
+      (originalCount<6?' Formats using the older renderer still require manual design review.':'');
  }
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
@@ -844,7 +991,7 @@ function showCampaign(data){
  preparedShareFiles.delete($('campaignShareZip'));
  $('campaignShareZip').dataset.shareUrl=$('campaignDownload').href;
  $('campaignShareZip').dataset.shareFilename='LASER_'+m.part+'_Complete_Campaign.zip';
- prepareShareButton($('campaignShareZip'));
+ prepareShareButtons($('campaignResults'));
  // The most shareable graphic is the square social image; show an obvious
  // Share action above the gallery, not only under individual download links.
  const socialAsset=m.images.find(item=>item.id==='social_square');
@@ -854,18 +1001,10 @@ function showCampaign(data){
  socialButton.dataset.shareUrl=socialAsset?campaignAssetUrl('social_square'):'';
  socialButton.dataset.shareFilename='LASER_'+m.part+'_Social.png';
  socialButton.hidden=!socialAsset;
- if(socialAsset)prepareShareButton(socialButton);
+ if(socialAsset)prepareShareButtons($('campaignResults'));
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
   (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
- const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
- social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
- email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
- $('campaignAssets').innerHTML=m.images.map(asset=>
-  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
-  '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
-  '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
-  (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
  prepareShareButtons($('campaignResults'));
  const social=m.social_suggestions||{};
  const frames=Array.isArray(social.instagram_story)?social.instagram_story:[];
@@ -1072,23 +1211,48 @@ $('campaignBtn').addEventListener('click',async()=>{
    if(rawPrice&&!$('staffRrp').value){$('staffRrp').value=rawPrice;$('staffReview').checked=reviewedPrice;$('staffRrpBasis').value=reviewedBasis;}
    if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
    $('campaignStatus').textContent='Understanding the tool, selecting three different poster layouts, sourcing approved application imagery and writing channel copy…';
-   const response=await fetch('/api/campaign/'+encodeURIComponent(part),{
-     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-     body:JSON.stringify({official_url:$('officialUrl').value.trim()||null,
+   const body={official_url:$('officialUrl').value.trim()||null,
        distributor_brand:selectedDistributor(),
        staff_rrp_ex:rawPrice||staffApplied,
        staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
-       staff_rrp_basis:rawPrice?reviewedBasis:staffBasis})
-   });
-   const data=await readApiJson(response);
+       staff_rrp_basis:rawPrice?reviewedBasis:staffBasis};
+   const onPhone=(window.matchMedia&&window.matchMedia('(max-width:760px)').matches)||
+       /iPhone|iPad|Android/i.test(navigator.userAgent);
+   let data;
+   if(onPhone){
+     // The old one-minute POST can be interrupted when iOS locks or suspends
+     // Safari. Instead the phone receives a job ID immediately and can resume.
+     $('previews').hidden=true;
+     $('previewCampaignCallout').hidden=true;
+     $('assetWorkspaceStatus').textContent='Generating all 9 campaign graphics — preview posters are not the finished campaign.';
+     const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
+       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+       body:JSON.stringify(body)}));
+     rememberMobileJob(started.job_id,part);
+     data=await pollMobileCampaign(started.job_id);
+   }else{
+     data=await readApiJson(await fetch('/api/campaign/'+encodeURIComponent(part),{
+       method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+       body:JSON.stringify(body)}));
+   }
+   rememberFinishedCampaign(data);
    showCampaign(data);
-   $('campaignStatus').textContent='Campaign ready to review. Nothing has downloaded — use Download complete ZIP or choose individual PNGs if you want to save them. The links expire after 15 minutes.';
- }catch(error){$('campaignStatus').textContent=error.message;setState(error.message,'error');}
+   $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links expire after 15 minutes.';
+ }catch(error){
+   $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
+     ' The three basic previews are not a complete AI campaign.';
+   setState(error.message||'Campaign generation failed','error');
+   $('previews').hidden=false;
+   updateCampaignRecovery();
+ }
  finally{button.disabled=false;button.textContent='✦ Build Campaign';}
 });
 
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
 ['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
+$('previewBuildFull').addEventListener('click',()=>{
+ $('campaignBtn').click();
+});
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
 </script><script src="/static/campaign_poster_edit.js?v=44"></script></body></html>
@@ -2311,6 +2475,37 @@ def _get_campaign_pack(token):
         return entry['bundle'] if entry and entry['expires'] >= now else None
 
 
+def _assemble_campaign_bundle(part, body):
+    """One canonical product/price/imagery validation path for sync and jobs."""
+    product, image = lookup(part, uk_url=body.get('official_url') or None)
+    if not image:
+        raise ValueError('A genuine official product photograph is required.')
+    product = with_reviewed_price(
+        product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
+        body.get('staff_rrp_basis', 'ex'))
+    distributor = selected_distributor(body.get('distributor_brand', 'none'))
+    official_context = (
+        APPLICATION_IMAGE_CACHE.get(part)
+        if product.get('application_photo_source')
+        and product.get('application_photo_source') != product.get('photo_source')
+        else None)
+    return build_campaign(product, image, distributor,
+                          application_photo=official_context)
+
+
+def _save_campaign_bundle(bundle):
+    token=secrets.token_urlsafe(24)
+    with CAMPAIGN_PACK_LOCK:
+        now=time.time()
+        for key in list(CAMPAIGN_PACKS):
+            if CAMPAIGN_PACKS[key]['expires'] < now:
+                CAMPAIGN_PACKS.pop(key, None)
+        while len(CAMPAIGN_PACKS)>=4:
+            CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
+        CAMPAIGN_PACKS[token]={'expires':now+CAMPAIGN_PACK_TTL,'bundle':bundle}
+    return token
+
+
 @app.post('/api/campaign/<part>')
 def one_click_campaign(part):
     """One click creates a full campaign, previews and a complete ZIP.
@@ -2323,31 +2518,8 @@ def one_click_campaign(part):
         body = request.get_json(silent=True) or {}
         if not isinstance(body, dict):
             return jsonify(error='Invalid campaign settings.'), 400
-        product, image = lookup(part, uk_url=body.get('official_url') or None)
-        if not image:
-            return jsonify(error='A genuine official product photograph is required.'), 422
-        product = with_reviewed_price(
-            product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
-            body.get('staff_rrp_basis', 'ex')
-        )
-        distributor = selected_distributor(body.get('distributor_brand', 'none'))
-        official_context = (
-            APPLICATION_IMAGE_CACHE.get(part)
-            if product.get('application_photo_source')
-            and product.get('application_photo_source') != product.get('photo_source')
-            else None
-        )
-        bundle = build_campaign(product, image, distributor,
-                                application_photo=official_context)
-        token = secrets.token_urlsafe(24)
-        with CAMPAIGN_PACK_LOCK:
-            now = time.time()
-            for key in list(CAMPAIGN_PACKS):
-                if CAMPAIGN_PACKS[key]['expires'] < now:
-                    CAMPAIGN_PACKS.pop(key, None)
-            while len(CAMPAIGN_PACKS) >= 4:
-                CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
-            CAMPAIGN_PACKS[token] = {'expires': now + CAMPAIGN_PACK_TTL, 'bundle': bundle}
+        bundle = _assemble_campaign_bundle(part,body)
+        token = _save_campaign_bundle(bundle)
         response = jsonify(token=token, manifest=bundle['manifest'])
         response.headers['Cache-Control'] = 'no-store, private'
         return response
@@ -2361,6 +2533,105 @@ def one_click_campaign(part):
     except Exception:
         app.logger.exception('One-click campaign error')
         return jsonify(error='Unable to build the marketing campaign. Please check the application logs.'), 500
+
+
+# Mobile Safari can suspend long POST responses when the screen locks.
+# This bounded in-memory job preserves the completed draft for an explicit
+# GET poll / Resume action without requiring the browser to hold a request.
+CAMPAIGN_JOBS={}
+CAMPAIGN_JOBS_LOCK=threading.Lock()
+CAMPAIGN_JOB_TTL=20*60
+
+
+def _run_campaign_job(job_id,part,body):
+    with CAMPAIGN_JOBS_LOCK:
+        if job_id not in CAMPAIGN_JOBS:return
+        CAMPAIGN_JOBS[job_id]['status']='running'
+    try:
+        bundle=_assemble_campaign_bundle(part,body)
+        token=_save_campaign_bundle(bundle)
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(
+                    status='ready',token=token,error=None,
+                    expires=time.time()+CAMPAIGN_PACK_TTL)
+    except (LookupErrorPublic,ValueError,RuntimeError) as exc:
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(status='failed',
+                                             error=str(exc)[:350])
+    except Exception:
+        app.logger.exception('Async mobile campaign rendering failed')
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(
+                    status='failed',
+                    error='Campaign could not be completed. Please retry or check the application logs.')
+
+
+@app.post('/api/campaign/start/<part>')
+def start_mobile_campaign(part):
+    """Return immediately; a short-lived, bounded job holds the AI work."""
+    try:
+        part=sku_clean(part)
+        body=request.get_json(silent=True) or {}
+        if not isinstance(body,dict) or len(json.dumps(body))>3500:
+            return jsonify(error='Invalid campaign settings.'),400
+        with CAMPAIGN_JOBS_LOCK:
+            now=time.time()
+            for key in list(CAMPAIGN_JOBS):
+                if CAMPAIGN_JOBS[key]['expires']<now:
+                    CAMPAIGN_JOBS.pop(key,None)
+            active=sum(v['status'] in ('queued','running') for v in CAMPAIGN_JOBS.values())
+            if active>=2:
+                return jsonify(error='Two campaigns are already being prepared. Please retry shortly.'),429
+            job_id=secrets.token_urlsafe(24)
+            CAMPAIGN_JOBS[job_id]={
+                'part':part,'status':'queued','token':None,
+                'error':None,'expires':now+CAMPAIGN_JOB_TTL}
+        try:
+            threading.Thread(target=_run_campaign_job,
+                args=(job_id,part,body),daemon=True,
+                name='laser-campaign-'+part).start()
+        except Exception:
+            with CAMPAIGN_JOBS_LOCK:CAMPAIGN_JOBS.pop(job_id,None)
+            raise
+        response=jsonify(job_id=job_id,status='queued',part=part)
+        response.status_code=202
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('Could not start mobile campaign')
+        return jsonify(error='Could not start this campaign.'),500
+
+
+@app.get('/api/campaign/jobs/<job_id>')
+def mobile_campaign_progress(job_id):
+    """Read-only progress endpoint. Never reveals other drafts or creates AI."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',job_id):
+        return jsonify(error='Invalid campaign job.'),404
+    with CAMPAIGN_JOBS_LOCK:
+        now=time.time()
+        job=CAMPAIGN_JOBS.get(job_id)
+        if not job or job['expires']<now:
+            return jsonify(error='Campaign job expired. Please generate it again.'),404
+        snapshot=dict(job)
+    status=snapshot['status']
+    if status=='ready':
+        bundle=_get_campaign_pack(snapshot['token'])
+        if bundle is None:
+            return jsonify(error='Campaign artwork has expired. Generate it again.'),404
+        response=jsonify(status='ready',token=snapshot['token'],
+                         manifest=bundle['manifest'],part=snapshot['part'])
+    elif status=='failed':
+        response=jsonify(status='failed',error=snapshot['error'],
+                         part=snapshot['part'])
+    else:
+        response=jsonify(status=status,part=snapshot['part'])
+    response.headers['Cache-Control']='private, no-store'
+    return response
 
 
 @app.post('/api/campaign/edit/<token>/<asset_id>')
@@ -2388,6 +2659,24 @@ def edit_campaign_asset(token, asset_id):
     except Exception:
         app.logger.exception('Single campaign poster edit failed')
         return jsonify(error='Could not update this poster. Original campaign is unchanged.'),500
+
+
+@app.get('/api/campaign/manifest/<token>')
+def resume_campaign_manifest(token):
+    """Recover already completed mobile campaign after Safari tab suspension.
+
+    This only reads an existing short-lived in-memory draft, never repeats
+    the Gemini request or creates new artwork. Possession of the same
+    unguessable campaign token already grants its existing PNG/ZIP downloads.
+    """
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return jsonify(error='Invalid or expired campaign link.'), 404
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='This campaign has expired. Generate a new one.'), 404
+    response = jsonify(token=token, manifest=bundle['manifest'])
+    response.headers['Cache-Control']='private, no-store, max-age=0'
+    return response
 
 
 @app.get('/api/campaign/download/<token>')

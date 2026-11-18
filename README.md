@@ -1,3 +1,41 @@
+## V47 — mobile full-campaign reliability, Safari recovery, and accurate previews
+
+The iPhone Safari live log showed that a complete campaign API request returned
+HTTP 200, but its browser never requested the finished asset images. The first
+three standalone poster previews were visibly available, causing confusion
+about whether the entire campaign had been generated.
+
+**Fixes**:
+- The dashboard previously forced `.asset-workspace .previews` to
+  `display:grid`, overriding the HTML `hidden` attribute. When a complete
+  campaign appears, those three *basic* previews now actually disappear.
+- Quick previews are labelled **preview only**, with a prominent **Build All 9
+  Graphics** button. The complete pack clearly counts all nine graphics and
+  distinguishes image loading/retry from generation.
+- iPhone / Android / narrow viewport users start a background rendering job,
+  get a short-lived job token immediately, and poll for completion. A long
+  Safari POST no longer has to remain open throughout image generation.
+- A short-lived session-only recovery record lets staff reopen an interrupted
+  campaign or an in-progress job using the Reopen Campaign control. The server
+  serves the existing pack instead of running Gemini again; expiry and
+  unguessable token checks are enforced. No permanent user data is retained.
+- The gallery is rendered *before* the optional copy editor and sharing
+  controls, so accessory UI errors are less likely to leave just the
+  quick previews visible. On mobile, the gallery is single-column with clear
+  progress and retry feedback for individual image loads.
+- Share files are fetched on demand only after tapping the share action.
+  Eagerly preloading the campaign ZIP and every individual PNG on iPhone could
+  increase browser memory pressure enough to interrupt displaying the gallery.
+- Existing synchronous desktop / API route remains compatible and unchanged
+  in response format. When a source photo or poster fails QA, the app still
+  reports the failure rather than claiming that the missing artwork exists.
+
+The mobile asynchronous job service is bounded to two active jobs per single
+Render worker and uses short-lived in-memory state; worker restarts may
+invalidate an unfinished or saved job. Full persistence requires a database.
+
+Regression tests: `python -m unittest -v test_mobile_campaign_v47.py`.
+
 ## V46 — original AI artwork for every campaign format
 
 The single `Build Campaign` request now asks Gemini to develop **six additional
