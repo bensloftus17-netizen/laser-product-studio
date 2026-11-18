@@ -811,6 +811,7 @@ function renderCampaignGallery(data){
  }
  const artworkCount=m.images.filter(item=>item.id!=='source_qr').length;
  $('campaignAssetCount').textContent='All '+artworkCount+' campaign artwork files are ready. Scroll down to view every format; tap a graphic to open it.';
+ $('assetWorkspaceStatus').textContent='Complete campaign available: '+artworkCount+' native artwork formats. Scroll to browse them all.';
  const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
  social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
  email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
@@ -823,6 +824,7 @@ function renderCampaignGallery(data){
  $('previews').hidden=true;
  $('previewCampaignCallout').hidden=true;
  $('campaignResults').hidden=false;
+ $('campaignRecovery').hidden=true;
 }
 $('campaignAssets').addEventListener('load',event=>{
  if(event.target.tagName!=='IMG')return;
@@ -964,7 +966,7 @@ function showCampaign(data){
  const originalCount=nativeKinds.filter(k=>formatChecks[k]?.render_engine==='ai-original-format-canvas').length;
  if(nativeKinds.every(k=>formatChecks[k])){
     $('campaignQuality').textContent+=' · '+originalCount+'/6 marketing formats have their own AI-designed layouts.'+
-      (originalCount<4?' Formats using the older renderer still require manual design review.':'');
+      (originalCount<6?' Formats using the older renderer still require manual design review.':'');
  }
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
