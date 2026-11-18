@@ -794,7 +794,12 @@ function showCampaign(data){
  campaignData=data;
  const m=data.manifest;
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
- $('campaignSummary').textContent=(m.generation_method==='gemini-assisted'?'Gemini-directed campaign using source-verified facts. ':'Verified-source fallback campaign (Gemini unavailable). ')
+ const freeform=m.creative_plan&&m.creative_plan.render_engine==='ai-authored-freeform-layout';
+ $('campaignSummary').textContent=(freeform
+     ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
+     :(m.generation_method==='gemini-assisted'
+        ?'Gemini suggested concepts, but the safe legacy layout renderer was used. '
+        :'Verified-source fallback campaign using standard layouts (Gemini unavailable). '))
      +m.files.length+' files in the ZIP. All materials still require approval.';
  const checked=Object.values(m.artwork_quality||{});
  const alerts=checked.flatMap(item=>item.warnings||[]);
@@ -803,6 +808,12 @@ function showCampaign(data){
     ' posters passed automated layout checks · '+checked.reduce((n,item)=>n+(item.candidates_checked||0),0)+
     ' candidate designs reviewed.'+(alerts.length?' Photo review: '+[...new Set(alerts)].join('; ')+'.':'')
    :'Automated poster checks unavailable — review every image before sharing.';
+ if(freeform){
+   const vision=m.creative_critic||{};
+   $('campaignQuality').textContent+=' · '+(vision.reviewed
+      ?'Independent AI review of finished posters completed.'
+      :'AI visual review unavailable; deterministic QA applied.');
+ }
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
  if(strategy){
@@ -1606,11 +1617,12 @@ def valid_image(blob):
 
 def preferred_manufacturer_photos(part):
     """Exact part-number studio JPEGs from approved Laser Tools domains."""
+    # Start with the highest-resolution official master when available.
     return [
-        f'https://www.lasertools.co.uk/items/large/{part}.jpg',
-        f'https://lasertools.toolconnection.co.uk/items/large/{part}.jpg',
         f'https://www.lasertools.co.uk/items/XLarge/{part}.jpg',
         f'https://lasertools.toolconnection.co.uk/items/XLarge/{part}.jpg',
+        f'https://www.lasertools.co.uk/items/large/{part}.jpg',
+        f'https://lasertools.toolconnection.co.uk/items/large/{part}.jpg',
     ]
 
 def manufacturer_gallery_urls(part,session=requests):
@@ -1782,14 +1794,41 @@ def lookup(part,session=requests,force=False,uk_url=None):
         if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(url).path,re.I)
     ]
     product['photo_source']=None
+    # Source authenticity is checked by official_get; quality selection does
+    # not invent, upscale or redraw tools. Do not settle for a bad thumbnail
+    # merely because it was the first URL in the supplier gallery.
+    from asset_quality import manufacturer_image_rank
+    photo_options=[]
+    attempts=0
     for photo_url in dict.fromkeys(candidates):
+        if attempts>=6:break
+        attempts+=1
         try:
             response=official_get(photo_url,session,timeout=6)
-            if valid_image(response.content):
-                image_bytes=response.content
-                product['photo_source']=response.url
+            if not valid_image(response.content):continue
+            try:
+                score,report=manufacturer_image_rank(response.content)
+            except (ValueError,OSError,TypeError):
+                score,report=0,{"passed":False,"issues":["Cannot assess photo quality"],
+                                "size":[0,0],"edge_strength":0}
+            photo_options.append((score,response.content,response.url,report))
+            # A sharp, clean, sufficiently detailed official master is good
+            # enough; additional network calls would only delay campaigns.
+            if report.get("passed") and min(report.get("size",[0,0]))>=650 \
+                    and score>=135:
                 break
+            if len(photo_options)>=3:break
         except Exception:pass
+    if photo_options:
+        best=max(photo_options,key=lambda item:item[0])
+        image_bytes=best[1]
+        product['photo_source']=best[2]
+        product['photo_quality_selection']={
+            "method":"ranked-official-image-sources",
+            "candidates_checked":len(photo_options),
+            "quality_passed":bool(best[3].get("passed")),
+            "dimensions":best[3].get("size"),
+        }
     # PDFs may embed a black mask and a colour image as separate xrefs. Rendering
     # the visible page rectangle merges them, unlike extracting the xref directly.
     if image_bytes is None:

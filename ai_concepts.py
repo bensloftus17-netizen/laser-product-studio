@@ -7,6 +7,7 @@ from promo_copy import normalise_copy_direction
 from promo_selling_points import focus_concept
 from campaign_strategy import strategy_options
 from campaign_director import third_angle_options
+from creative_director import creative_instruction
 
 def _gemini_json(payload, key, model):
     """Read Gemini JSON with bounded retries and actionable, non-secret errors.
@@ -178,6 +179,8 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "The application validates your choices and writes all justifications from "
             "approved source-based information. "
             "Do not request more input from the user.")
+    if only_family is None:
+        system += " " + creative_instruction()
     if only_family is not None:
         kind={"retail":"bold retail promotion","premium":"clean premium retail advert",
               "trade":"dramatic trade counter promotion"}[only_family]
@@ -216,7 +219,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
         # 2,200 tokens could exhaust the allowance before Gemini completes
         # three multi-field concepts, including model thinking tokens.
         "generationConfig":{"temperature":0.65,"responseMimeType":"application/json",
-                            "maxOutputTokens":2500 if only_family else 6000}
+                            "maxOutputTokens":2500 if only_family else 8500}
     }
     raw = _gemini_json(payload, key, model)
     # Gemini's JSON mode can return either the requested {"concepts": [...]}
@@ -248,6 +251,10 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             if type(x) is int and 0<=x<len(features) and features[x] not in selected:
                 selected.append(features[x])
             if len(selected)>=3:break
+        # Keep the model\'s deliberately chosen *verified* facts separate
+        # from automatic filler. The director may honour these as the proof
+        # priority, but never accept generated text as manufacturer evidence.
+        ai_selected_facts=list(selected)
         # Include verified features where Gemini omitted evidence references.
         for item in features:
             if len(selected)>=3:break
@@ -264,6 +271,8 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "family":FAMILIES[family_index],
             "variant":direction["layout_variant"],
             "art_direction":direction,
+            "creative_canvas":c.get("creative_canvas") if isinstance(c.get("creative_canvas"),dict) else None,
+            "ai_verified_features":ai_selected_facts,
             "copy_direction":normalise_copy_direction(c.get("copy_direction")),
             "features":selected,
             "part":str(product.get("part","")),

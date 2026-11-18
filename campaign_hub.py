@@ -31,6 +31,11 @@ from promo_selling_points import choose_feature, focus_concept
 from campaign_director import plan_campaign, POSTER_LABELS, ROLES
 from campaign_role_posters import technical_poster, smart_poster
 from campaign_art_quality import choose_best, campaign_consistency, photo_relevance
+from creative_director import distinct_briefs
+from flexible_canvas import render_creative_canvas
+from asset_quality import require_good_asset
+from campaign_distinctness import check_distinctness
+from creative_qa import review_finished_artworks
 from product_evidence_ranker import verified_candidates
 from promo_scene_library import find_scene, classify_product
 
@@ -441,6 +446,18 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     # general-purpose poster template.
     concepts, creative_plan = plan_campaign(
         product, raw_concepts if mode == "gemini-assisted" else [], marketing_strategy)
+    creative_enabled=(mode=="gemini-assisted" and
+                      distinct_briefs([c.get("creative_canvas") for c in concepts]))
+    if mode=="gemini-assisted" and not creative_enabled:
+        warnings.append(
+            "AI did not provide three safe, genuinely different freeform compositions; "
+            "used validated legacy layouts instead. Regenerate for AI creative direction.")
+    asset_report=require_good_asset(genuine_photo) if creative_enabled else None
+    creative_plan["render_engine"]=(
+        "ai-authored-freeform-layout" if creative_enabled else "verified-legacy-layout")
+    creative_plan["model_authored_canvases"]=(
+        [concept.get("creative_canvas") for concept in concepts]
+        if creative_enabled else [])
     duplicate_issues = campaign_consistency(concepts)
     if duplicate_issues:
         raise ValueError("Campaign needs different sales messages: "+
@@ -516,50 +533,108 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                               scenes[index],distributor)
         return output,_geometry(tracked)
 
-    image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
-        lambda variant:_role_candidate(0,technical_poster,variant),
-        "technical_application",genuine_photo,
-        preferred_variant=concepts[0]["visual_plan"]["preferred_variant"],
-        scene_relevance={"warning":scene_references[0]["relevance_warning"]})
-    retail=concepts[1]
-    visual=retail["visual_plan"]
-
-    def _price_candidate(variant):
-        candidate=dict(retail)
-        candidate["variant"]=variant
-        preferred_style=visual.get("price_style")
-        styles=(preferred_style or "panel","tag","plaque")
-        # Different price layouts are assessed before delivery. The price
-        # remains verified and the real tool cutout is always reused.
-        context_style={
-            "crop":((.46,.46),(.56,.55),(.42,.52))[variant],
-            "darkness":(.29,.25,.32)[variant],
-            "blur":(2.0,2.4,1.8)[variant],"colour":.82,
-        }
-        detail={}
-        output=render_promo(candidate,genuine_photo,product,distributor,editor={
-            "background":"context","_scene_bytes":scenes[1],
-            "_scene_style":context_style,"show_subline":False,
-            "price_style":styles[variant],
-            "accent":visual["accent"],
-            "product_scale":(115,105,112)[variant],
-            "product_x":visual.get("art_direction",{}).get("product_x",0),
-            "product_y":visual.get("art_direction",{}).get("product_y",0),
-            "price_position":visual.get("art_direction",{}).get("price_position","standard"),
-            "headline_size":visual.get("art_direction",{}).get("headline_size","normal"),
-            "_quality_report":detail})
-        return output,{"truncated":False,"out_of_bounds":False,
-                       "overlaps":bool(detail.get("issues"))}
-
-    image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
-        _price_candidate,"price_promo",genuine_photo,
-        preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
-        scene_relevance={"warning":scene_references[1]["relevance_warning"]})
-    image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
-        lambda variant:_role_candidate(2,smart_poster,variant),
-        "product_selected",genuine_photo,
-        preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
-        scene_relevance={"warning":scene_references[2]["relevance_warning"]})
+    if creative_enabled:
+        # The AI authored arbitrary composition coordinates, not template IDs.
+        for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
+            def _creative_candidate(variant,index=index):
+                with capture() as tracked:
+                    poster=render_creative_canvas(
+                        product,genuine_photo,concepts[index],scenes[index],
+                        distributor,variant=variant)
+                return poster,_geometry(tracked)
+            image_assets[key],quality_reports[key]=choose_best(
+                _creative_candidate,ROLES[index],genuine_photo,
+                preferred_variant=1,
+                scene_relevance={"warning":scene_references[index]["relevance_warning"]})
+            quality_reports[key]["render_engine"]="ai-freeform-canvas"
+    else:
+        image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
+            lambda variant:_role_candidate(0,technical_poster,variant),
+            "technical_application",genuine_photo,
+            preferred_variant=concepts[0]["visual_plan"]["preferred_variant"],
+            scene_relevance={"warning":scene_references[0]["relevance_warning"]})
+        retail=concepts[1]
+        visual=retail["visual_plan"]
+    
+        def _price_candidate(variant):
+            candidate=dict(retail)
+            candidate["variant"]=variant
+            preferred_style=visual.get("price_style")
+            styles=(preferred_style or "panel","tag","plaque")
+            # Different price layouts are assessed before delivery. The price
+            # remains verified and the real tool cutout is always reused.
+            context_style={
+                "crop":((.46,.46),(.56,.55),(.42,.52))[variant],
+                "darkness":(.29,.25,.32)[variant],
+                "blur":(2.0,2.4,1.8)[variant],"colour":.82,
+            }
+            detail={}
+            output=render_promo(candidate,genuine_photo,product,distributor,editor={
+                "background":"context","_scene_bytes":scenes[1],
+                "_scene_style":context_style,"show_subline":False,
+                "price_style":styles[variant],
+                "accent":visual["accent"],
+                "product_scale":(115,105,112)[variant],
+                "product_x":visual.get("art_direction",{}).get("product_x",0),
+                "product_y":visual.get("art_direction",{}).get("product_y",0),
+                "price_position":visual.get("art_direction",{}).get("price_position","standard"),
+                "headline_size":visual.get("art_direction",{}).get("headline_size","normal"),
+                "_quality_report":detail})
+            return output,{"truncated":False,"out_of_bounds":False,
+                           "overlaps":bool(detail.get("issues"))}
+    
+        image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
+            _price_candidate,"price_promo",genuine_photo,
+            preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
+            scene_relevance={"warning":scene_references[1]["relevance_warning"]})
+        image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
+            lambda variant:_role_candidate(2,smart_poster,variant),
+            "product_selected",genuine_photo,
+            preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
+            scene_relevance={"warning":scene_references[2]["relevance_warning"]})
+    # Inspect actual poster pixels and diversity before producing the ZIP.
+    distinctness=check_distinctness(image_assets,concepts)
+    if creative_enabled and not distinctness["passed"]:
+        raise ValueError("AI artwork rejected for repeated compositions: "+
+                         "; ".join(distinctness["issues"]))
+    critic={"reviewed":False,"method":"legacy-layout-geometry-only",
+            "issues":{},"warning":None}
+    if creative_enabled:
+        critic=review_finished_artworks(image_assets)
+        blocking={key:codes for key,codes in critic["issues"].items() if codes}
+        if blocking:
+            # One bounded repair: adjust scene exposure and genuine-tool scale,
+            # never repaint product pixels or fabricate information.
+            for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
+                if key not in blocking:continue
+                if any(code in blocking[key] for code in
+                       ("white_box","white_halo","blurry_product","duplicate_layout")):
+                    raise ValueError("AI visual review rejected "+key+": "+
+                                     ", ".join(blocking[key]))
+                old_variant=quality_reports[key].get("variation",1)
+                alternative=(old_variant+1)%3
+                def _repair_candidate(variant,index=index):
+                    with capture() as tracked:
+                        payload=render_creative_canvas(
+                            product,genuine_photo,concepts[index],scenes[index],
+                            distributor,variant=variant)
+                    return payload,_geometry(tracked)
+                image_assets[key],quality_reports[key]=choose_best(
+                    _repair_candidate,ROLES[index],genuine_photo,
+                    variants=(alternative,))
+                quality_reports[key]["auto_repaired"]=True
+                quality_reports[key]["render_engine"]="ai-freeform-canvas"
+            critique_retry=review_finished_artworks(image_assets)
+            if critique_retry["reviewed"] and any(
+                    critique_retry["issues"].get(key) for key in blocking):
+                raise ValueError("Revised AI poster still fails visual review; "
+                                 "regenerate or supply better source images.")
+            critic=critique_retry
+            distinctness=check_distinctness(image_assets,concepts)
+            if not distinctness["passed"]:
+                raise ValueError("Revised artwork is not visually distinct.")
+        if critic.get("warning"):
+            warnings.append(critic["warning"])
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
     for key in ("social_square", "social_story", "website_banner", "email_header"):
@@ -603,6 +678,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "marketing_strategy": marketing_strategy,
         "creative_plan": creative_plan,
         "artwork_quality": quality_reports,
+        "product_photo_quality":asset_report,
+        "creative_critic":{
+            "method":critic["method"],"reviewed":critic["reviewed"],
+            "issues":critic["issues"],"warning":critic["warning"]},
+        "campaign_distinctness":distinctness,
         "scene_photography": scene_references,
         "poster_editor":{
             "manufacturer_title":str(product.get("title") or "")[:160],
@@ -621,7 +701,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             {"name": concept.get("name") or FAMILIES_LABELS[index],
              "role":ROLES[index], "focus": concept["focus"],
              "third_angle":concept.get("third_angle"),
-             "layout":concept["family"],
+             "layout":("AI original composition" if creative_enabled else concept["family"]),
              "headline": str(concept.get("headline") or ""),
              "selling_point": str(concept.get("selling_point") or "")}
             for index, concept in enumerate(concepts)
