@@ -22,6 +22,7 @@ from official_taxonomy import category_from_product_url
 from promo_scene_library import classify_product
 from promo_selling_points import choose_feature
 from promo_art_direction import normalise_art_direction
+from creative_director import validate_brief
 from product_evidence_ranker import choose_verified_fact, verified_candidates
 
 ROLES = ("technical_application", "price_promo", "product_selected")
@@ -214,6 +215,8 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                 if extra!=fact and len(facts)<3:facts.append(extra)
         title=_headline(product,role,third,fact)
         role_label=POSTER_LABELS[i] if i<2 else THIRD_ANGLES[third][0]
+        raw_canvas=proposed_art[role].get("creative_canvas") if isinstance(proposed_art[role],dict) else None
+        canvas=validate_brief(raw_canvas,role)
         concept={
             "id":i,"family":family_map[i],"variant":variation,
             "focus":role_focus[i],
@@ -221,6 +224,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                            "LASER TOOLS · PRODUCT OFFER" if i==1 else
                            "PRODUCT-SPECIFIC / "+THIRD_ANGLES[third][0].upper()),
             "campaign_role":role,
+            "creative_canvas":canvas,
             "third_angle":third if i==2 else None,
             "name":role_label,
             "headline":title,
@@ -242,7 +246,8 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                 "photo_focus":art["photo_focus"] if model_art else ("right","left","centre")[variation],
                 "art_direction":art,
                 "preferred_variant":variation,
-                "creative_source":"gemini-bounded-art-direction" if model_art else "category-aware-composition",
+                "creative_source":("gemini-freeform-canvas" if canvas else
+                    "gemini-bounded-art-direction" if model_art else "category-aware-composition"),
                 "purpose":role_label,
                 "supporting_image_rule":"real approved contextual photo, never a redrawn tool",
             },
