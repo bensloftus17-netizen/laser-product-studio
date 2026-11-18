@@ -235,8 +235,14 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
     d.rounded_rectangle((47,823,373,1142),radius=17,fill=(5,32,54,218),
                         outline=(63,159,201,180),width=2)
     d.rectangle((72,852,83,900),fill=accent)
-    fitted(d,"THE APPLICATION",(105,856,345,917),(23,21,19),accent,2)
     fact=_story_copy(concept)
+    # A dimensional or weight spec is technical data, not an application:
+    # label it correctly instead of claiming an unverified use case.
+    spec_label=bool(__import__("re").match(
+        r"^(?:Dimensions|Weight|Length|Width|Height|Power|Voltage|Brightness|Charging time)\s*:",
+        fact,flags=__import__("re").I))
+    fitted(d,"KEY SPECIFICATIONS" if spec_label else "THE APPLICATION",
+           (105,856,345,917),(23,21,19),accent,2)
     if fact:
         fitted(d,fact,(75,938,344,1108),(27,25,22,20,18,16),WHITE,6,bold=False)
     d.rectangle((0,1214,W,H),fill=(4,25,44,245))
