@@ -20,6 +20,7 @@ from flask import Flask, request, jsonify, send_file, render_template_string
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
+from official_taxonomy import apply_official_taxonomy, taxonomy_snapshot
 from ai_concepts import propose as propose_ai_concepts, suggest_headlines as suggest_ai_headlines
 from ai_promo_renderer import render_promo as render_ai_promo, FAMILIES as AI_PROMO_FAMILIES
 from promo_scene_library import find_scene, classify_product, scene_reference as stock_scene_reference
@@ -31,7 +32,7 @@ from copy_rewriter import rewrite_copy
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v39-ai-marketing-strategy">
+<link rel="stylesheet" href="/static/styles.css?design=v40-catalogue-hierarchy">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -144,12 +145,12 @@ V7_HOME_PAGE = r'''
 <section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
  <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
  <div class="marketing-strategy-grid">
-  <div class="strategy-field"><small>Product category</small><b id="strategyCategory"></b></div>
+  <div class="strategy-field"><small id="strategyCategoryLabel">Product category</small><b id="strategyCategory"></b><span class="strategy-category-source" id="strategyCategorySource"></span></div>
   <div class="strategy-field"><small>Suggested target audience</small><b id="strategyAudience"></b></div>
   <div class="strategy-field"><small>Recommended sales angle</small><b id="strategyFocus"></b></div>
   <div class="strategy-field"><small>Recommended channels</small><b id="strategyChannels"></b></div>
  </div>
- <div class="marketing-proof"><small>Why this is recommended</small><p id="strategyReason"></p><small>Verified manufacturer selling point</small><p id="strategyProof"></p></div>
+ <div class="marketing-proof"><small>Category-specific marketing strategy</small><p id="strategyLens"></p><small>Why this is recommended</small><p id="strategyReason"></p><small>Verified manufacturer selling point</small><p id="strategyProof"></p></div>
  <p class="strategy-warning">Audience and channel recommendations are marketing hypotheses, not verified prospects. The team must approve the approach and all manufacturer claims before publication.</p>
 </section>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
@@ -724,6 +725,12 @@ function showCampaign(data){
  if(strategy){
   $('strategyMethod').textContent=strategy.method_label||'Product-aware recommendation';
   $('strategyCategory').textContent=strategy.category_label||'Uncategorised';
+  const official=Array.isArray(strategy.official_category_path)&&strategy.official_category_path.length>0;
+  $('strategyCategoryLabel').textContent=official?'Official Tool Connection category':'Suggested product category';
+  $('strategyCategorySource').textContent=official
+    ?'Verified from the manufacturer product URL'
+    :'Inferred from the product title/description — verify the official category';
+  $('strategyLens').textContent=(strategy.marketing_lens||{}).label||'Product-aware verified features';
   $('strategyAudience').textContent=strategy.target_audience||'Sales review required';
   $('strategyFocus').textContent=strategy.primary_focus_label||'Review required';
   $('strategyChannels').textContent=(strategy.recommended_channels||[]).map(c=>c.label).join(' + ');
@@ -1707,6 +1714,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
     if image_bytes is None and part in APPLICATION_IMAGE_CACHE:
         image_bytes=APPLICATION_IMAGE_CACHE[part]
         product['photo_source']=product['application_photo_source']
+    product=apply_official_taxonomy(product)
     product['photo_verified']=bool(image_bytes)
     product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
     product['lookup_status']='Live official UK/English manufacturer source'
@@ -1773,6 +1781,14 @@ def no_cache_for_drafts(response):
 
 @app.get('/api/health')
 def health():return jsonify(ok=True,service='Laser Product Studio',design='v19-product-aware-marketing-direction',lookup='official page + PDF fallback')
+
+@app.get('/api/catalogue/taxonomy')
+def catalogue_taxonomy():
+    """Complete published category tree, NOT a claim to have imported every SKU."""
+    response=jsonify(taxonomy_snapshot())
+    response.headers['Cache-Control']='public, max-age=3600'
+    return response
+
 
 @app.get('/api/distributor-logo/<brand>')
 def distributor_logo(brand):
