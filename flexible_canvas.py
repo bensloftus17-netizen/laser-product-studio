@@ -171,5 +171,5 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
           (60,1461,1135,1492),base=17,minsize=15,maxlines=1,
           role="footer",colour="#B7D7E8")
     out=io.BytesIO()
-    image.convert("RGB").save(out,"PNG",optimize=True)
+    image.convert("RGB").save(out,"PNG",optimize=False,compress_level=3)
     return out.getvalue()
