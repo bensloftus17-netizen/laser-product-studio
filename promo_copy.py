@@ -116,6 +116,10 @@ def compose_promotional_copy(product,concept):
     and price are regenerated from the official/current reviewed product
     record so no client-supplied values can forge marketing claims.
     """
+    # A final language check protects direct calls and older cached product
+    # records, not just the normal manufacturer lookup and campaign pipeline.
+    from app import normalise_product_language
+    product=normalise_product_language(product)
     product_name=_clean(product.get("title"),145) or "Laser Tools product"
     part=_clean(product.get("part"),22)
     family=str(concept.get("family") or "retail")
