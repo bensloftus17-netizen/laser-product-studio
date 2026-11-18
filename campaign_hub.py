@@ -473,7 +473,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "whatsapp":"Laser Tools "+str(product.get("part") or "")+" — "+title+
                    ". See official details to confirm suitability before ordering.",
         "instagram_caption":copies[0]["social_caption"],
-        "review_note":"Suggested layout and wording only. Post manually after approval.",
+        "review_note":"Suggested layout and wording only. Review product information, confirm application and obtain company approval before posting.",
     }
     files = dict(FOLDERS)
     if qr:
