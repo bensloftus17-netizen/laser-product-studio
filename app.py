@@ -127,6 +127,17 @@ V7_HOME_PAGE = r'''
  <div class="saved-heading"><div><h2><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions Library <span>Coming soon</span></h2><p>Save, reopen, duplicate and organise promotions in a future release.</p></div></div>
  <div class="saved-not-yet"><span aria-hidden="true">☆</span><div><b>Saved campaigns are not enabled yet</b><p>Your finished campaigns can be downloaded as ZIP files today. A searchable library will be added later — no campaigns are being stored by this demo.</p></div></div>
 </section>
+<details class="taxonomy-explorer" id="taxonomyExplorer">
+ <summary>Browse Laser Tools categories &amp; preferred marketing strategies
+ <small>Official website hierarchy · product-aware marketing plans</small></summary>
+ <div class="taxonomy-explorer-content">
+  <label for="taxonomySearch">Find a category or subcategory</label>
+  <input id="taxonomySearch" type="search" placeholder="e.g. Engine Timing, Socket Sets, Battery Tools" autocomplete="off">
+  <p id="taxonomyCount" role="status" aria-live="polite">Open this section to load the category directory.</p>
+  <div id="taxonomyMatches"></div>
+  <p class="taxonomy-accuracy">Category names are a dated snapshot of the official Laser navigation. A part number is only shown as website-classified when its exact official product URL confirms that path. Suggested audiences and channels need sales-team review.</p>
+ </div>
+</details>
 <details class="studio-deep-tools" id="productStudio">
  <summary>Product Studio &amp; advanced poster tools <small>Official record · poster previews · AI poster editor · manual export</small></summary>
  <div id="productRecordSlot" class="record-dock"></div>
@@ -336,6 +347,46 @@ document.addEventListener('click',event=>{
 });
 $('legacyShareZip').addEventListener('click',()=>{
  if(legacyShareFile)shareNativeFile(legacyShareFile);
+});
+
+
+let taxonomyExplorerRows=null;
+function flattenTaxonomy(data){
+ const result=[];
+ (data.categories||[]).forEach(root=>{
+  result.push({path:root.name,marketing:root.marketing});
+  (root.departments||[]).forEach(group=>{
+   const groupPath=root.name+' › '+group.name;
+   result.push({path:groupPath,marketing:group.marketing});
+   (group.subcategories||[]).forEach(leaf=>{
+    result.push({path:groupPath+' › '+leaf.name,marketing:leaf.marketing});
+   });
+  });
+ });
+ return result;
+}
+function renderTaxonomyExplorer(){
+ if(!taxonomyExplorerRows)return;
+ const query=$('taxonomySearch').value.toLowerCase().trim();
+ const matching=taxonomyExplorerRows.filter(item=>
+  item.path.toLowerCase().includes(query)||(item.marketing?.label||'').toLowerCase().includes(query));
+ $('taxonomyCount').textContent='Showing '+Math.min(40,matching.length)+' of '+matching.length+
+  ' matching category paths. Refine the search to find a specific subcategory.';
+ $('taxonomyMatches').innerHTML=matching.slice(0,40).map(item=>
+  '<div class="taxonomy-result"><b>'+esc(item.path)+'</b><span>'+esc(item.marketing?.label||'Verified product marketing')+
+  ' · '+esc((item.marketing?.channels||[]).join(' + '))+'</span></div>').join('')||
+  '<p class="taxonomy-no-results">No category matches that search.</p>';
+}
+$('taxonomySearch').addEventListener('input',renderTaxonomyExplorer);
+$('taxonomyExplorer').addEventListener('toggle',async()=>{
+ if(!$('taxonomyExplorer').open||taxonomyExplorerRows)return;
+ $('taxonomyCount').textContent='Loading official category directory…';
+ try{
+  const response=await fetch('/api/catalogue/taxonomy',{headers:{Accept:'application/json'}});
+  const data=await readApiJson(response);
+  taxonomyExplorerRows=flattenTaxonomy(data);
+  renderTaxonomyExplorer();
+ }catch(error){$('taxonomyCount').textContent='Category directory unavailable. Refresh and try again.';}
 });
 
 function installMarketingHubLayout(){
