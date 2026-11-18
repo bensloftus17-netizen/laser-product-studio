@@ -17,10 +17,13 @@ from campaign_hub import build_campaign
 from english_numeric_specs import (RAW_GERMAN_TECH, translate_known_numeric_labels,
                                    normalise_numeric_spec_row)
 from promo_copy import compose_promotional_copy
+from copy_rewriter import rewrite_copy
 
 
 GERMAN_9476="Abmessungen: 172 x 69 x 235 mm. Gewicht: 820 g."
 ENGLISH_9476="Dimensions: 172 x 69 x 235 mm. Weight: 820 g."
+GERMAN_9469="Auswechselbare Schlüsselköpfe: 13, 14, 15, 16, 17, 19, 21, 24, 27 und 30 mm."
+ENGLISH_9469="Interchangeable spanner heads: 13, 14, 15, 16, 17, 19, 21, 24, 27 and 30 mm."
 OFFICIAL_PRODUCT = {
     "part":"9476",
     "title":"9476 Multi-Function Work Lamp with Built-In 3 Speed Fan",
@@ -88,6 +91,52 @@ class EnglishOnlyProductPipelineTests(unittest.TestCase):
         untranslated="Lieferumfang enthält drei Ladegeräte."
         self.assertEqual(translate_known_numeric_labels(untranslated),untranslated)
         self.assertTrue(app.is_non_english(untranslated))
+
+    def test_9469_spanner_sizes_remain_verified_and_english_everywhere(self):
+        self.assertTrue(app.is_non_english(GERMAN_9469))
+        self.assertEqual(translate_known_numeric_labels(GERMAN_9469), ENGLISH_9469)
+        self.assertFalse(app.is_non_english(ENGLISH_9469))
+        product = {
+            "part": "9469",
+            "title": "9469 Open Spanner Torque Wrench Set 20 - 210Nm - 12pc",
+            "price": None,
+            "features": [GERMAN_9469, "Wechselbare Maulschlüssel für Werkstatt."],
+            "description": "Open spanner torque wrench set. " + GERMAN_9469,
+            "specs": {
+                "Auswechselbare Schlüsselköpfe":
+                    "13, 14, 15, 16, 17, 19, 21, 24, 27 und 30 mm",
+            },
+        }
+        cleaned = app.normalise_product_language(product)
+        self.assertEqual(cleaned["features"], [ENGLISH_9469])
+        self.assertIn(ENGLISH_9469, cleaned["description"])
+        self.assertEqual(cleaned["specs"]["Interchangeable spanner heads"],
+                         "13, 14, 15, 16, 17, 19, 21, 24, 27 and 30 mm")
+        self.assertNotIn("Maulschlüssel", " ".join(cleaned["features"]))
+        # Old cached/unsanitised input must not leak into any copy channel.
+        for record in (cleaned, product):
+            for family in ("retail", "premium", "trade"):
+                copy = compose_promotional_copy(record, {"family": family, "features": []})
+                for channel in ("social_caption", "linkedin_post", "email_body", "email_subject"):
+                    self.assertNotIn("Schlüssel", copy[channel], (family, channel))
+                    self.assertNotIn("Wechselbare", copy[channel], (family, channel))
+                    self.assertIn(ENGLISH_9469, copy[channel], (family, channel))
+            rewritten = rewrite_copy(
+                record, mode="professional", channel="linkedin_post",
+                current_text="Product spotlight: Laser Tools 9469", angle=0)
+            self.assertNotIn("Schlüssel", rewritten["text"])
+            self.assertIn(ENGLISH_9469, rewritten["text"])
+
+    def test_unverified_german_claims_are_rejected_not_guessed(self):
+        for text in (
+            "Wechselbare Maulschlüssel für Werkstatt.",
+            "Schlüsselköpfe für viele Anwendungen",
+            "Drehmomentschlüssel mit verstellbaren Aufsätzen",
+        ):
+            with self.subTest(text=text):
+                self.assertTrue(app.is_non_english(text))
+                self.assertEqual(translate_known_numeric_labels(text), text)
+                self.assertEqual(app.english_only_features([text]), [])
 
     def test_normalisation_preserves_numbers_not_german_copy(self):
         cleaned=app.normalise_product_language(OFFICIAL_PRODUCT)
