@@ -455,6 +455,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     asset_report=require_good_asset(genuine_photo) if creative_enabled else None
     creative_plan["render_engine"]=(
         "ai-authored-freeform-layout" if creative_enabled else "verified-legacy-layout")
+    creative_plan["model_authored_canvases"]=(
+        [concept.get("creative_canvas") for concept in concepts]
+        if creative_enabled else [])
     duplicate_issues = campaign_consistency(concepts)
     if duplicate_issues:
         raise ValueError("Campaign needs different sales messages: "+
@@ -698,7 +701,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             {"name": concept.get("name") or FAMILIES_LABELS[index],
              "role":ROLES[index], "focus": concept["focus"],
              "third_angle":concept.get("third_angle"),
-             "layout":concept["family"],
+             "layout":("AI original composition" if creative_enabled else concept["family"]),
              "headline": str(concept.get("headline") or ""),
              "selling_point": str(concept.get("selling_point") or "")}
             for index, concept in enumerate(concepts)
