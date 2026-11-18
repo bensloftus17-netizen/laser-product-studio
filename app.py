@@ -2361,6 +2361,37 @@ def _get_campaign_pack(token):
         return entry['bundle'] if entry and entry['expires'] >= now else None
 
 
+def _assemble_campaign_bundle(part, body):
+    """One canonical product/price/imagery validation path for sync and jobs."""
+    product, image = lookup(part, uk_url=body.get('official_url') or None)
+    if not image:
+        raise ValueError('A genuine official product photograph is required.')
+    product = with_reviewed_price(
+        product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
+        body.get('staff_rrp_basis', 'ex'))
+    distributor = selected_distributor(body.get('distributor_brand', 'none'))
+    official_context = (
+        APPLICATION_IMAGE_CACHE.get(part)
+        if product.get('application_photo_source')
+        and product.get('application_photo_source') != product.get('photo_source')
+        else None)
+    return build_campaign(product, image, distributor,
+                          application_photo=official_context)
+
+
+def _save_campaign_bundle(bundle):
+    token=secrets.token_urlsafe(24)
+    with CAMPAIGN_PACK_LOCK:
+        now=time.time()
+        for key in list(CAMPAIGN_PACKS):
+            if CAMPAIGN_PACKS[key]['expires'] < now:
+                CAMPAIGN_PACKS.pop(key, None)
+        while len(CAMPAIGN_PACKS)>=4:
+            CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
+        CAMPAIGN_PACKS[token]={'expires':now+CAMPAIGN_PACK_TTL,'bundle':bundle}
+    return token
+
+
 @app.post('/api/campaign/<part>')
 def one_click_campaign(part):
     """One click creates a full campaign, previews and a complete ZIP.
@@ -2373,31 +2404,8 @@ def one_click_campaign(part):
         body = request.get_json(silent=True) or {}
         if not isinstance(body, dict):
             return jsonify(error='Invalid campaign settings.'), 400
-        product, image = lookup(part, uk_url=body.get('official_url') or None)
-        if not image:
-            return jsonify(error='A genuine official product photograph is required.'), 422
-        product = with_reviewed_price(
-            product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
-            body.get('staff_rrp_basis', 'ex')
-        )
-        distributor = selected_distributor(body.get('distributor_brand', 'none'))
-        official_context = (
-            APPLICATION_IMAGE_CACHE.get(part)
-            if product.get('application_photo_source')
-            and product.get('application_photo_source') != product.get('photo_source')
-            else None
-        )
-        bundle = build_campaign(product, image, distributor,
-                                application_photo=official_context)
-        token = secrets.token_urlsafe(24)
-        with CAMPAIGN_PACK_LOCK:
-            now = time.time()
-            for key in list(CAMPAIGN_PACKS):
-                if CAMPAIGN_PACKS[key]['expires'] < now:
-                    CAMPAIGN_PACKS.pop(key, None)
-            while len(CAMPAIGN_PACKS) >= 4:
-                CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
-            CAMPAIGN_PACKS[token] = {'expires': now + CAMPAIGN_PACK_TTL, 'bundle': bundle}
+        bundle = _assemble_campaign_bundle(part,body)
+        token = _save_campaign_bundle(bundle)
         response = jsonify(token=token, manifest=bundle['manifest'])
         response.headers['Cache-Control'] = 'no-store, private'
         return response
@@ -2411,6 +2419,105 @@ def one_click_campaign(part):
     except Exception:
         app.logger.exception('One-click campaign error')
         return jsonify(error='Unable to build the marketing campaign. Please check the application logs.'), 500
+
+
+# Mobile Safari can suspend long POST responses when the screen locks.
+# This bounded in-memory job preserves the completed draft for an explicit
+# GET poll / Resume action without requiring the browser to hold a request.
+CAMPAIGN_JOBS={}
+CAMPAIGN_JOBS_LOCK=threading.Lock()
+CAMPAIGN_JOB_TTL=20*60
+
+
+def _run_campaign_job(job_id,part,body):
+    with CAMPAIGN_JOBS_LOCK:
+        if job_id not in CAMPAIGN_JOBS:return
+        CAMPAIGN_JOBS[job_id]['status']='running'
+    try:
+        bundle=_assemble_campaign_bundle(part,body)
+        token=_save_campaign_bundle(bundle)
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(
+                    status='ready',token=token,error=None,
+                    expires=time.time()+CAMPAIGN_PACK_TTL)
+    except (LookupErrorPublic,ValueError,RuntimeError) as exc:
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(status='failed',
+                                             error=str(exc)[:350])
+    except Exception:
+        app.logger.exception('Async mobile campaign rendering failed')
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(
+                    status='failed',
+                    error='Campaign could not be completed. Please retry or check the application logs.')
+
+
+@app.post('/api/campaign/start/<part>')
+def start_mobile_campaign(part):
+    """Return immediately; a short-lived, bounded job holds the AI work."""
+    try:
+        part=sku_clean(part)
+        body=request.get_json(silent=True) or {}
+        if not isinstance(body,dict) or len(json.dumps(body))>3500:
+            return jsonify(error='Invalid campaign settings.'),400
+        with CAMPAIGN_JOBS_LOCK:
+            now=time.time()
+            for key in list(CAMPAIGN_JOBS):
+                if CAMPAIGN_JOBS[key]['expires']<now:
+                    CAMPAIGN_JOBS.pop(key,None)
+            active=sum(v['status'] in ('queued','running') for v in CAMPAIGN_JOBS.values())
+            if active>=2:
+                return jsonify(error='Two campaigns are already being prepared. Please retry shortly.'),429
+            job_id=secrets.token_urlsafe(24)
+            CAMPAIGN_JOBS[job_id]={
+                'part':part,'status':'queued','token':None,
+                'error':None,'expires':now+CAMPAIGN_JOB_TTL}
+        try:
+            threading.Thread(target=_run_campaign_job,
+                args=(job_id,part,body),daemon=True,
+                name='laser-campaign-'+part).start()
+        except Exception:
+            with CAMPAIGN_JOBS_LOCK:CAMPAIGN_JOBS.pop(job_id,None)
+            raise
+        response=jsonify(job_id=job_id,status='queued',part=part)
+        response.status_code=202
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('Could not start mobile campaign')
+        return jsonify(error='Could not start this campaign.'),500
+
+
+@app.get('/api/campaign/jobs/<job_id>')
+def mobile_campaign_progress(job_id):
+    """Read-only progress endpoint. Never reveals other drafts or creates AI."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',job_id):
+        return jsonify(error='Invalid campaign job.'),404
+    with CAMPAIGN_JOBS_LOCK:
+        now=time.time()
+        job=CAMPAIGN_JOBS.get(job_id)
+        if not job or job['expires']<now:
+            return jsonify(error='Campaign job expired. Please generate it again.'),404
+        snapshot=dict(job)
+    status=snapshot['status']
+    if status=='ready':
+        bundle=_get_campaign_pack(snapshot['token'])
+        if bundle is None:
+            return jsonify(error='Campaign artwork has expired. Generate it again.'),404
+        response=jsonify(status='ready',token=snapshot['token'],
+                         manifest=bundle['manifest'],part=snapshot['part'])
+    elif status=='failed':
+        response=jsonify(status='failed',error=snapshot['error'],
+                         part=snapshot['part'])
+    else:
+        response=jsonify(status=status,part=snapshot['part'])
+    response.headers['Cache-Control']='private, no-store'
+    return response
 
 
 @app.post('/api/campaign/edit/<token>/<asset_id>')
