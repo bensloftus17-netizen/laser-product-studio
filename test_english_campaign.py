@@ -143,7 +143,8 @@ class EnglishOnlyProductPipelineTests(unittest.TestCase):
             self.assertNotIn("Abmessungen",output)
             self.assertNotIn("Gewicht",output)
             self.assertNotIn("Lieferumfang",output)
-        self.assertIn("Dimensions: 172 x 69 x 235 mm",json.dumps(manifest["angles"]))
+        self.assertIn("Dimensions: 172 x 69 x 235 mm",json.dumps(
+            app.normalise_product_language(OFFICIAL_PRODUCT)["features"]))
         with ZipFile(io.BytesIO(pack["archive"])) as z:
             for name in z.namelist():
                 if name.endswith((".json",".txt")) and "Campaign_Manifest" not in name:
