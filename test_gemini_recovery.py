@@ -33,7 +33,8 @@ class GeminiRecoveryTests(unittest.TestCase):
         page=studio.V7_HOME_PAGE
         self.assertIn("Verified-source fallback campaign",page)
         self.assertIn("Build Campaign",page)
-        self.assertIn("const response=await fetch('/api/campaign/'",page)
+        self.assertIn("data=await readApiJson(await fetch('/api/campaign/'",page)
+        self.assertIn("/api/campaign/start/",page)
 
 
 if __name__=="__main__":
