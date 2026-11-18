@@ -12,7 +12,10 @@ manufacturer's own individual product record.
 from __future__ import annotations
 
 import re
+import json
 import unicodedata
+from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 SOURCE_URL = "https://www.toolconnection.co.uk/laser/products"
@@ -410,10 +413,11 @@ def marketing_for_path(path):
 
 
 def taxonomy_snapshot():
-    """Public category directory; does not assert imported product coverage."""
+    """Public category directory; report honest number of indexed product URLs."""
     return {
         "source": SOURCE_URL, "snapshot_date": SNAPSHOT_DATE,
-        "part_numbers_imported": False,
+        "part_numbers_indexed": len(catalogue_part_index()),
+        "index_is_complete": False,
         "top_category_count": len(TAXONOMY),
         "category_path_count": sum(
             1 + sum(1 + len(leaves) for leaves in groups.values())
@@ -542,3 +546,31 @@ def select_marketing_fact(record, verified_facts, marketing):
         for index, fact in enumerate(candidates)
     ]
     return max(scored)[2]
+
+INDEX_FILE = Path(__file__).resolve().parent / "data" / "catalogue_index.json"
+
+
+@lru_cache(maxsize=1)
+def catalogue_part_index():
+    """Read checked example URLs or an imported company product-URL export.
+
+    Only a URL that passes the exact part-number and Tool Connection host
+    checks is eligible. An index entry is *not* itself proof of live product
+    page availability; the existing lookup still retrieves the source.
+    """
+    try:
+        source = json.loads(INDEX_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    entries = source.get("products", {}) if isinstance(source, dict) else {}
+    if not isinstance(entries, dict):
+        return {}
+    return {
+        str(part): url
+        for part, url in entries.items()
+        if isinstance(url, str) and category_from_product_url(url, str(part))
+    }
+
+
+def catalogue_url_for_part(part: str):
+    return catalogue_part_index().get(str(part).strip())
