@@ -1237,7 +1237,7 @@ $('campaignBtn').addEventListener('click',async()=>{
    }
    rememberFinishedCampaign(data);
    showCampaign(data);
-   $('campaignStatus').textContent='All 9 campaign graphics are ready. Scroll through every format below or Download complete ZIP. Links expire after 15 minutes.';
+   $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links expire after 15 minutes.';
  }catch(error){
    $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
      ' The three basic previews are not a complete AI campaign.';
