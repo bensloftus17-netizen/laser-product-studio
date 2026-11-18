@@ -158,7 +158,8 @@ class CampaignHubTests(unittest.TestCase):
 
     def test_one_click_without_gemini_uses_honest_fallback(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": ""}), \
-             patch("campaign_hub.render_promo", side_effect=self.sample_poster):
+             patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             result = build_campaign(self.product, self.photo)
         self.assertEqual(result["manifest"]["generation_method"],
                          "verified-template-fallback")
