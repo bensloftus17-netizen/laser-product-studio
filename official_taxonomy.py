@@ -403,13 +403,18 @@ def marketing_for_path(path):
         lens = "ev_safety"
     item = LENSES[lens]
     profile = item["profile"]
+    audiences = list(item["audiences"])
     if group == "Engine Timing Tools" or (top == "Motorcycle" and group == "Timing"):
         profile = "engine_timing"
+        audiences = ["Engine repair and timing-belt workshops",
+                     "Workshops specialising in relevant engine applications"]
     elif leaf in ("Wheel Bearings", "Wheel Hub Removal", "Hub Removal") or group == "Steering & Suspension":
         profile = "bearing_suspension"
+        audiences = ["Bearing and suspension repair workshops",
+                     "Automotive tool distributors"]
     return {"id": lens, **item, "profile": profile,
             "channels": list(item["channels"]),
-            "audiences": list(item["audiences"]), "feature_terms": list(item["feature_terms"])}
+            "audiences": audiences, "feature_terms": list(item["feature_terms"])}
 
 
 def taxonomy_snapshot():
