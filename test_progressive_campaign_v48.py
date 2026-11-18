@@ -217,8 +217,8 @@ assert.match(els.campaignProgressCount.textContent,/1 of 9/);
 assert.equal(els['progress-save-poster_technical'].hidden,false);
 assert.equal(els['progress-img-poster_technical'].hidden,false);
 assert.match(els['progress-img-poster_technical'].src,/job-assets\/j+/);
-assert.equal(els['progress-img-poster_price'].src,'');
-assert.equal(els['progress-save-poster_price'].hidden,true);
+assert.equal(el('progress-img-poster_price').src,'');
+assert.equal(el('progress-save-poster_price').hidden,true);
 assert.match(els['progress-state-poster_price'].textContent,/Quality checking/);
 ctx.renderProgressGallery(id,{
  status:'running',stage:'rendering_formats',ready_count:1,assets});
