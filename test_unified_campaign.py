@@ -35,7 +35,11 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
     def setUpClass(cls):
         cls.photo=make_png("#DAE4E9")
         cls.workshop=make_png("#D7AD6C")
-        cls.rrp=make_png("#F5CC3A",size=(1200,1500))
+        branded=Image.new("RGB",(1200,1500),"#0A294B")
+        drawing=ImageDraw.Draw(branded)
+        drawing.rectangle((64,185,1110,980),fill="#176CA5")
+        drawing.polygon([(40,1120),(1080,960),(1140,1400),(100,1440)],fill="#F5C239")
+        cls.rrp=make_png("#F5CC3A",size=(1200,1500)) if False else make_image_png(branded)
         cls.scene={"category":"engine","description":"Genuine contextual workshop",
                    "source":"Pexels free commercial-use photo",
                    "page_url":"https://www.pexels.com/photo/8985517/",
