@@ -46,7 +46,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
         self.assertIn(b'Build a Unique Product Campaign',response.data)
         self.assertIn(b'Saved Promotions Library',response.data)
         self.assertIn(b'campaignCopyText',response.data)
-        self.assertIn(b'static/styles.css?design=v41-unified-campaign',response.data)
+        self.assertIn(b'static/styles.css?design=v42-premium-artwork-qa',response.data)
 
 
 if __name__=='__main__':
