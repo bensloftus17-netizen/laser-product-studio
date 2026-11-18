@@ -794,7 +794,12 @@ function showCampaign(data){
  campaignData=data;
  const m=data.manifest;
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
- $('campaignSummary').textContent=(m.generation_method==='gemini-assisted'?'Gemini-directed campaign using source-verified facts. ':'Verified-source fallback campaign (Gemini unavailable). ')
+ const freeform=m.creative_plan&&m.creative_plan.render_engine==='ai-authored-freeform-layout';
+ $('campaignSummary').textContent=(freeform
+     ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
+     :(m.generation_method==='gemini-assisted'
+        ?'Gemini suggested concepts, but the safe legacy layout renderer was used. '
+        :'Verified-source standard layouts (Gemini unavailable). '))
      +m.files.length+' files in the ZIP. All materials still require approval.';
  const checked=Object.values(m.artwork_quality||{});
  const alerts=checked.flatMap(item=>item.warnings||[]);
@@ -803,6 +808,12 @@ function showCampaign(data){
     ' posters passed automated layout checks · '+checked.reduce((n,item)=>n+(item.candidates_checked||0),0)+
     ' candidate designs reviewed.'+(alerts.length?' Photo review: '+[...new Set(alerts)].join('; ')+'.':'')
    :'Automated poster checks unavailable — review every image before sharing.';
+ if(freeform){
+   const vision=m.creative_critic||{};
+   $('campaignQuality').textContent+=' · '+(vision.reviewed
+      ?'Independent AI review of finished posters completed.'
+      :'AI visual review unavailable; deterministic QA applied.');
+ }
  const strategy=m.marketing_strategy;
  $('marketingStrategyPanel').hidden=!strategy;
  if(strategy){
