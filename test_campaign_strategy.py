@@ -145,7 +145,8 @@ class IntelligentMarketingStrategyTests(unittest.TestCase):
         }
         with patch("campaign_hub._concepts",return_value=(concepts, "gemini-assisted", [])), \
              patch("campaign_hub.render_promo",return_value=images), \
-             patch("campaign_hub._native_graphic",return_value=images) as native:
+             patch("campaign_hub._native_graphic",return_value=images) as native, \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             pack = build_campaign(self.bearing,buf.getvalue())
         strategy = pack["manifest"]["marketing_strategy"]
         self.assertEqual(strategy["method"], "gemini-validated-choice")
