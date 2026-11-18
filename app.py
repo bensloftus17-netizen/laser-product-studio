@@ -82,6 +82,10 @@ V7_HOME_PAGE = r'''
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
 <div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
+<div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
+ <span id="campaignRecoveryText">Your last campaign may still be available.</span>
+ <button type="button" id="campaignResume">Reopen campaign</button>
+</div>
 <details id="campaignSettings" class="campaign-settings">
  <summary>Distributor branding, product lookup and pricing settings <span>Optional</span></summary>
  <div class="campaign-settings-content">
@@ -170,7 +174,7 @@ V7_HOME_PAGE = r'''
 </section>
 <div class="campaign-angle-cards" id="campaignAngles"></div>
 <div class="campaign-role-note">These posters serve different purposes: technical/application, price promotion and a third category-specific marketing angle. The actual Laser Tools product photo is always genuine.</div>
-<h4>Three posters · Story · Social · Banners</h4><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
+<h4>Three posters · Story · Social · Banners</h4><p id="campaignAssetCount" class="campaign-count" role="status" aria-live="polite"></p><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
 
 <section class="campaign-poster-editor" id="campaignPosterEditor" hidden aria-label="Edit selected poster">
  <div class="poster-edit-heading"><div><span class="sectioncap">EDIT VERIFIED CAMPAIGN POSTER</span><h4 id="posterEditTitle">Edit one poster</h4><p>Manufacturer photo, part number and verified price remain locked.</p></div><button type="button" id="posterEditClose" class="ai-secondary">Close</button></div>
@@ -350,7 +354,13 @@ function prepareShareButton(button){
  }).finally(()=>{if(button.dataset.shareUrl===url)delete button.dataset.shareLoading;});
 }
 function prepareShareButtons(root){
- if(root)root.querySelectorAll('button[data-share-url]').forEach(prepareShareButton);
+ // On mobile, eagerly fetching a 5 MB ZIP plus every PNG for sharing can
+ // exhaust Safari memory just as its artwork gallery is being displayed.
+ // Preload ONLY after the user requests that individual share file.
+ if(root)root.querySelectorAll('button[data-share-url]').forEach(button=>{
+  button.disabled=false;
+  button.title='Tap once to prepare this file; tap again to open the share sheet';
+ });
 }
 document.addEventListener('click',event=>{
  const button=event.target.closest('button[data-share-url]');
@@ -790,8 +800,56 @@ $('aiPosterClose').addEventListener('click',()=>$('aiPosterPreview').close());
 $('aiPosterPreview').addEventListener('click',e=>{if(e.target.id==='aiPosterPreview')e.target.close();});
 
 function campaignAssetUrl(id){return '/api/campaign/assets/'+encodeURIComponent(campaignData.token)+'/'+encodeURIComponent(id);}
+function renderCampaignGallery(data){
+ const m=data.manifest||{};
+ if(!Array.isArray(m.images)||m.images.filter(item=>item.id!=='source_qr').length<9){
+  throw new Error('The campaign response is incomplete. No missing artwork will be shown as finished.');
+ }
+ const artworkCount=m.images.filter(item=>item.id!=='source_qr').length;
+ $('campaignAssetCount').textContent='All '+artworkCount+' campaign artwork files are ready. Scroll down to view every format; tap a graphic to open it.';
+ const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
+ social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
+ email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
+ $('campaignAssets').innerHTML=m.images.map((asset,index)=>
+  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="'+(index<3?'eager':'lazy')+'" decoding="async" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><small class="campaign-asset-load" data-load-state>Loading preview…</small><button class="campaign-asset-retry" type="button" data-retry-asset="'+esc(asset.id)+'" hidden>Retry image</button><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
+  '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
+  '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
+  (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
+
+ $('previews').hidden=true;
+ $('campaignResults').hidden=false;
+}
+$('campaignAssets').addEventListener('load',event=>{
+ if(event.target.tagName!=='IMG')return;
+ const card=event.target.closest('.campaign-asset');
+ const status=card&&card.querySelector('[data-load-state]');
+ if(status)status.textContent='Preview loaded';
+},true);
+$('campaignAssets').addEventListener('error',event=>{
+ if(event.target.tagName!=='IMG')return;
+ const card=event.target.closest('.campaign-asset');
+ if(!card)return;
+ const state=card.querySelector('[data-load-state]');
+ const retry=card.querySelector('[data-retry-asset]');
+ if(state)state.textContent='Preview did not load. The full ZIP may still be available.';
+ if(retry)retry.hidden=false;
+},true);
+$('campaignAssets').addEventListener('click',event=>{
+ const control=event.target.closest('[data-retry-asset]');
+ if(!control)return;
+ const card=control.closest('.campaign-asset');
+ const img=card&&card.querySelector('img');
+ if(!img)return;
+ control.hidden=true;
+ const state=card.querySelector('[data-load-state]');
+ if(state)state.textContent='Retrying preview…';
+ const base=img.src.split('?')[0];
+ img.src=base+'?retry='+Date.now();
+});
+
 function showCampaign(data){
  campaignData=data;
+ renderCampaignGallery(data);
  const m=data.manifest;
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
  const freeform=m.creative_plan&&m.creative_plan.render_engine==='ai-authored-freeform-layout';
@@ -844,7 +902,7 @@ function showCampaign(data){
  preparedShareFiles.delete($('campaignShareZip'));
  $('campaignShareZip').dataset.shareUrl=$('campaignDownload').href;
  $('campaignShareZip').dataset.shareFilename='LASER_'+m.part+'_Complete_Campaign.zip';
- prepareShareButton($('campaignShareZip'));
+ prepareShareButtons($('campaignResults'));
  // The most shareable graphic is the square social image; show an obvious
  // Share action above the gallery, not only under individual download links.
  const socialAsset=m.images.find(item=>item.id==='social_square');
@@ -854,18 +912,10 @@ function showCampaign(data){
  socialButton.dataset.shareUrl=socialAsset?campaignAssetUrl('social_square'):'';
  socialButton.dataset.shareFilename='LASER_'+m.part+'_Social.png';
  socialButton.hidden=!socialAsset;
- if(socialAsset)prepareShareButton(socialButton);
+ if(socialAsset)prepareShareButtons($('campaignResults'));
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
   (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
- const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
- social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
- email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
- $('campaignAssets').innerHTML=m.images.map(asset=>
-  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="lazy" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
-  '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
-  '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
-  (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
  prepareShareButtons($('campaignResults'));
  const social=m.social_suggestions||{};
  const frames=Array.isArray(social.instagram_story)?social.instagram_story:[];
