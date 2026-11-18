@@ -179,7 +179,7 @@ V7_HOME_PAGE = r'''
   <label for="posterEditFeature">Manufacturer-verified featured fact<select id="posterEditFeature"></select></label>
   <label for="posterEditVariant">Layout variation<select id="posterEditVariant"><option value="0">Layout 1</option><option value="1">Layout 2</option><option value="2">Layout 3</option></select></label>
  </div>
- <p class="poster-edit-disclaimer">Use an exact excerpt of the official title and select a genuine manufacturer fact. This only updates the chosen poster and its copy in the downloadable ZIP.</p>
+ <p class="poster-edit-disclaimer">Use an exact excerpt of the official title and select a genuine manufacturer fact. This updates only the chosen poster and its version in the downloadable ZIP. Existing Copy Editor drafts are unchanged.</p>
  <div class="poster-edit-actions"><button type="button" class="primary" id="posterEditSave">Update this poster</button><span id="posterEditStatus" role="status" aria-live="polite"></span></div>
 </section>
 <section class="campaign-social-ideas" id="campaignSocialIdeas" hidden aria-label="Instagram Story and social suggestions">
@@ -2312,6 +2312,33 @@ def one_click_campaign(part):
     except Exception:
         app.logger.exception('One-click campaign error')
         return jsonify(error='Unable to build the marketing campaign. Please check the application logs.'), 500
+
+
+@app.post('/api/campaign/edit/<token>/<asset_id>')
+def edit_campaign_asset(token, asset_id):
+    """Revise exactly one source-verified poster; preserve all other assets."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return jsonify(error='Invalid or expired campaign link.'), 404
+    body=request.get_json(silent=True)
+    if not isinstance(body,dict):
+        return jsonify(error='Invalid poster edits.'),400
+    try:
+        from poster_live_edit import edit_campaign_poster
+        with CAMPAIGN_PACK_LOCK:
+            entry=CAMPAIGN_PACKS.get(token)
+            if not entry or entry['expires'] < time.time():
+                return jsonify(error='Campaign expired. Please build a new campaign.'),404
+            result=edit_campaign_poster(entry['bundle'],asset_id,body)
+        response=jsonify(result)
+        response.headers['Cache-Control']='no-store, private'
+        return response
+    except ValueError as exc:
+        return jsonify(error=str(exc)),400
+    except RuntimeError as exc:
+        return jsonify(error='Poster failed quality review: '+str(exc)),422
+    except Exception:
+        app.logger.exception('Single campaign poster edit failed')
+        return jsonify(error='Could not update this poster. Original campaign is unchanged.'),500
 
 
 @app.get('/api/campaign/download/<token>')
