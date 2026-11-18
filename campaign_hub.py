@@ -24,6 +24,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from ai_promo_renderer import FAMILIES, render_promo, verified_price
 from brand_assets import BRAND_LABELS, get_brand_image
 from marketing_intelligence import strategy_for
+from campaign_strategy import explain_strategy
 from poster import font
 from promo_copy import compose_promotional_copy
 from promo_selling_points import choose_feature, focus_concept
@@ -325,6 +326,22 @@ def _summary_pdf(product, concepts, manifest):
         story.append(Paragraph(FAMILIES_LABELS[i] + " campaign", styles["Heading2"]))
         story.append(Paragraph(escape(str(concept.get("selling_point", ""))), styles["BodyText"]))
         story.append(Spacer(1, 9))
+    strategy = manifest.get("marketing_strategy") or {}
+    if strategy:
+        story.append(Paragraph("Recommended marketing strategy", styles["Heading2"]))
+        for label, value in [
+            ("Recommendation method", strategy.get("method_label")),
+            ("Suggested target audience", strategy.get("target_audience")),
+            ("Main sales angle", strategy.get("primary_focus_label")),
+            ("Recommended channels", ", ".join(x.get("label", "") for x in strategy.get("recommended_channels", []))),
+            ("Official product evidence", strategy.get("proof_point") or "Feature proof not available"),
+            ("Why this approach", strategy.get("reason")),
+        ]:
+            story.append(Paragraph("<b>" + escape(str(label)) + ":</b> " + escape(str(value or "")), styles["BodyText"]))
+            story.append(Spacer(1, 7))
+        story.append(Paragraph(
+            "The target audience and channel choices are hypotheses for the sales team to validate, not confirmed leads.",
+            styles["BodyText"]))
     story.append(Paragraph("Package contents", styles["Heading2"]))
     for path in manifest["files"]:
         story.append(Paragraph(escape(path), styles["Normal"]))
@@ -362,13 +379,19 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
     product = dict(product)
     product["marketing_direction"] = strategy_for(product)
     concepts, mode, warnings = _concepts(product, use_gemini)
+    ai_choice = (concepts[0].get("ai_strategy_choice")
+                 if mode == "gemini-assisted" and concepts else None)
+    marketing_strategy = explain_strategy(product, ai_choice)
     image_assets = {}
     for index, concept in enumerate(concepts):
         key = ("poster_price", "poster_benefit", "poster_application")[index]
         image_assets[key] = render_promo(concept, genuine_photo, product, distributor,
                                          editor={"background": "clean",
                                                  "show_subline": True})
-    proof = choose_feature(product, "application") or choose_feature(product, "benefit")
+    # A specialised vehicle kit should foreground verified application,
+    # whereas a socket set or a press needs its category-relevant proof.
+    proof = marketing_strategy["proof_point"] or choose_feature(
+        product, marketing_strategy["primary_focus"])
     for key in ("social_square", "social_story", "website_banner", "email_header"):
         image_assets[key] = _native_graphic(product, genuine_photo, distributor, key, proof)
     qr = _source_qr(product)
@@ -381,6 +404,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
         files["source_qr"] = "05_Product_Info/Official_Product_QR.png"
     file_paths = list(files.values()) + [
         "04_Copy/All_Channels.txt", "04_Copy/All_Channels.json",
+        "05_Product_Info/Marketing_Strategy.txt",
         "05_Product_Info/Source_Record.json", "05_Product_Info/Campaign_Summary.pdf",
         "05_Product_Info/READ_FIRST.txt", "Campaign_Manifest.json",
     ]
@@ -388,6 +412,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
         "part": str(product.get("part", "")),
         "title": str(product.get("title", "")),
         "category": product["marketing_direction"].get("category_label", ""),
+        "marketing_strategy": marketing_strategy,
         "source": _approved_source(product),
         "distributor": BRAND_LABELS.get(distributor) if distributor else None,
         "price": _price_line(product),
@@ -427,6 +452,20 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True)
             z.writestr(files[key], payload)
         z.writestr("04_Copy/All_Channels.txt", _copy_text(copies))
         z.writestr("04_Copy/All_Channels.json", json.dumps(copies, indent=2, ensure_ascii=False))
+        strategy_note = (
+            "LASER TOOLS — RECOMMENDED PRODUCT MARKETING STRATEGY (DRAFT)\n\n"
+            + "Category: " + marketing_strategy["category_label"] + "\n"
+            + "Method: " + marketing_strategy["method_label"] + "\n"
+            + "Suggested audience: " + marketing_strategy["target_audience"] + "\n"
+            + "Recommended angle: " + marketing_strategy["primary_focus_label"] + "\n"
+            + "Recommended channels: " + ", ".join(
+                c["label"] for c in marketing_strategy["recommended_channels"]) + "\n"
+            + "Official evidence: " + (marketing_strategy["proof_point"] or "Unavailable") + "\n"
+            + "Reason: " + marketing_strategy["reason"] + "\n\n"
+            + "The audience is not a validated prospect. Review against the manufacturer's "
+            "specifications and the sales team's research before external use.\n"
+        )
+        z.writestr("05_Product_Info/Marketing_Strategy.txt", strategy_note)
         z.writestr("05_Product_Info/Source_Record.json",
                    json.dumps(product, indent=2, ensure_ascii=False, default=str))
         z.writestr("05_Product_Info/READ_FIRST.txt", note)
