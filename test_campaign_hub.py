@@ -43,7 +43,8 @@ class CampaignHubTests(unittest.TestCase):
         return _png(picture)
 
     def build(self, product=None, **kwargs):
-        with patch("campaign_hub.render_promo", side_effect=self.sample_poster):
+        with patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
+             patch("campaign_hub.find_scene",return_value=(None,{})):
             return build_campaign(product or self.product, self.photo,
                                   use_gemini=False, **kwargs)
 
