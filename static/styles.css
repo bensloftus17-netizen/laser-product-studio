@@ -929,3 +929,7 @@ body{background:#eef4fb;color:#102744;min-width:320px}
 @media(max-width:740px){.story-suggestion-cards{grid-template-columns:1fr}
  .campaign-social-ideas{padding:12px}
  .workspace-secondary-note{display:none}}
+
+/* Campaign V42: quality feedback next to original artwork, no invented ratings. */
+.campaign-quality{font-size:10px;font-weight:740;line-height:1.55;color:#0b668e;
+ margin:8px 0 4px;max-width:710px}
