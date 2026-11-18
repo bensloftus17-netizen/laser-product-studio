@@ -37,7 +37,11 @@ RAW_GERMAN_TECH = re.compile(
     r"betriebsdauer|drehzahl|arbeitsleuchte|betriebsanleitung|"
     r"einsatzbereich|anwendung|technische\s+daten|"
     r"schalter|beleuchtung|geschwindigkeit|schnellladung|"
-    r"befestigung|werkstatt|schutzhülle|lichtstärke)\b",
+    r"befestigung|werkstatt|schutzhülle|lichtstärke|"
+    r"unbekannte|angaben|zubehör|werkstoff|beschreibung|"
+    r"eigengewicht|gesamtgewicht|kabellänge|lichtleistung|"
+    r"netzteil|mitgeliefert|lieferung|bedienungsanleitung|"
+    r"anzahl|maße|farbtemperatur|geeignet)\b",
     re.I,
 )
 
