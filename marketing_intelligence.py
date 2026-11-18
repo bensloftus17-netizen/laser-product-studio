@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
+from official_taxonomy import category_from_product_url
 
 # Ordered specificity: a bearing kit mentioning use with a workshop press is a
 # bearing kit, not a press; an impact wrench is not a general socket set.
@@ -209,7 +210,13 @@ VALID_CATEGORIES = frozenset(PROFILES)
 
 
 def detect_category(record: dict) -> tuple[str, str]:
-    """Return (category, evidence source) from manufacturer-provided words."""
+    """Prefer the official website breadcrumb; fall back to title-derived type."""
+    official = record.get("official_taxonomy") or category_from_product_url(
+        record.get("source"), record.get("part"))
+    if isinstance(official, dict):
+        profile = (official.get("marketing") or {}).get("profile")
+        if profile in PROFILES:
+            return profile, "official manufacturer product-category URL"
     title=str(record.get("title") or "").lower()
     # Drop leading part number. Avoid using long PDF data as title evidence.
     title=re.sub(r"^\s*[a-z]?\d{3,6}(?:[-\s:]+)", "", title).strip()
