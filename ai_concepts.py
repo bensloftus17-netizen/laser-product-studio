@@ -6,6 +6,7 @@ from promo_art_direction import normalise_art_direction
 from promo_copy import normalise_copy_direction
 from promo_selling_points import focus_concept
 from campaign_strategy import strategy_options
+from campaign_director import third_angle_options
 
 def _gemini_json(payload, key, model):
     """Read Gemini JSON with bounded retries and actionable, non-secret errors.
@@ -106,6 +107,7 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
         # Gives the existing single Gemini request constrained marketing choices
         # in addition to the poster designs. No second API call or extra outage risk.
         context["strategy_options"]=strategy_options(product)
+        context["third_angle_options"]=third_angle_options(product)
     system=("You are a senior UK automotive trade marketing copywriter. Generate THREE completely DIFFERENT, "
             "short, attention-grabbing PROMOTIONAL advertisement concepts for the actual Laser Tools product in the supplied official data. "
             "All three are SALES POSTERS, NEVER technical specification sheets, blueprint diagrams or educational posters. "
@@ -157,6 +159,14 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "Retail, Premium and Trade. The app will use these choices to compose a short "
             "social caption, a LinkedIn post, a customer email and relevant hashtags using "
             "only the supplied verified facts. Never write unsupported marketing claims. "
+            "For the unified campaign, choose the BEST THIRD POSTER ANGLE for this "
+            "specific tool category. The main Build Campaign action always makes "
+            "(1) a technical/application poster and (2) a price-led sales poster. "
+            "The third must add a DIFFERENT category-relevant point, never simply "
+            "repeat the technical or price poster. Choose only one value from "
+            "third_angle_options, and include it as marketing_strategy.third_angle. "
+            "Do not claim the model trained on sales performance: explain choices "
+            "only from manufacturer-supplied product information. "
             "Also return a top-level 'marketing_strategy' object (not inside a concept), "
             "with audience_id (one of strategy_options.audiences IDs), "
             "primary_focus (one of strategy_options.focus_options), "
