@@ -461,6 +461,10 @@ def generate_format(kind,brief,product,photo,*,scenes=(),headlines=None,
         checked["variation"]=variant
         attempts.append(checked)
         if checked["passed"]:successes.append((output,checked))
+        # Retain two genuine visual candidates as before; only spend extra
+        # CPU on measured typography recovery if both failed. Free hosting
+        # cannot afford four full-resolution renders for every good graphic.
+        if variant==1 and successes:break
     if not successes:
         detail="; ".join(dict.fromkeys(
             issue for item in attempts for issue in item["issues"]))
