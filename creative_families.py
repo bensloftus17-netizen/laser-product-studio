@@ -6,6 +6,9 @@ claims, photos, UK RRP, vehicle fitments or unapproved product silhouettes.
 from __future__ import annotations
 import re
 from difflib import SequenceMatcher
+from creative_expression import (
+    normalise_expression, PALETTE_NAMES, DEFAULT_POSTER_PALETTE,
+)
 
 FAMILIES=(
     "engineering_grid","commercial_burst","premium_spotlight",
@@ -92,6 +95,7 @@ def sanitize_contract(raw,role,*,family=None):
             raw.get("hero_emphasis"),HERO_SIZES,default["hero_emphasis"]),
         "price_emphasis":_choice(
             raw.get("price_emphasis"),PRICE_EMPHASIS,default["price_emphasis"]),
+        **normalise_expression(raw,role=role),
     }
     # Intent is fixed by the server even if Gemini supplies a wrong flag.
     contract["headline_strategy"]=default["headline_strategy"]
@@ -112,6 +116,7 @@ def diversify_concepts(concepts):
     an original model choice. Family choices are still rendered materially.
     """
     used=set()
+    used_colours=set()
     corrected=[]
     for index,concept in enumerate(concepts):
         role=ROLES[index]
@@ -125,6 +130,16 @@ def diversify_concepts(concepts):
             candidate=sanitize_contract(selected,role,family=family)
             corrected.append(role)
         used.add(family)
+        # Independent art direction must not collapse back into three navy
+        # canvases when Gemini repeats its favourite colour choice.
+        colour=candidate["creative_palette"]
+        if colour in used_colours:
+            preferred=DEFAULT_POSTER_PALETTE[role]
+            colour=next((p for p in (preferred,*PALETTE_NAMES)
+                         if p not in used_colours),colour)
+            candidate["creative_palette"]=colour
+            if role not in corrected:corrected.append(role)
+        used_colours.add(colour)
         concept["creative_direction"]=candidate
         brief=concept.get("creative_canvas")
         if isinstance(brief,dict):
@@ -133,6 +148,9 @@ def diversify_concepts(concepts):
             brief["creative_family"]=family
             brief["composition_mode"]=candidate["composition_mode"]
             brief["background_mood"]=candidate["background_mood"]
+            for key in ("creative_palette","visual_treatment",
+                        "text_treatment","hero_treatment"):
+                brief[key]=candidate[key]
             concept["creative_canvas"]=brief
         visual=concept.get("visual_plan")
         if isinstance(visual,dict):
