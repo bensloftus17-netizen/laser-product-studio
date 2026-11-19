@@ -155,6 +155,23 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "Select layouts and product photo treatment that suit THIS ACTUAL product. "
             "Each of the three art directions must differ in composition, colour and graphic motifs. "
             "The real product photograph, verified RRP and source claims remain fixed. "
+            "Also include a creative_direction object for each concept with "
+            "creative_family (engineering_grid/commercial_burst/premium_spotlight/"
+            "workshop_motion/editorial_split/toolkit_coverage), background_mood "
+            "(structured_workshop/bold_promotion/premium_studio/workshop_action/"
+            "editorial/organised_kit), copy_tone (technical/commercial/"
+            "professional/practical/premium), headline_strategy "
+            "(application/price/benefit/product/kit_contents/feature), "
+            "proof_strategy (use_case/verified_spec/value_point/differentiator/"
+            "kit_contents), hero_emphasis (dominant/balanced/supporting), and "
+            "price_emphasis (dominant/supporting/none). Give all 3 concepts "
+            "different creative_family choices appropriate to their roles. "
+            "These are style choices only. Do not write new claims or prices. "
+            "Also include a top-level format_parent_roles object assigning six "
+            "social_square, social_story, website_banner, email_header, "
+            "linkedin_graphic and landscape_ad formats to inherited parent "
+            "roles. Use technical_application, price_promo, product_selected "
+            "only, and use all three at least once. "
             "For each concept ALSO include copy_direction: a compact object with three "
             "fields, tone (direct/practical/professional), hook (product/application/feature), "
             "and cta (details/enquire/specifications). Choose different copy styles for "
@@ -273,6 +290,11 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
             "variant":direction["layout_variant"],
             "art_direction":direction,
             "creative_canvas":c.get("creative_canvas") if isinstance(c.get("creative_canvas"),dict) else None,
+            # Server validates this contract against a fixed family and
+            # source-backed role. Never use model-supplied factual statements
+            # as a new specification.
+            "creative_direction":c.get("creative_direction") if isinstance(
+                c.get("creative_direction"),dict) else c.get("creative_canvas"),
             "ai_verified_features":ai_selected_facts,
             "copy_direction":normalise_copy_direction(c.get("copy_direction")),
             "features":selected,
@@ -284,6 +306,9 @@ def propose(product, creative_brief="", only_family=None, tone="trade"):
     if (only_family is None and isinstance(raw,dict)
             and isinstance(raw.get("format_canvases"),dict)):
         cleaned[0]["ai_format_canvases"]=raw["format_canvases"]
+    if (only_family is None and isinstance(raw,dict)
+            and isinstance(raw.get("format_parent_roles"),dict)):
+        cleaned[0]["format_parent_roles"]=raw["format_parent_roles"]
     # Attach the strictly enumerated choice to the first concept. The
     # campaign builder validates IDs again against the manufacturer record.
     # Existing AI poster callers remain compatible with the concept list.
