@@ -173,7 +173,7 @@ class OriginalFormatCampaignTests(unittest.TestCase):
                 source_report={"passed":True},headlines=HEADLINES,facts=FEATURES)
         self.assertTrue(report["passed"])
         self.assertEqual(report["native_dimensions"],[1600,600])
-        self.assertEqual(report["candidates_checked"],2)
+        self.assertEqual(report["candidates_checked"],4)
         self.assertEqual(report["render_engine"],"ai-original-format-canvas")
         self.assertEqual(Image.open(io.BytesIO(payload)).size,(1600,600))
 
