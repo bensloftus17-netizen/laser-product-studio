@@ -263,7 +263,11 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
             canvas={**canvas,
                     "creative_family":direction["creative_family"],
                     "composition_mode":direction["composition_mode"],
-                    "background_mood":direction["background_mood"]}
+                    "background_mood":direction["background_mood"],
+                    "creative_palette":direction["creative_palette"],
+                    "visual_treatment":direction["visual_treatment"],
+                    "text_treatment":direction["text_treatment"],
+                    "hero_treatment":direction["hero_treatment"]}
         concept={
             "id":i,"family":family_map[i],"variant":variation,
             "focus":role_focus[i],
