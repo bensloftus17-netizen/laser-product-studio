@@ -256,6 +256,72 @@ def safe_url(url, allow_google=False):
         return False
 
 
+def safe_image_url(image_url, page_url):
+    """Only HTTPS product photos tied to a source-checked merchant listing.
+
+    Never fetch an arbitrary URL from user/AI input. Returned URLs are for
+    product pictures, not scraped logos, model-generated illustrations or
+    base64/data URIs. No redirects, internal hosts or non-HTTPS schemes.
+    """
+    if not safe_url(page_url):
+        return None
+    if not isinstance(image_url,str) or not image_url.strip():
+        return None
+    value=urljoin(page_url,image_url.strip())
+    try:
+        parsed=urlparse(value)
+        host=(parsed.hostname or "").lower().rstrip(".")
+        product_host=(urlparse(page_url).hostname or "").lower().rstrip(".")
+        safe_host=(host==product_host or
+                   host.endswith("."+product_host) or
+                   any(host==cdn or host.endswith("."+cdn)
+                       for cdn in IMAGE_CDN_HOSTS))
+        path=(parsed.path or "").lower()
+        return value if (
+            safe_host and parsed.scheme=="https" and
+            parsed.username is None and parsed.password is None and
+            (parsed.port is None or parsed.port==443) and
+            len(value)<=1400 and
+            not re.search(r"[\\r\\n\\x00-\\x1f]",value) and
+            not re.search(r"(?:^|[/_-])(?:logo|favicon)(?:[./_-]|$)",path) and
+            not path.endswith((".svg",".gif",".pdf"))
+        ) else None
+    except (ValueError,TypeError):
+        return None
+
+
+def _image_from_schema(raw):
+    """Extract a URL only from actual JSON-LD Product.image markup."""
+    if isinstance(raw,str):
+        return raw
+    if isinstance(raw,dict):
+        return raw.get("contentUrl") or raw.get("url") or ""
+    if isinstance(raw,list):
+        for item in raw[:8]:
+            found=_image_from_schema(item)
+            if found:return found
+    return ""
+
+
+def _page_main_image(soup,page_url,product_image=None):
+    """Prefer source Product schema, then page-designated hero metadata."""
+    paths=[(_image_from_schema(product_image),"Product JSON-LD photo")]
+    for selector in (
+        'meta[property="og:image:secure_url"]',
+        'meta[property="og:image"]',
+        'meta[name="twitter:image"]',
+        'meta[itemprop="image"]',
+    ):
+        tag=soup.select_one(selector)
+        if tag:
+            paths.append((tag.get("content") or "","Product page hero image"))
+    for candidate,origin in paths:
+        url=safe_image_url(candidate,page_url)
+        if url:
+            return url,origin
+    return None,None
+
+
 def detect_brand(title, explicit=None, domain=None):
     text = " ".join(clean_text(x, 240).lower() for x in
                     (explicit, title, domain))
@@ -483,9 +549,9 @@ def candidate_sku(title, brand, explicit=None):
 
 def _build_result(title, url, signature, *, brand=None, sku=None,
                   seller=None, price=None, price_origin=None, vat=None,
-                  listing_condition=None):
+                  listing_condition=None,image_url=None,image_origin=None):
     title = clean_text(title, 230)
-    if len(title) < 8 or not safe_url(url, allow_google=True):
+    if len(title) < 8 or not safe_url(url):
         return None
     brand = detect_brand(title, explicit=brand, domain=urlparse(url).hostname)
     if brand == "Laser Tools":
@@ -505,7 +571,10 @@ def _build_result(title, url, signature, *, brand=None, sku=None,
         "listing_condition":listing_condition if listing_condition in
             ("New","Used","Refurbished") else "Unconfirmed",
         "match_status":match[0],"match_evidence":match[1],
-        "url":url,"source_type":"shopping" if price_origin=="Google Shopping listing"
+        "url":url,"product_url":url,
+        "image_url":safe_image_url(image_url,url),
+        "image_source":image_origin if safe_image_url(image_url,url) else None,
+        "source_type":"shopping" if price_origin=="Google Shopping listing"
               else "retailer/manufacturer page",
     }
 
@@ -533,6 +602,8 @@ def _parse_shopping(data, signature):
             title,url,signature,brand=row.get("brand"),seller=row.get("source"),
             sku=row.get("model") or row.get("sku"),
             price=price,price_origin="Google Shopping listing",
+            image_url=row.get("thumbnail") or row.get("image"),
+            image_origin="Google Shopping product thumbnail",
             listing_condition=("Used" if str(row.get("condition","")).lower() in
                                ("used","second hand","pre-owned")
                                else "New" if str(row.get("condition","")).lower()=="new"
@@ -742,15 +813,18 @@ def parse_product_page(content, url, signature):
             brand=_schema_brand(node)
             sku=node.get("sku") or node.get("mpn")
             price=_schema_price(node)
+            image,image_source=_page_main_image(soup,url,node.get("image"))
             result=_build_result(name,url,signature,
                 brand=brand,sku=sku,price=price,
                 price_origin="Retailer JSON-LD product offer",
                 seller=urlparse(url).hostname,
-                listing_condition=_listing_condition(soup,node))
+                listing_condition=_listing_condition(soup,node),
+                image_url=image,image_origin=image_source)
             if result:
                 rows.append(result)
     if rows:
-        return max(rows,key=lambda r:bool(r["price_gbp"]))
+        return max(rows,key=lambda r:(
+            bool(r["image_url"]),bool(r["price_gbp"]),bool(r["part_number"])))
     # Manufacturer pages with genuine product heading and UK merchant
     # listings may not publish JSON-LD. Only a known explicit current-price
     # label on a supported merchant is accepted, never a generic pound sign
@@ -760,8 +834,10 @@ def parse_product_page(content, url, signature):
     if not candidate:
         return None
     visible_price,vat,origin=_merchant_visible_price(soup,url)
+    hero,hero_origin=_page_main_image(soup,url)
     return _build_result(candidate,url,signature,price=visible_price,
                          vat=vat,price_origin=origin,
+                         image_url=hero,image_origin=hero_origin,
                          listing_condition=_listing_condition(soup))
 
 
@@ -842,9 +918,21 @@ def _distinct(results):
     for item in results:
         key=item["url"].lower().split("#",1)[0].rstrip("/")
         old=by_url.get(key)
-        if old is None or (bool(item["part_number"]),bool(item["price_gbp"])) > (
-                bool(old["part_number"]),bool(old["price_gbp"])):
+        if old is None or (
+                bool(item["part_number"]),bool(item["price_gbp"]),
+                bool(item.get("image_url"))) > (
+                bool(old["part_number"]),bool(old["price_gbp"]),
+                bool(old.get("image_url"))):
+            if old:
+                for field,related in (("image_url","image_source"),
+                                      ("price_gbp","price_source")):
+                    if not item.get(field) and old.get(field):
+                        item[field]=old[field]
+                        item[related]=old.get(related)
             by_url[key]=item
+        elif old and not old.get("image_url") and item.get("image_url"):
+            old["image_url"]=item["image_url"]
+            old["image_source"]=item.get("image_source")
     best={}
     for item in by_url.values():
         key=(item["brand"].lower(),
@@ -852,8 +940,10 @@ def _distinct(results):
              re.sub(r"\W+","",item["title"].lower())[:85])
         previous=best.get(key)
         if (not previous
-                or (bool(item["price_gbp"]),bool(item["part_number"])) >
-                   (bool(previous["price_gbp"]),bool(previous["part_number"]))):
+                or (bool(item["price_gbp"]),bool(item["part_number"]),
+                    bool(item.get("image_url"))) >
+                   (bool(previous["price_gbp"]),bool(previous["part_number"]),
+                    bool(previous.get("image_url")))):
             best[key]=item
     return sorted(best.values(),key=lambda item:(
         0 if item["match_status"].startswith("Likely equivalent") else 1,
@@ -962,6 +1052,8 @@ def research_competitors(product, *, session=requests,
                  "price":product.get("price"),
                  "price_status":product.get("price_status")},
         "results":rows,"count":len(rows),"checked_at_utc":checked,
+        "images_found":sum(bool(r.get("image_url")) for r in rows),
+        "product_links_found":sum(bool(r.get("product_url")) for r in rows),
         "verified_product_pages":sum(
             r["source_type"]!="unverified search-index title" for r in rows),
         "search_only_leads":sum(
@@ -988,7 +1080,8 @@ def report_csv(result):
                      "Competitor product","Competitor part number",
                      "UK advertised price GBP","VAT basis","Listing condition","Retailer/seller",
                      "Match classification","Evidence note","Source URL",
-                     "Price source","Checked UTC","Evidence level"])
+                     "Price source","Checked UTC","Evidence level",
+                     "Product photo URL","Image provenance"])
     def guard(value):
         string=str(value or "").strip()
         return "'"+string if string.startswith(("=","+","-","@","\t","\r")) else string
@@ -999,6 +1092,7 @@ def report_csv(result):
             item["price_gbp"],item["vat_basis"],item.get("listing_condition"),
             item["seller"],item["match_status"],item["match_evidence"],item["url"],
             item["price_source"],result["checked_at_utc"],
-            item.get("source_type")
+            item.get("source_type"),item.get("image_url"),
+            item.get("image_source")
         ]])
     return output.getvalue().encode("utf-8-sig")
