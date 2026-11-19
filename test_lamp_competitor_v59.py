@@ -139,7 +139,9 @@ class GenuineLamp9197Tests(unittest.TestCase):
         self.assertIn("showOfficialHero(part);",page)
         self.assertIn("photo.src='/api/photo/'+encodeURIComponent(clean)",page)
         self.assertIn("onload=\"this.hidden=false\"",page)
-        self.assertIn("V59 competitor classification",page)
+        # Page now advances version while retaining V59 competitor/photo
+        # behaviour; the sidebar label is not an API contract.
+        self.assertIn("Internal pilot · V60 creative freedom",page)
 
 
 if __name__=="__main__":

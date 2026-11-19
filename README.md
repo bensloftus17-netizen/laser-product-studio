@@ -1,3 +1,46 @@
+## V60 — AI has more visual freedom across ALL nine assets
+
+The 9197 screenshot showed nine complete marketing assets still dominated by
+the same dark navy backdrop. V60 corrects the rendering layer rather than
+just asking the model for more creativity.
+
+- **AI-owned design choices:** the existing single Gemini planning call can
+  now choose creative_palette, visual_treatment, text_treatment and
+  hero_treatment for each original poster and each native-format artboard.
+  Supported looks include laser blue, safety yellow, cyan, silver slate,
+  graphite orange, electric violet and workshop teal; cinematic photography,
+  high-impact geometry, editorial/split composition, minimalist composition
+  and technical infographic treatments. These choices alter **actual
+  large-scale artwork pixels** rather than simply renaming style metadata.
+- **Different poster concepts:** technical/application, price-led and
+  third-angle each receives its own composition, coloured typography details,
+  price treatment and genuine hero-photo presentation. Repeated model colours
+  are visibly diversified without moving the model's protected text/photo
+  zones. The modification remains auditable.
+- **Different social + website art:** native square, Story, website banner,
+  email header, LinkedIn graphic and landscape advert each receives its own
+  AI-authored palette and composition when provided. If a model repeats the
+  same colour on three or more assets, the renderer selects a safe different
+  palette. Default native-format colours are deliberately varied.
+- **Different fallbacks:** a text-zone failure or temporarily unavailable
+  Gemini can no longer cause all six formats to look like the original navy
+  format. The separate legacy fallback renders the same approved genuine
+  Laser photo under its own colourful backdrop and contrast-safe text panels,
+  always labelled as a fallback.
+- **Immutable essentials:** verified manufacturer product pixels, protected
+  Laser logo/footer, customer branding, source-locked facts, English-only
+  copy, UK RRP/VAT treatment and all pre-existing cutout, placement, text
+  bounds, quality and visual review gates remain in force.
+- **Audit:** the completed asset gallery shows real palette/visual choice,
+  while the Campaign Manifest records one creative palette per asset.
+  No arbitrary model CSS, external photo URLs or invented hardware/claims
+  are accepted as art instructions.
+
+These are still **drafts requiring human review**. Tests establish actual
+pixel changes and the preservation of source/photo/copy constraints, not
+an aesthetic guarantee for every part or an independently verified production
+Render deployment.
+
 ## V58 — Competitor Finder: genuine photos, direct product links and broader coverage
 
 Previously the comparison table had no `image_url` fields, and the backend

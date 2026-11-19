@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from itertools import combinations
 from creative_families import FAMILIES as CREATIVE_FAMILIES, DEFAULT_FAMILY, FAMILY_MODES, FAMILY_MOOD
+from creative_expression import normalise_expression
 
 ROLES=("technical_application","price_promo","product_selected")
 ZONES=("headline","product","proof","price")
@@ -130,6 +131,7 @@ def validate_brief(raw,role):
         "creative_family":chosen_family,
         "background_mood":FAMILY_MOOD[chosen_family],
         "composition_mode":chosen_mode,
+        **normalise_expression(raw,role=role),
         "source":"ai-freeform-canvas",
     }
 
@@ -207,6 +209,19 @@ def creative_instruction():
         "real workshop photography where available, price banners, hero scale "
         "and negative space. The renderer gives each family a visibly different "
         "background structure; the exact tool photo is always unchanged. "
+        "Choose creative_palette (laser_blue, signal_yellow, cold_cyan, "
+        "studio_silver, graphite_orange, electric_violet, workshop_teal). "
+        "Let your choice transform LARGE AREAS of the poster rather than "
+        "always ending up navy. Choose three visually different palettes, "
+        "including bold trade-quality tones, a lighter cool editorial "
+        "composition, and high-impact promotional contrast where relevant. "
+        "Choose visual_treatment from photo_editorial, bold_geometry, "
+        "clean_minimal, cinematic, split_canvas, technical_infographic; "
+        "text_treatment from rail, panel, banner, underline, minimal; "
+        "hero_treatment from spotlight, clean_cutout, graphic_frame, floating. "
+        "The application applies your actual choices under the REAL, untouched "
+        "manufacturer photo and verified copy, with safe contrast panels. "
+        "Invent no photographic tools, logos, specs or unsupported slogans. "
         "Also include background_mood as structured_workshop, bold_promotion, "
         "premium_studio, workshop_action, editorial, or organised_kit. "
         "Choose a DIFFERENT composition_mode for each poster: one of "

@@ -36,6 +36,9 @@ from creative_families import (
     diversify_concepts, choose_format_parents, copy_diversity,
     DEFAULT_FAMILY, FORMAT_PARENTS,
 )
+from creative_expression import (
+    express_background, format_palette, DEFAULT_FORMAT_PALETTE,
+)
 from flexible_canvas import render_creative_canvas
 from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
@@ -197,7 +200,8 @@ def _price_line(product):
 
 
 def _native_graphic(product, photo, distributor, kind, fact, scene=None,
-                    visual_plan=None,creative_family=None,headline=None):
+                    visual_plan=None,creative_family=None,headline=None,
+                    creative_palette=None,visual_treatment="bold_geometry"):
     """Product-specific stories and banners with genuine workshop context.
 
     Supporting photography is curated or approved; original tool image is
@@ -234,6 +238,19 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None,
     if creative_family:
         from format_creative import draw_family_background
         canvas=draw_family_background(canvas,creative_family)
+    if creative_palette:
+        # The fallback must retain the AI's parent campaign direction and
+        # contrast-safe colour language; it is NOT passed off as AI-original.
+        if kind=="social_square":
+            safe={"headline":(50,200,1025,370),"price":(62,896,1015,1020)}
+        elif kind=="social_story":
+            safe={"headline":(58,258,1022,515),
+                  "proof":(66,1394,1007,1612),
+                  "price":(64,1655,1012,1830)}
+        else:
+            safe={"headline":(45,160,int(width*.54),height-74)}
+        canvas=express_background(
+            canvas,creative_palette,visual_treatment,zones=safe)
     d = ImageDraw.Draw(canvas)
     title = _clean(product.get("title"), 150) or "Laser Tools product"
     # Verified source-title excerpt prevents tiny ellipsised fallback copy.
@@ -247,7 +264,8 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None,
     part = _clean(product.get("part"), 18)
     price = _price_line(product)
     if kind == "social_square":
-        if not scene:d.rectangle((0, 210, width, height), fill=BLUE)
+        if not scene and not creative_palette:
+            d.rectangle((0, 210, width, height), fill=BLUE)
         d.polygon([(0, 1000), (1080, 820), (1080, 1080), (0, 1080)], fill=NAVY)
         _brand(canvas, part, distributor)
         _fitted(d, title, (50, 200, 1025, 370), (64, 56, 48, 42, 36), WHITE, 3)
@@ -257,7 +275,8 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None,
         _fitted(d, price, (90, 918, 980, 1001),
                 (47, 41, 35, 28, 23), WHITE, 2)
     elif kind == "social_story":
-        if not scene:d.rectangle((0, 200, width, height), fill=BLUE)
+        if not scene and not creative_palette:
+            d.rectangle((0, 200, width, height), fill=BLUE)
         d.polygon([(0, 1620), (1080, 1400), (1080, 1920), (0, 1920)], fill=NAVY)
         _brand(canvas, part, distributor)
         _fitted(d, title, (58, 258, 1022, 515), (81, 72, 60, 52, 44), WHITE, 4)
@@ -707,6 +726,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     creative_plan["format_parent_roles"]=dict(format_parents)
     format_reports={}
     format_canvases={}
+    palette_choices={}
+    used_format_palettes=[]
     failed_formats=[]
     for key in FORMAT_ORDER:
         _emit("rendering",key)
@@ -718,7 +739,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         parent_headline=parent.get("headline") or product.get("title")
         parent_proof=parent.get("selling_point") or proof
         brief=validate_format_canvas(key,supplied_formats.get(key),len(format_facts))
+        # Gemini may choose an original palette for every native format.
+        # If it omitted colour or repeated the same one everywhere, use a
+        # truthful differentiated brand-safe alternative rather than six
+        # default-navy replicas.
+        original_palette=brief.get("creative_palette") if brief else None
+        palette=format_palette(key,original_palette,used_format_palettes)
+        used_format_palettes.append(palette)
+        palette_choices[key]=palette
         if brief:
+            brief["creative_palette"]=palette
             # Inherit a *different* source-backed campaign angle; keep the
             # model's independently authored native-format geometry intact.
             brief={**brief,"headline_role":parent_role,
@@ -740,10 +770,12 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 image_assets[key]=_native_graphic(
                     product,genuine_photo,distributor,key,parent_proof,
                     scene=scenes[scene_idx],visual_plan=creative_plan,
-                    creative_family=parent_family,headline=parent_headline)
+                    creative_family=parent_family,headline=parent_headline,
+                    creative_palette=palette)
                 format_reports[key]={
                     "render_engine":"verified-legacy-layout","passed":None,
                     "parent_role":parent_role,"creative_family":parent_family,
+                    "creative_palette":palette,"visual_treatment":"bold_geometry",
                     "warning":"AI did not return an approved native-format canvas; "
                               "older renderer used. Manual artwork review required."}
                 if mode=="gemini-assisted":
@@ -751,6 +783,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                                     "; the existing format layout was used.")
             format_reports[key]["parent_role"]=parent_role
             format_reports[key]["creative_family"]=parent_family
+            format_reports[key]["creative_palette"]=palette
+            format_reports[key]["visual_treatment"]=(
+                brief["visual_treatment"] if brief else "bold_geometry")
             # Individual files become visible only after their normal image
             # gate succeeds (the AI format renderer already checks two
             # variants). We do not resize, remove QA or shorten Gemini work.
@@ -772,13 +807,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         product,genuine_photo,distributor,key,
                         parent_proof if parent_proof else safe_fact,
                         scene=scenes[scene_idx],visual_plan=creative_plan,
-                        creative_family=parent_family,headline=parent_headline)
+                        creative_family=parent_family,headline=parent_headline,
+                        creative_palette=palette)
                     report=quality_check_safe_native(native,key,source_gate)
                     if not report["passed"]:
                         raise ValueError("; ".join(report["issues"]))
                     report["recovered_from"]=str(exc)[:200]
                     report["parent_role"]=parent_role
                     report["creative_family"]=parent_family
+                    report["creative_palette"]=palette
+                    report["visual_treatment"]="bold_geometry"
                     image_assets[key]=native
                     format_reports[key]=report
                     warnings.append(
@@ -795,6 +833,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 if not (brief and mode=="gemini-assisted"):
                     failed_formats.append((key,str(exc)[:220]))
                 _emit("failed",key,report={"issues":[failed_formats[-1][1]]})
+    creative_plan["format_palettes"]=palette_choices
     _emit("reviewing_posters")
     # Inspect actual poster pixels and diversity before producing the ZIP.
     distinctness=check_distinctness(image_assets,concepts)
@@ -1016,7 +1055,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
              "proof_strategy":concept["creative_direction"]["proof_strategy"],
              "copy_tone":concept["creative_direction"]["copy_tone"],
              "hero_emphasis":concept["creative_direction"]["hero_emphasis"],
-             "price_emphasis":concept["creative_direction"]["price_emphasis"]}
+             "price_emphasis":concept["creative_direction"]["price_emphasis"],
+             "creative_palette":concept["creative_direction"]["creative_palette"],
+             "visual_treatment":concept["creative_direction"]["visual_treatment"],
+             "text_treatment":concept["creative_direction"]["text_treatment"],
+             "hero_treatment":concept["creative_direction"]["hero_treatment"]}
             for index, concept in enumerate(concepts)
         ],
         "copy": copies,
