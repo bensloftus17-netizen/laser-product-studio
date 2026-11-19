@@ -1300,3 +1300,40 @@ body{background:#eef4fb;color:#102744;min-width:320px}
   .competitor-photo-cell>a{width:95px;height:90px}
   .competitor-table{min-width:840px}
 }
+
+/* V61: Copy Studio — separate campaign angle, channel, reader and writing goal. */
+.copy-step-label{font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+ color:#205c85;font-weight:850;margin:16px 0 9px}
+.campaign-copy-studio .ai-copy-design-tabs{margin-top:0}
+.campaign-copy-studio .ai-copy-channels{margin-bottom:13px;align-items:flex-start}
+.campaign-copy-studio .ai-copy-channels>button{border-radius:9px;
+ padding:10px 13px;min-width:94px}
+.copy-extra-formats{flex-basis:100%;border-top:1px solid #e0eaf2;
+ padding-top:9px;margin-top:2px}
+.copy-extra-formats summary{font-size:11px;font-weight:750;color:#315d7d;
+ cursor:pointer;padding:6px 3px;max-width:max-content}
+.copy-extra-formats summary:hover{color:#075aa0}
+.copy-extra-buttons{display:flex;gap:7px;flex-wrap:wrap;padding-top:9px}
+.copy-extra-buttons button{border-radius:8px!important;font-size:11px!important}
+.copy-audience-row{display:flex;align-items:center;gap:12px;justify-content:space-between;
+ flex-wrap:wrap;margin:9px 0 13px}
+.copy-audience-row label{font-size:11px;color:#315975;font-weight:800}
+.copy-audience-row select{flex:1 1 190px;max-width:285px;min-height:39px;
+ border:1px solid #bcd5e7;border-radius:8px;padding:8px 11px;
+ color:#133b5b;background:#fff;font:inherit;font-size:12px}
+.rewrite-options{gap:8px}
+.rewrite-options>button{min-height:43px;text-align:center;font-size:11px}
+.rewrite-options .rewrite-language-check{grid-column:1/-1;display:flex;
+ justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+ padding:10px 12px;background:#f5faff;border:1px dashed #cbdde9;border-radius:9px}
+.rewrite-language-check span{font-size:11px;color:#486d84;font-weight:750}
+.rewrite-options .rewrite-language-check button{border-color:#9ecae4;
+ background:#fff;color:#065988;padding:9px 13px;text-align:center;
+ font-size:11px;font-weight:820;min-height:36px}
+.rewrite-options .rewrite-language-check button:hover:not(:disabled){
+ background:#e6f5fe}
+@media(max-width:680px){
+ .campaign-copy-studio .ai-copy-channels>button{flex:1 1 40%;min-width:0}
+ .copy-extra-formats{flex:1 1 100%}
+ .copy-audience-row select{max-width:none}
+}
