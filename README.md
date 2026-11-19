@@ -1,3 +1,52 @@
+## V57 — Actual visual differentiation, not nine resized clones
+
+V57 addresses the 9/9 campaign screenshot that showed essentially the same
+navy design across every format. AI-authored layout coordinates previously
+reached Pillow, but the brand renderer flattened the artwork to a uniform
+colour/hierarchy, while unapproved native artboards fell back to a common
+generic style.
+
+**Three deliberately different sales narratives** remain mandatory:
+technical/application, price-led promotion, and a source-backed category-specific
+third benefit. A single Gemini concept request can select one of six branded
+creative families per poster: `engineering_grid`, `commercial_burst`,
+`premium_spotlight`, `workshop_motion`, `editorial_split`, or
+`toolkit_coverage`. Each produces genuinely different background architecture
+and product framing, behind the **unchanged official manufacturer photograph**.
+
+The server validates all creative choices. It checks for repeated family
+choices, repairs collisions with a **labelled** safe style correction that
+preserves the original Gemini geometry, requires factual proof, and prefers
+different source-supported promotional headlines. Model slogans unsupported
+by the exact manufacturer record are discarded. Technical, price, benefit,
+headline/proof and hero emphasis are explicitly represented.
+
+**The other six canvases inherit different parent angles**, while the AI can
+still choose individual format-specific geometry and backgrounds:
+- Social square and Story: normally price-led
+- Website and landscape banners: normally third-angle/product
+- Email and LinkedIn: normally technical/application
+
+Format inheritance can change within a safe enumerated mapping, but all
+three parent marketing roles remain present. Even when an AI format cannot
+pass text/photo QA, the separately labelled verified-native recovery
+now uses its own inherited family and source-verified headline, rather than
+repeating the same generic blue artwork.
+
+**Quality and audit:** Campaign poster QA tests actual text fitting, verified
+genuine photo pixels, source-backed claims, RRP/VAT, distinct composition
+families, layout variance, pixel difference and perceptual image hash.
+Native-format text remains bound to the model's safe zones and receives
+contrast protection behind bold designs. A failed quality check cannot
+be hidden behind the word `AI`, nor can an unapproved graphic enter a ZIP.
+The gallery surfaces family, parent role, headline strategy, proof strategy
+and whether an asset used a fallback renderer.
+
+Nothing here constitutes automatic approval for publication; verify all
+application/price statements, distributer branding and artwork before
+sharing. Local tests check deterministic render behaviour, not aesthetic
+quality on every possible real tool SKU or the current Render deployment.
+
 ## V55 — Demo reliability: Instagram Story text recovery and distinct AI art direction
 
 The production LASER 9469 job returned 5/9 assets and rejected `social_story`
