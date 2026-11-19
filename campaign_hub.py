@@ -32,6 +32,10 @@ from campaign_director import plan_campaign, POSTER_LABELS, ROLES
 from campaign_role_posters import technical_poster, smart_poster
 from campaign_art_quality import choose_best, campaign_consistency, photo_relevance
 from creative_director import distinct_briefs
+from creative_families import (
+    diversify_concepts, choose_format_parents, copy_diversity,
+    DEFAULT_FAMILY, FORMAT_PARENTS,
+)
 from flexible_canvas import render_creative_canvas
 from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
@@ -192,7 +196,8 @@ def _price_line(product):
     return "{} {} {}".format(info["label"], info["amount"], info["vat"]).strip()
 
 
-def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_plan=None):
+def _native_graphic(product, photo, distributor, kind, fact, scene=None,
+                    visual_plan=None,creative_family=None,headline=None):
     """Product-specific stories and banners with genuine workshop context.
 
     Supporting photography is curated or approved; original tool image is
@@ -226,6 +231,9 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
             canvas.paste(contextual,(sx,sy))
         except (OSError,ValueError):
             pass
+    if creative_family:
+        from format_creative import draw_family_background
+        canvas=draw_family_background(canvas,creative_family)
     d = ImageDraw.Draw(canvas)
     title = _clean(product.get("title"), 150) or "Laser Tools product"
     # Verified source-title excerpt prevents tiny ellipsised fallback copy.
@@ -233,6 +241,9 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
     if len(title)>58:
         from campaign_director import _headline
         title=_headline(product,"price_promo",None,None)
+    if headline:
+        # This headline is source-filtered during campaign planning.
+        title=_clean(headline,82)
     part = _clean(product.get("part"), 18)
     price = _price_line(product)
     if kind == "social_square":
@@ -465,6 +476,15 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     # general-purpose poster template.
     concepts, creative_plan = plan_campaign(
         product, raw_concepts if mode == "gemini-assisted" else [], marketing_strategy)
+    corrected_families=diversify_concepts(concepts)
+    if corrected_families:
+        warnings.append(
+            "Gemini repeated creative families. The artwork director assigned "
+            "unused brand-safe families for "+", ".join(corrected_families)+
+            "; original AI product/text positions were retained.")
+    creative_plan["family_corrections"]=corrected_families
+    creative_plan["creative_families"]=[
+        c["creative_direction"]["creative_family"] for c in concepts]
     creative_enabled=(mode=="gemini-assisted" and
                       distinct_briefs([c.get("creative_canvas") for c in concepts]))
     if mode=="gemini-assisted" and not creative_enabled:
@@ -477,7 +497,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     creative_plan["model_authored_canvases"]=(
         [concept.get("creative_canvas") for concept in concepts]
         if creative_enabled else [])
-    duplicate_issues = campaign_consistency(concepts)
+    duplicate_issues = campaign_consistency(concepts)+copy_diversity(concepts)
     if duplicate_issues:
         raise ValueError("Campaign needs different sales messages: "+
                          "; ".join(duplicate_issues))
@@ -681,14 +701,30 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     format_facts=[f if f in verified_set else "" for f in model_facts]
     headlines={concept["campaign_role"]:concept.get("headline") or product.get("title")
                for concept in concepts}
+    parent_choices=(raw_concepts[0].get("format_parent_roles") or {}
+                    if mode=="gemini-assisted" and raw_concepts else {})
+    format_parents=choose_format_parents(parent_choices)
+    creative_plan["format_parent_roles"]=dict(format_parents)
     format_reports={}
     format_canvases={}
     failed_formats=[]
     for key in FORMAT_ORDER:
         _emit("rendering",key)
-        scene_idx=(0 if key=="social_story" else 2 if key in
-                   ("website_banner","landscape_ad") else 1)
+        parent_role=format_parents[key]
+        scene_idx=ROLES.index(parent_role)
+        parent=concepts[scene_idx]
+        parent_style=parent["creative_direction"]
+        parent_family=parent_style["creative_family"]
+        parent_headline=parent.get("headline") or product.get("title")
+        parent_proof=parent.get("selling_point") or proof
         brief=validate_format_canvas(key,supplied_formats.get(key),len(format_facts))
+        if brief:
+            # Inherit a *different* source-backed campaign angle; keep the
+            # model's independently authored native-format geometry intact.
+            brief={**brief,"headline_role":parent_role,
+                   "scene_role":parent_role,"creative_family":parent_family}
+            if parent_proof in format_facts:
+                brief["proof_feature_index"]=format_facts.index(parent_proof)
         try:
             if brief and mode=="gemini-assisted":
                 # Any failed native-format artwork is rejected rather than
@@ -702,15 +738,19 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 format_canvases[key]=brief
             else:
                 image_assets[key]=_native_graphic(
-                    product,genuine_photo,distributor,key,proof,
-                    scene=scenes[scene_idx],visual_plan=creative_plan)
+                    product,genuine_photo,distributor,key,parent_proof,
+                    scene=scenes[scene_idx],visual_plan=creative_plan,
+                    creative_family=parent_family,headline=parent_headline)
                 format_reports[key]={
                     "render_engine":"verified-legacy-layout","passed":None,
+                    "parent_role":parent_role,"creative_family":parent_family,
                     "warning":"AI did not return an approved native-format canvas; "
                               "older renderer used. Manual artwork review required."}
                 if mode=="gemini-assisted":
                     warnings.append("No safe AI original layout for "+key+
                                     "; the existing format layout was used.")
+            format_reports[key]["parent_role"]=parent_role
+            format_reports[key]["creative_family"]=parent_family
             # Individual files become visible only after their normal image
             # gate succeeds (the AI format renderer already checks two
             # variants). We do not resize, remove QA or shorten Gemini work.
@@ -729,12 +769,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         (f for f in format_facts if f),
                         key=len,default=proof)
                     native=_native_graphic(
-                        product,genuine_photo,distributor,key,safe_fact,
-                        scene=scenes[scene_idx],visual_plan=creative_plan)
+                        product,genuine_photo,distributor,key,
+                        parent_proof if parent_proof else safe_fact,
+                        scene=scenes[scene_idx],visual_plan=creative_plan,
+                        creative_family=parent_family,headline=parent_headline)
                     report=quality_check_safe_native(native,key,source_gate)
                     if not report["passed"]:
                         raise ValueError("; ".join(report["issues"]))
                     report["recovered_from"]=str(exc)[:200]
+                    report["parent_role"]=parent_role
+                    report["creative_family"]=parent_family
                     image_assets[key]=native
                     format_reports[key]=report
                     warnings.append(
@@ -965,7 +1009,14 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                  ].get("render_engine")=="verified-safe-layout" else
                  "AI original composition" if creative_enabled else concept["family"]),
              "headline": str(concept.get("headline") or ""),
-             "selling_point": str(concept.get("selling_point") or "")}
+             "selling_point": str(concept.get("selling_point") or ""),
+             "creative_family":concept["creative_direction"]["creative_family"],
+             "composition_mode":concept["creative_direction"]["composition_mode"],
+             "headline_strategy":concept["creative_direction"]["headline_strategy"],
+             "proof_strategy":concept["creative_direction"]["proof_strategy"],
+             "copy_tone":concept["creative_direction"]["copy_tone"],
+             "hero_emphasis":concept["creative_direction"]["hero_emphasis"],
+             "price_emphasis":concept["creative_direction"]["price_emphasis"]}
             for index, concept in enumerate(concepts)
         ],
         "copy": copies,

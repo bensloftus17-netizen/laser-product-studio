@@ -8,6 +8,7 @@ Coordinates are per-mille of a 1200x1500 artboard, not template IDs.
 from __future__ import annotations
 
 from itertools import combinations
+from creative_families import FAMILIES as CREATIVE_FAMILIES, DEFAULT_FAMILY, FAMILY_MODES, FAMILY_MOOD
 
 ROLES=("technical_application","price_promo","product_selected")
 ZONES=("headline","product","proof","price")
@@ -97,7 +98,26 @@ def validate_brief(raw,role):
                 x+w>1000 or y+h>1000):continue
             shapes.append({"kind":kind,"box":list(rect),"ink":ink,
                            "opacity":max(10,min(85,opacity))})
-    # No AI-provided headlines, benefits, part numbers, prices, or photo URLs.
+    # Only safe enumerated style choices. Tool pixels, claims and price remain
+    # locked to the official manufacturer record.
+    mode_family={
+        "engineering-precision":"engineering_grid",
+        "commercial-impact":"commercial_burst",
+        "hero-spotlight":"premium_spotlight",
+        "minimal-editorial":"editorial_split",
+        "workshop-motion":"workshop_motion",
+    }
+    explicit_family=raw.get("creative_family")
+    if explicit_family in CREATIVE_FAMILIES:
+        chosen_family=explicit_family
+        chosen_mode=FAMILY_MODES[chosen_family]
+    else:
+        # V55 clients passed composition_mode but no creative_family. Keep
+        # that genuine existing model choice working, rather than silently
+        # resetting everything to engineering_grid.
+        chosen_mode=choice("composition_mode",COMPOSITION_MODES,
+                           FAMILY_MODES[DEFAULT_FAMILY[role]])
+        chosen_family=mode_family[chosen_mode]
     return {
         "zones":clean,
         "shapes":shapes,
@@ -107,10 +127,9 @@ def validate_brief(raw,role):
         "headline_style":choice("headline_style",HEADLINE_STYLES,"massive"),
         "photo_focus":choice("photo_focus",FOCUSES,"centre"),
         "accent":choice("accent",ACCENTS,"#13B5EC"),
-        "composition_mode":choice("composition_mode",COMPOSITION_MODES,
-                                  "engineering-precision" if role=="technical_application"
-                                  else "commercial-impact" if role=="price_promo"
-                                  else "hero-spotlight"),
+        "creative_family":chosen_family,
+        "background_mood":FAMILY_MOOD[chosen_family],
+        "composition_mode":chosen_mode,
         "source":"ai-freeform-canvas",
     }
 
@@ -122,7 +141,8 @@ def brief_signature(brief):
     photo=zones.get("product",[0,0,0,0])
     return (int(head[0]//130),int(head[1]//140),
             int(photo[0]//130),int(photo[1]//140),
-            brief.get("background"),brief.get("headline_style"))
+            brief.get("background"),brief.get("headline_style"),
+            brief.get("creative_family"))
 
 
 def distinct_briefs(briefs):
@@ -133,8 +153,9 @@ def distinct_briefs(briefs):
     if len(set(signatures))!=3:
         return False
     positions=[tuple(b["zones"]["product"][:2]) for b in briefs]
-    # Deliberately permit two similar artboards, but not three copy/pastes.
-    return len(set(positions))>=2
+    family_count=len(set(b.get("creative_family") for b in briefs))
+    # Model-controlled layouts and brand-safe family decisions must differ.
+    return len(set(positions))>=2 and family_count==3
 
 
 def creative_instruction():
@@ -178,6 +199,16 @@ def creative_instruction():
         "composition, product position, headline hierarchy and mood. "
         "Do NOT supply product pixels, imagined photos, new technical claims "
         "or any text for the poster: the server inserts verified source text. "
+        "For EACH poster include creative_family as one of engineering_grid, "
+        "commercial_burst, premium_spotlight, workshop_motion, editorial_split, "
+        "toolkit_coverage. Choose THREE DIFFERENT families. The chosen family "
+        "must suit the manufacturer's product type and this poster's selling "
+        "angle. Avoid 3 navy backgrounds: prefer different colour hierarchy, "
+        "real workshop photography where available, price banners, hero scale "
+        "and negative space. The renderer gives each family a visibly different "
+        "background structure; the exact tool photo is always unchanged. "
+        "Also include background_mood as structured_workshop, bold_promotion, "
+        "premium_studio, workshop_action, editorial, or organised_kit. "
         "Choose a DIFFERENT composition_mode for each poster: one of "
         "engineering-precision, commercial-impact, hero-spotlight, "
         "minimal-editorial, workshop-motion. This controls genuine background "

@@ -106,66 +106,92 @@ def _background(scene,brief,variant):
 
 
 def _role_art_direction(image,brief,role):
-    """Amplify each different model composition without drawing any fake tools.
+    """Six visibly different branded compositions underneath authentic pixels.
 
-    Earlier canvases shared almost the same navy background even when the
-    model supplied different freeform placements. These transparent bands,
-    industrial rails and spotlight rings respond to the *AI's actual product
-    zone and selected brand colour*. All shapes sit behind genuine copy and
-    manufacturer artwork and may never replace the creative-canvas zones.
+    AI controls which family to use and the free-positioned headline/photo
+    zones. These are intentionally different *architectures*, not small motif
+    or stripe variations. Tool photos and factual words are layered later.
     """
     from PIL import ImageColor
     accent=ImageColor.getrgb(brief["accent"])
+    family=brief.get("creative_family") or {
+        "technical_application":"engineering_grid",
+        "price_promo":"commercial_burst",
+        "product_selected":"premium_spotlight"}.get(role,"editorial_split")
     layer=Image.new("RGBA",(W,H),(0,0,0,0))
     d=ImageDraw.Draw(layer,"RGBA")
-    product=_box(brief["zones"]["product"])
-    cx=(product[0]+product[2])//2
-    cy=(product[1]+product[3])//2
-    mode=brief.get("composition_mode") or (
-        "engineering-precision" if role=="technical_application" else
-        "commercial-impact" if role=="price_promo" else "hero-spotlight")
-    if mode=="engineering-precision":
-        # Technical engineering precision: photo-context and measured rails.
-        for y in range(245,1330,84):
-            d.line((65,y,110,y),fill=(*accent,78),width=3)
-        for x in range(80,1120,185):
-            d.line((x,245,x,1305),fill=(*accent,19),width=2)
-        d.line((62,245,62,1315),fill=(*accent,80),width=4)
-        for offset in (56,104,152):
-            d.arc((cx-270-offset//2,cy-270-offset//2,
-                   cx+270+offset//2,cy+270+offset//2),
-                  28,300,fill=(*accent,38),width=3)
-    elif mode=="commercial-impact":
-        # Commercial energy: sweeping geometry, rather than technical grid.
-        d.polygon(((0,830),(W,335),(W,615),(0,1120)),
-                  fill=(*accent,49))
-        d.polygon(((0,1180),(W,775),(W,870),(0,1295)),
-                  fill=(*accent,32))
-        d.line(((0,1120),(W,620)),fill=(*accent,120),width=9)
-        d.ellipse((cx-290,cy-290,cx+290,cy+290),
-                  outline=(*accent,64),width=10)
-    elif mode=="hero-spotlight":
-        # Product / premium: a bold centrepiece with quieter circular depth.
-        for radius,alpha,width in ((440,43,8),(356,47,5),(275,51,3)):
+    bx=_box(brief["zones"]["product"])
+    cx=(bx[0]+bx[2])//2
+    cy=(bx[1]+bx[3])//2
+    if family=="engineering_grid":
+        d.rectangle((0,180,W,1390),fill=(3,35,55,105))
+        for x in range(30,W,92):
+            d.line((x,190,x,1390),fill=(68,184,223,64),width=2)
+        for y in range(190,1390,92):
+            d.line((28,y,W-28,y),fill=(67,184,224,50),width=2)
+        for y in range(265,1320,80):
+            d.line((53,y,113,y),fill=(*accent,165),width=5)
+        d.rectangle((52,230,68,1310),fill=(*accent,135))
+        d.arc((cx-300,cy-300,cx+300,cy+300),
+              10,330,fill=(*accent,115),width=6)
+    elif family=="commercial_burst":
+        d.polygon(((0,360),(W,230),(W,870),(0,1070)),
+                  fill=(*accent,178))
+        d.polygon(((0,1040),(W,720),(W,955),(0,1290)),
+                  fill=(12,117,185,190))
+        d.polygon(((0,1260),(W,1040),(W,1325),(0,1370)),
+                  fill=(245,185,39,170))
+        for offset in range(4):
+            d.line(((0,1150-offset*38),(W,750-offset*38)),
+                   fill=(255,235,132,116),width=7)
+        # Legible white copy even when a model positions text over bright art.
+        for key in ("headline","proof","price"):
+            if key in brief["zones"]:
+                x0,y0,x1,y1=_box(brief["zones"][key])
+                d.rounded_rectangle((x0-14,y0-13,x1+14,y1+13),
+                                    radius=18,fill=(5,26,43,219),
+                                    outline=(255,213,90,162),width=3)
+    elif family=="premium_spotlight":
+        d.rectangle((0,180,W,1390),fill=(2,13,31,164))
+        for radius,alpha,width in ((520,18,40),(435,54,20),
+                                   (350,100,10),(275,120,4)):
             d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),
                       outline=(*accent,alpha),width=width)
-        d.polygon(((W-250,182),(W,182),(W,1160),(W-90,1120)),
-                  fill=(*accent,35))
-        d.line((75,1325,W-75,1325),fill=(*accent,99),width=5)
-    elif mode=="minimal-editorial":
-        # Quieter, premium negative space: fine offset lines, not the grid.
-        d.polygon(((0,185),(W//5,185),(W//3,1390),(0,1390)),
-                  fill=(*accent,25))
-        d.line((W-90,220,W-90,1310),fill=(*accent,85),width=5)
-        d.line((W-130,250,W-130,1290),fill=(*accent,35),width=3)
-    elif mode=="workshop-motion":
-        # A brand-safe energetic workshop treatment without fictional parts.
-        for shift,alpha in ((-230,50),(-30,60),(170,41)):
-            d.polygon(((shift,400),(shift+290,400),
-                       (shift+1050,1180),(shift+760,1180)),
-                      fill=(*accent,alpha))
-        d.arc((cx-330,cy-330,cx+330,cy+330),
-              0,290,fill=(*accent,90),width=6)
+        d.rounded_rectangle((45,220,W-45,1350),radius=36,
+                            outline=(*accent,85),width=2)
+        d.rectangle((82,1340,W-82,1350),fill=(*accent,160))
+    elif family=="workshop_motion":
+        d.polygon(((0,215),(670,215),(W,940),(W,1240),(650,560),(0,400)),
+                  fill=(1,132,168,137))
+        for shift in (-250,20,290):
+            d.polygon(((shift,760),(shift+105,760),
+                       (shift+830,1335),(shift+670,1335)),
+                      fill=(30,198,217,139))
+        d.arc((cx-390,cy-390,cx+390,cy+390),
+              10,320,fill=(*accent,162),width=12)
+        d.polygon(((0,1220),(W,900),(W,1320),(0,1370)),
+                  fill=(4,29,47,194))
+    elif family=="editorial_split":
+        d.polygon(((0,180),(W//2,180),(W//3,1380),(0,1380)),
+                  fill=(16,83,123,190))
+        d.polygon(((W//2,180),(W,180),(W,1380),(W//3,1380)),
+                  fill=(4,22,38,115))
+        d.line((W//2,195,W//3,1365),fill=(*accent,205),width=9)
+        d.line((76,1314,W-65,1314),fill=(*accent,122),width=5)
+        for x in (80,103,126):
+            d.line((x,240,x,480),fill=(212,239,247,118),width=3)
+    elif family=="toolkit_coverage":
+        d.rectangle((0,180,W,1390),fill=(7,66,76,118))
+        for j in range(5):
+            y=335+j*189
+            d.rounded_rectangle((72,y,1130,y+126),radius=14,
+                                fill=(9,35,53,127),
+                                outline=(*accent,148),width=3)
+            d.rectangle((85,y+16,102,y+105),fill=(*accent,183))
+        for x in (130,335,540,745,950):
+            d.line((x,222,x,270),fill=(208,239,246,158),width=5)
+        d.rounded_rectangle((68,244,W-68,1350),radius=25,
+                            outline=(*accent,120),width=4)
     return Image.alpha_composite(image,layer)
 
 
@@ -199,7 +225,9 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
         d.rounded_rectangle((max(5,x0-15),max(181,y0-15),
                              min(W-5,x1+15),min(1380,y1+15)),
                             radius=32,outline=(24,167,218,100),width=3)
-    product_photo(image,official_photo,hero,scale=(.94,1.0,.98)[variant])
+    emphasis=(concept.get("creative_direction") or {}).get("hero_emphasis","balanced")
+    factor={"dominant":1.045,"balanced":.98,"supporting":.93}.get(emphasis,.98)
+    product_photo(image,official_photo,hero,scale=(.94,1.0,.98)[variant]*factor)
 
     d=ImageDraw.Draw(image,"RGBA")
     headline=_box(zones["headline"])
