@@ -37,7 +37,7 @@ from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
 from creative_qa import review_finished_artworks
 from format_creative import (FORMAT_ORDER, validate_format_canvas,
-                             generate_format)
+                             generate_format,quality_check_safe_native)
 from product_evidence_ranker import verified_candidates
 from promo_scene_library import find_scene, classify_product
 
@@ -228,6 +228,11 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None, visual_
             pass
     d = ImageDraw.Draw(canvas)
     title = _clean(product.get("title"), 150) or "Laser Tools product"
+    # Verified source-title excerpt prevents tiny ellipsised fallback copy.
+    # The SKU is also displayed separately and unchanged in the brand bar.
+    if len(title)>58:
+        from campaign_director import _headline
+        title=_headline(product,"price_promo",None,None)
     part = _clean(product.get("part"), 18)
     price = _price_line(product)
     if kind == "social_square":
@@ -706,11 +711,41 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             # variants). We do not resize, remove QA or shorten Gemini work.
             _emit("ready",key,image_assets[key],format_reports[key])
         except (ValueError,OSError,RuntimeError) as exc:
-            failed_formats.append((key,str(exc)[:220]))
-            _emit("failed",key,report={"issues":[str(exc)[:220]]})
-    if failed_formats:
-        raise ValueError("Incomplete campaign; failed quality checks: "+
-                         "; ".join(k+": "+reason for k,reason in failed_formats))
+            # An AI-authored text zone can be impossible to fill with the
+            # exact verified wording. Never ship clipped copy or lose the
+            # entire campaign for one Story or banner. Create a separately
+            # labelled native-size recovery using genuine product pixels and
+            # the source-approved selling point; inspect the resulting PNG.
+            recovered=False
+            if brief and mode=="gemini-assisted":
+                try:
+                    source_gate=asset_report or require_good_asset(genuine_photo)
+                    safe_fact=min(
+                        (f for f in format_facts if f),
+                        key=len,default=proof)
+                    native=_native_graphic(
+                        product,genuine_photo,distributor,key,safe_fact,
+                        scene=scenes[scene_idx],visual_plan=creative_plan)
+                    report=quality_check_safe_native(native,key,source_gate)
+                    if not report["passed"]:
+                        raise ValueError("; ".join(report["issues"]))
+                    report["recovered_from"]=str(exc)[:200]
+                    image_assets[key]=native
+                    format_reports[key]=report
+                    warnings.append(
+                        key+" used a verified native-layout recovery when "
+                        "the AI text zones were too small.")
+                    _emit("ready",key,native,report)
+                    recovered=True
+                except (ValueError,OSError,RuntimeError) as recovery_error:
+                    failed_formats.append(
+                        (key,"AI rejected: "+str(exc)[:115]+
+                         "; verified backup rejected: "+
+                         str(recovery_error)[:115]))
+            if not recovered:
+                if not (brief and mode=="gemini-assisted"):
+                    failed_formats.append((key,str(exc)[:220]))
+                _emit("failed",key,report={"issues":[failed_formats[-1][1]]})
     _emit("reviewing_posters")
     # Inspect actual poster pixels and diversity before producing the ZIP.
     distinctness=check_distinctness(image_assets,concepts)
@@ -846,6 +881,12 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     # leaks an unreviewed intermediate poster to the user.
     for key in ("poster_technical","poster_price","poster_smart"):
         _emit("ready",key,image_assets[key],quality_reports[key])
+    # Never claim success or build a ZIP while a native format is missing;
+    # unlike V54, already-approved posters now remain downloadable even
+    # when a particular Story or banner cannot be recovered.
+    if failed_formats:
+        raise ValueError("Incomplete campaign; failed quality checks: "+
+                         "; ".join(k+": "+reason for k,reason in failed_formats))
     _emit("finalising_pack")
     creative_plan["format_render_engines"]={
         key:format_reports[key]["render_engine"] for key in FORMAT_ORDER}
