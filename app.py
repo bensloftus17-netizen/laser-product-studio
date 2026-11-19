@@ -989,7 +989,7 @@ const CAMPAIGN_RESUME_KEY='laser-campaign-resume-v47';
 function getRecoverableCampaign(){
  try{
   const state=JSON.parse(sessionStorage.getItem(CAMPAIGN_RESUME_KEY)||'null');
-  if(!state||Date.now()-state.savedAt>14*60*1000)return null;
+  if(!state||Date.now()-state.savedAt>45*60*1000)return null;
   if(state.status==='running'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.job_id))return state;
   if(state.status==='ready'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.token))return state;
  }catch(error){}
@@ -1462,7 +1462,7 @@ $('campaignBtn').addEventListener('click',async()=>{
    const data=await pollMobileCampaign(started.job_id);
    rememberFinishedCampaign(data);
    showCampaign(data);
-   $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links expire after 15 minutes.';
+   $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links are temporary (up to 45 minutes while this server remains running). Download the ZIP to keep them.';
  }catch(error){
    $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
      ' The three basic previews are not a complete AI campaign.';
@@ -2761,7 +2761,7 @@ def edit_ai_promo(part):
 # from downloading other distributor drafts; expiry bounds memory on free Render.
 CAMPAIGN_PACKS = {}
 CAMPAIGN_PACK_LOCK = threading.Lock()
-CAMPAIGN_PACK_TTL = 15 * 60
+CAMPAIGN_PACK_TTL = 45 * 60
 
 
 def _get_campaign_pack(token):
@@ -2846,7 +2846,7 @@ def one_click_campaign(part):
 # GET poll / Resume action without requiring the browser to hold a request.
 CAMPAIGN_JOBS={}
 CAMPAIGN_JOBS_LOCK=threading.Lock()
-CAMPAIGN_JOB_TTL=20*60
+CAMPAIGN_JOB_TTL=55*60
 # Nine independent campaign artwork files, excluding the optional QR code.
 from campaign_hub import FOLDERS as CAMPAIGN_ARTWORK
 PROGRESS_ASSETS=tuple(CAMPAIGN_ARTWORK)
