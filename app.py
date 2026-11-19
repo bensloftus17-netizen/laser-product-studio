@@ -74,7 +74,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V58 competitor finder</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V59 competitor classification</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -87,7 +87,7 @@ V7_HOME_PAGE = r'''
  </button>
  <span>Independent product comparison using official Laser specifications and cited competitor listings.</span>
 </div>
-<div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
+<div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onload="this.hidden=false" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
 <section id="competitorPanel" class="competitor-panel" aria-label="Competitor comparison results" hidden>
  <div class="competitor-panel-heading"><div><span class="sectioncap">SALES RESEARCH / PRODUCT BENCHMARKING</span>
@@ -1521,6 +1521,18 @@ $('campaignCopyReset').addEventListener('click',()=>{
  renderCampaignCopyStudio();$('campaignCopyStatus').textContent='Original suggested wording restored.';
 });
 
+// V59: The large product hero previously remained locked to /api/photo/9395
+// while part 9197 (or any other part) was selected for competitor research.
+// Always display the exact selected official Laser product or no image at all.
+let heroPhotoDebounce=null;
+function showOfficialHero(part){
+ const photo=$('heroProductPhoto');
+ const clean=String(part||'').trim().toUpperCase();
+ photo.hidden=true;
+ if(!/^[0-9A-Za-z.-]{3,16}$/.test(clean))return;
+ photo.dataset.part=clean;
+ photo.src='/api/photo/'+encodeURIComponent(clean);
+}
 // V49 — source-linked competitor research. Never use model-suggested tool
 // illustrations or treat scraped list prices as Laser's manufacturer RRP.
 let competitorShownPart=null, competitorBusy=false;
@@ -1599,6 +1611,8 @@ async function findCompetitors(force=false){
   $('competitorStatus').textContent='Enter a valid Laser Tools part number first.';
   return;
  }
+ if(heroPhotoDebounce!==null)clearTimeout(heroPhotoDebounce);
+ showOfficialHero(part);
  competitorBusy=true;
  const btn=$('competitorBtn'),refresh=$('competitorRefresh');
  btn.disabled=true;refresh.disabled=true;
@@ -1640,9 +1654,20 @@ $('competitorResults').addEventListener('error',event=>{
 $('competitorBtn').addEventListener('click',()=>findCompetitors(false));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
 $('part').addEventListener('input',()=>{
- if(competitorShownPart!==$('part').value.trim().toUpperCase()){
+ const selected=$('part').value.trim().toUpperCase();
+ if(competitorShownPart!==selected){
   $('competitorPanel').hidden=true;
   competitorShownPart=null;
+ }
+ // Never keep showing another product's image when changing part number.
+ $('heroProductPhoto').hidden=true;
+ if(heroPhotoDebounce!==null)clearTimeout(heroPhotoDebounce);
+ if(/^[0-9A-Za-z.-]{3,16}$/.test(selected)){
+  heroPhotoDebounce=setTimeout(()=>{
+   if(selected===$('part').value.trim().toUpperCase()){
+    showOfficialHero(selected);
+   }
+  },350);
  }
 });
 
