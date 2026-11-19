@@ -163,18 +163,18 @@ class CreativeFreedomV60Tests(unittest.TestCase):
             Image.new("RGB",(w,h),"#0A5480").save(buf,"PNG")
             return buf.getvalue()
         with patch("campaign_hub._concepts",return_value=(
-                models,"gemini-assisted",[])), \\
+                models,"gemini-assisted",[])), \
              patch("campaign_hub.find_scene",return_value=(
                 None,{"source":"No external photograph used",
-                      "category":"hand_tools"})), \\
+                      "category":"hand_tools"})), \
              patch("campaign_hub.require_good_asset",
-                   return_value={"passed":True}), \\
+                   return_value={"passed":True}), \
              patch("campaign_hub.choose_best",
                    return_value=(fake,{"passed":True,"score":95,
-                                       "variation":1})), \\
-             patch("campaign_hub._native_graphic",side_effect=native), \\
+                                       "variation":1})), \
+             patch("campaign_hub._native_graphic",side_effect=native), \
              patch("campaign_hub.check_distinctness",return_value={
-                "passed":True,"issues":[],"pairs":[]}), \\
+                "passed":True,"issues":[],"pairs":[]}), \
              patch("campaign_hub.review_finished_artworks",return_value={
                 "method":"test","reviewed":True,
                 "issues":{},"warning":None}):
