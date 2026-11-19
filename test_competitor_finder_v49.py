@@ -120,8 +120,11 @@ class CompetitorFinderTests(unittest.TestCase):
         general=cf.match_status(signature,"Draper Wheel Bearing Service Kit")
         self.assertIn("application unverified",general[0])
         self.assertIsNone(cf.match_status(signature,"Draper 40pc Socket Set"))
-        with self.assertRaises(ValueError):
-            cf.tool_signature({"title":"Large component in the workshop"})
+        # An unknown title must still enter research, but can only produce
+        # conservatively qualified search leads—not a guaranteed competitor.
+        unknown=cf.tool_signature({"title":"Large component in the workshop"})
+        self.assertEqual(unknown["category_source"],"official-title-derived")
+        self.assertTrue(cf.search_queries(unknown))
 
     def test_price_from_official_currency_and_no_fabricated_vat(self):
         for value,expected in [
