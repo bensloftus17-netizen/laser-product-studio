@@ -281,7 +281,8 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                                   "professional":"professional"
                               }[direction["copy_tone"]],
                               "hook":"application" if i==0 else "product" if i==1 else "feature",
-                              "cta":"specifications" if i==0 else "enquire"},
+                              "cta":("specifications" if i==0 else
+                                     "enquire" if i==1 else "details")},
             "part":str(product.get("part") or ""),"title":str(product.get("title") or ""),
             "visual_plan":{
                 "layout_family":family_map[i],
