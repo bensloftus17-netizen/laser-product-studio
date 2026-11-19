@@ -246,8 +246,19 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
         canvas=validate_brief(raw_canvas,role)
         proposed_direction=(proposed.get("creative_direction") or
                             raw_canvas or {})
+        desired_family=(
+            (proposed.get("creative_direction") or {}).get("creative_family")
+            if isinstance(proposed.get("creative_direction"),dict) else None
+        ) or (canvas or {}).get("creative_family")
         direction=sanitize_contract(proposed_direction,role,
-                                    family=(canvas or {}).get("creative_family"))
+                                    family=desired_family)
+        if canvas:
+            # An AI's top-level creative_direction must actually reach the
+            # final artboard even if it omitted family from creative_canvas.
+            canvas={**canvas,
+                    "creative_family":direction["creative_family"],
+                    "composition_mode":direction["composition_mode"],
+                    "background_mood":direction["background_mood"]}
         concept={
             "id":i,"family":family_map[i],"variant":variation,
             "focus":role_focus[i],
