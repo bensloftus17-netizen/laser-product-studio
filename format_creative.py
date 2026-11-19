@@ -162,6 +162,10 @@ def format_instruction():
         "#F9A842 #D9E75B #FFFFFF #71D6EE #F1E9D8. Optional shapes array "
         "up to six decorative objects: {kind:panel/outline/circle/ribbon/line, "
         "box:[x,y,w,h], ink:accent/cyan/white, opacity:10..80}. "
+        "Allocate generous headline and proof zones for real full-length "
+        "manufacturer product titles and technical evidence, rather than tiny "
+        "boxes. The app will always measure text and may select a different "
+        "complete verified feature when your chosen one cannot fit. "
         "The genuine photo will be composited by the application; no AI "
         "image URLs, invented tool photos, logos, text or price values."
     )
@@ -297,18 +301,19 @@ def _label(canvas,part,distributor):
            font=font(font_size,"regular"),fill="#CDE1EF")
 
 
-def _fit_text(draw,text,region,kind,style="editorial",is_headline=False):
+def _fit_text(draw,text,region,kind,style="editorial",is_headline=False,copy_fit=0):
     w,h,*_=FORMATS[kind]
     base=min(74,round((.059 if is_headline else .035)*h))
     if kind in ("website_banner","email_header","linkedin_graphic","landscape_ad"):
         base=min(64,max(26,round(.071*h if is_headline else .045*h)))
     base=int(base*{"massive":1.12,"editorial":1.0,"compact":.87}.get(style,1))
+    density=(1.0,.91,.83,.76)[copy_fit]
     if is_headline:
-        return _text(draw,text,region,base=max(base,23),
-                     minsize=max(15,round(h*.025)),
+        return _text(draw,text,region,base=max(22,round(base*density)),
+                     minsize=max(15,round(h*.025*density)),
                      maxlines=5,role="headline")
-    return _text(draw,text,region,base=max(22,base),
-                 minsize=max(13,round(h*.018)),
+    return _text(draw,text,region,base=max(20,round(base*density)),
+                 minsize=max(13,round(h*.018*density)),
                  bold=False,maxlines=5,role="proof")
 
 
@@ -317,7 +322,7 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
     """Render a real-format original composition from a validated AI brief."""
     validated=validate_format_canvas(kind,brief,len(facts))
     if not validated:raise ValueError("Invalid format-specific AI artwork geometry")
-    if variant not in (0,1):raise ValueError("Unsupported format rendering variation")
+    if variant not in (0,1,2,3):raise ValueError("Unsupported format rendering variation")
     brief=validated
     w,h,*_=FORMATS[kind]
     roles=dict(zip(ROLE_IDS,range(3)))
@@ -330,16 +335,24 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
     d=ImageDraw.Draw(canvas,"RGBA")
     accent=brief["accent"]
     heading=_headline(headlines,brief["headline_role"],product)
+    if variant>=2 and isinstance(headlines,dict):
+        verified=[str(v).strip() for v in headlines.values()
+                  if isinstance(v,str) and v.strip()]
+        if verified:heading=min(verified,key=len)
     rect=_rect(region["headline"],(w,h))
     if brief["headline_style"]=="massive":
         rail=max(3,w//280)
         d.rectangle((rect[0]-rail*3,rect[1],rect[0]-rail,
                      min(rect[3],rect[1]+round(h*.10))),fill=accent)
-    _fit_text(d,heading,rect,kind,brief["headline_style"],True)
+    _fit_text(d,heading,rect,kind,brief["headline_style"],True,
+              copy_fit=variant)
     proof_idx=brief["proof_feature_index"]
     chosen=str(facts[proof_idx]) if proof_idx is not None else ""
     if "proof" in region and not chosen:
         chosen=next((str(v) for v in facts if str(v).strip()),"")
+    if variant>=2 and facts:
+        complete=[str(v).strip() for v in facts if str(v).strip()]
+        if complete:chosen=min(complete,key=len)
     if "proof" in region:
         rect=_rect(region["proof"],(w,h))
         d.rectangle((rect[0],rect[1],rect[0]+min(round(w*.07),rect[2]-rect[0]),
@@ -347,7 +360,7 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
         if chosen:
             inset=max(7,round(h*.009))
             _fit_text(d,chosen,(rect[0],rect[1]+inset,rect[2],rect[3]),
-                      kind,"compact")
+                      kind,"compact",copy_fit=variant)
     if "price" in region:
         rect=_rect(region["price"],(w,h))
         d.rounded_rectangle(rect,radius=max(7,round(h*.014)),
@@ -406,11 +419,11 @@ def quality_check_format(blob,kind,tracked,source_report):
 
 def generate_format(kind,brief,product,photo,*,scenes=(),headlines=None,
                     facts=(),distributor=None,source_report=None):
-    """Two bounded renders using the same AI-authored layout; reject failures."""
+    """Original artboard, with bounded actual text-fit and verified-copy recovery."""
     report=source_report or require_good_asset(photo)
     successes=[]
     attempts=[]
-    for variant in (0,1):
+    for variant in (0,1,2,3):
         try:
             with capture() as tracking:
                 output=render_format_canvas(
@@ -431,4 +444,5 @@ def generate_format(kind,brief,product,photo,*,scenes=(),headlines=None,
     outcome=dict(best[1])
     outcome["candidates_checked"]=len(attempts)
     outcome["rejected_candidates"]=sum(not a["passed"] for a in attempts)
+    outcome["verified_copy_reflow"]=bool(outcome["variation"]>=2)
     return best[0],outcome
