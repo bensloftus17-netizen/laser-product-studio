@@ -1,3 +1,38 @@
+## V55 — Demo reliability: Instagram Story text recovery and distinct AI art direction
+
+The production LASER 9469 job returned 5/9 assets and rejected `social_story`
+with `Verified copy does not fit AI-designed text zone`. A full campaign
+must not abort simply because the AI chose an impossibly small text box.
+
+- AI still controls freeform coordinates, background, scene, colours, style and
+  shapes for every poster and native social/banner format; actual manufacturer
+  photos, product facts and RRP stay source-locked.
+- Native graphics try the two original candidates at normal quality. **Only
+  if both fail** are two additional layouts rendered with genuinely smaller,
+  measured typography, and an alternative **complete, exact** source-backed
+  headline/feature where it physically fits. No ellipsised technical claims.
+- If the AI's chosen Story/square/banner geometry remains unusable, use the
+  existing independently drawn native format with the original verified
+  product cutout and check its true dimensions, source-image quality, white
+  background coverage and contrast. Declare its render engine
+  `verified-native-recovery` in the manifest, not AI-original.
+- Never stop before separately approving posters just because an independent
+  native format cannot be repaired. Individual approved PNGs remain accessible
+  on partial failure. The ZIP only appears when **all nine** are complete.
+- Give the three AI poster roles more distinguishable visual language:
+  technical precision rails, energetic price-led sweeps, and a premium
+  product spotlight. Each is layered behind the AI's actual freeform zones
+  and never alters the tool photograph.
+- Regression tests include the long-copy Story failure and end-to-end 9/9
+  approved pack, honest fallback labelling, rejected recovery security, no
+  trapped poster assets, measured typography and branded role distinction.
+
+**For a demo**: after the latest deploy, hard-refresh, enter part 9469, build
+the campaign, and save the ZIP as an offline backup. Do not claim that local
+automated regression tests guarantee the live model or the hosting instance
+will complete; review the returned designs and source facts before presenting
+them as final collateral.
+
 ## V54 — Fix the real cut-off-text failures and protect independent campaign assets
 
 A live report showed that the AI visual critic repeatedly rejected the third
