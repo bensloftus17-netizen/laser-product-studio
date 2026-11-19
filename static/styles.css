@@ -1050,3 +1050,60 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .campaign-progress-card{padding:12px}
  .campaign-progress-card>b{font-size:13px}
 }
+
+
+/* V49: source-linked competitor benchmarking. No guessed pricing or tool imagery. */
+.competitor-launch{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:12px 0 8px}
+.competitor-launch-button{border:1px solid #0a77ae;background:#eff9ff;color:#075681;
+ font-size:13px;font-weight:850;border-radius:9px;padding:12px 16px;
+ box-shadow:0 5px 15px #062e4c13}
+.competitor-launch-button:hover{background:#d9f1ff}
+.competitor-launch-button:disabled{opacity:.54;cursor:wait}
+.competitor-launch>span{font-size:11px;color:#627c92;line-height:1.5;max-width:380px}
+.competitor-panel{margin:15px 0 20px;padding:19px;background:#fff;
+ border:1px solid #d0e3ee;border-radius:13px;box-shadow:0 12px 24px #06334f0c}
+.competitor-panel[hidden],.competitor-panel-actions a[hidden]{display:none!important}
+.competitor-panel-heading{display:flex;align-items:start;justify-content:space-between;
+ flex-wrap:wrap;gap:15px}
+.competitor-panel-heading h3{margin:8px 0 5px;font-size:20px;letter-spacing:-.45px;color:#073958}
+.competitor-panel-heading p{font-size:12px;color:#4d7187;line-height:1.55;margin:0}
+.competitor-panel-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.competitor-panel-actions button,.competitor-panel-actions a{
+ padding:9px 12px;border:1px solid #b3d4e4;border-radius:8px;background:#eff8fd;
+ color:#095a80;font-size:12px;font-weight:800;text-decoration:none;line-height:1.5}
+.competitor-panel-actions a{background:#dff3fc;border-color:#6ab2d7}
+.competitor-panel-actions button:disabled{opacity:.53;cursor:wait}
+.competitor-stats{font-size:12px;color:#47697d;line-height:1.6;
+ background:#f3f9fc;border-left:3px solid #168ac9;padding:10px 12px;
+ margin:17px 0 15px;border-radius:0 7px 7px 0}
+.competitor-table-scroll{overflow-x:auto;max-width:100%}
+.competitor-table{width:100%;border-collapse:separate;border-spacing:0;min-width:710px}
+.competitor-table th{background:#082d4e;color:#eff8fe;text-align:left;font-size:11px;
+ font-weight:820;padding:12px 11px;white-space:nowrap}
+.competitor-table th:first-child{border-radius:8px 0 0 0}
+.competitor-table th:last-child{border-radius:0 8px 0 0}
+.competitor-table td{padding:14px 11px;vertical-align:top;font-size:12px;
+ border-bottom:1px solid #deebf2;background:white}
+.competitor-table tr:hover td{background:#f8fcff}
+.competitor-table td strong{font-size:13px;color:#163f5d;display:block}
+.competitor-table td b{font-size:12px;line-height:1.45;color:#183b53}
+.competitor-table td small{display:block;font-size:10px;line-height:1.55;color:#667f91;
+ margin-top:6px;overflow-wrap:anywhere}
+.competitor-table td a{font-size:12px;font-weight:800;color:#0669a7;text-decoration:underline}
+.competitor-match{display:block;font-size:10px;font-weight:800;line-height:1.45;
+ color:#146084;background:#eaf7fd;border:1px solid #cde8f2;border-radius:6px;
+ padding:4px 7px;margin:7px 0 0}
+.competitor-empty,.competitor-searching{margin:14px 0;font-size:12px;line-height:1.65;
+ padding:16px;border:1px dashed #c0d8e9;border-radius:9px;background:#f5faff;
+ color:#375972}
+.competitor-sources{margin-top:13px;font-size:11px;color:#688092;line-height:1.6}
+.competitor-disclaimer{border-top:1px solid #dce8ef;margin:15px 0 0;padding-top:12px;
+ font-size:11px;color:#687b8a;line-height:1.6}
+@media(max-width:640px){
+ .competitor-panel{padding:12px}
+ .competitor-panel-heading h3{font-size:17px}
+ .competitor-panel-actions{width:100%}
+ .competitor-panel-actions button,.competitor-panel-actions a{flex:1;text-align:center}
+ .competitor-launch-button{width:100%}
+ .competitor-launch>span{max-width:none}
+}
