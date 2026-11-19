@@ -45,6 +45,16 @@ APPROVED_HOSTS = (
     "mymotorworld.com", "tooled-up.com", "cpc.farnell.com",
     "rapidonline.com", "whiterosetools.com", "arnoldclarkautoparts.com",
     "diy.com", "toolstoredirect.co.uk", "pricespy.co.uk",
+    "toolnation.nl", "sonic-equipment.com", "sonictools.co.uk",
+    "autotools.co.uk", "thetoolstoredirect.co.uk", "robertdyas.co.uk",
+    "ukplanettools.co.uk", "lincsonline.co.uk", "manomano.co.uk",
+    "frost.co.uk", "halfords.com", "halfords.co.uk", "toolmart.co.uk",
+    "faithfulltools.com", "kennedy-tools.co.uk", "tengtools.com",
+    "tengtools.co.uk", "bahco.com", "facom.com", "stanleytools.co.uk",
+    "britool.co.uk", "hazet.de", "wurth.co.uk", "gedore.co.uk",
+    "stahlwille.co.uk", "beta-tools.com", "neilsen-tools.com",
+    "clarkeinternational.com", "paddockspares.com", "snapon.co.uk",
+    "facom.co.uk", "draper.co.uk", "brilliant-tools.com",
 )
 BRANDS = (
     ("Snap-on", ("snap-on", "snap on", "snapon")),
@@ -59,6 +69,15 @@ BRANDS = (
     ("Facom", ("facom",)),
     ("Beta Tools", ("beta tools", "beta")),
     ("Knipex", ("knipex",)),
+    ("Teng Tools", ("teng tools", "tengtools")),
+    ("Sonic Tools", ("sonic tools", "sonic equipment", "sonictools")),
+    ("Wera", ("wera",)),
+    ("Bahco", ("bahco",)),
+    ("Clarke", ("clarke",)),
+    ("Neilsen", ("neilsen",)),
+    ("Faithfull", ("faithfull",)),
+    ("Stahlwille", ("stahlwille",)),
+    ("Würth", ("würth", "wurth",)),
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
@@ -162,32 +181,109 @@ def _is_inspection_camera(text):
     return any(re.search(pattern, text) for pattern in INSPECTION_CAMERA_TERMS)
 
 
+# Fallback terms deliberately use ONLY the official product name. They are
+# SEARCH/COMPARISON HINTS, never a manufacturer-certified product category.
+GENERIC_WORDS=frozenset({
+    "laser","tools","tool","professional","universal","special","specialist",
+    "heavy","duty","quality","premium","advanced","new","improved",
+    "vehicle","automotive","workshop","suitable","for","and","with","without",
+    "the","from","of","to","a","an","in","on","pc","pcs","piece","pieces",
+    "mm","cm","inch","inches","drive","type","size","model","version",
+    "metric","imperial","set","kit","assortment","pack","packs","assorted",
+    "including","includes","complete","plus","extra","head","in",
+})
+TOKEN_EXCLUSIONS=frozenset({
+    "replacement","spare","cover","pouch","case","holder","accessory",
+    "adapter","adaptor","attachment","storage","refill","repair",
+})
+COMMON_MAKERS=frozenset({
+    "sealey","draper","bgs","gedore","snap-on","sykes-pickavant",
+    "teng","sonic","kennedy","bahco","facom","hazet","clarke",
+    "stahlwille","wera","faithfull",
+})
+
+
+def _tokens(raw):
+    text = clean_text(raw, 230).lower()
+    return re.findall(r"[a-z][a-z0-9-]{1,30}",text)
+
+
+def _derived_type(title):
+    """Extract an open-vocabulary phrase instead of rejecting unknown tools.
+
+    This deliberately produces a conservative search *hint*, not a claim
+    that the model has correctly mapped the part into a fixed catalogue.
+    """
+    name=clean_text(title,200)
+    name=re.split(r"\s+(?:for|suitable for|fits|compatible with)\s+",
+                  name,1,flags=re.I)[0]
+    name=re.sub(r"^\s*(?:laser\s+tools?\s*)?(?:[0-9]{3,6}\s*[-–:]\s*)?","",name,flags=re.I)
+    raw=_tokens(name)
+    words=[term for term in raw
+           if term not in GENERIC_WORDS and not term.isdigit()
+           and term not in VEHICLE_TERMS
+           and not re.fullmatch(r"\d+[a-z]*",term)]
+    # Last meaningful terms tend to identify the object: "multi-function
+    # calibrated grease pressure adaptor" => "grease pressure adaptor".
+    # Keep at most four, and do not use an empty query as a fake tool type.
+    if not words:
+        words=[t for t in _tokens(title) if t not in ("laser","tools")][:4]
+    return " ".join(words[-4:]) or "unclassified product"
+
+
 def tool_signature(product):
-    """Only official manufacturer data determines the category and fitment."""
-    title = clean_text(product.get("title"), 200).lower()
-    fallback = clean_text(product.get("description"), 250).lower()
-    text = re.sub(r"[^a-z0-9/ -]", " ", title)
-    # Prefer precise camera taxonomy over generic "diagnostic", "light",
-    # "lamp" or "wrench", preventing borescopes disappearing from research.
+    """Every official part gets a search, with uncertainty made explicit."""
+    title=clean_text(product.get("title"),200)
+    fallback=clean_text(product.get("description"),250)
+    text=re.sub(r"[^a-z0-9/ -]"," ",title.lower())
     if _is_inspection_camera(title) or _is_inspection_camera(fallback):
-        kind = "inspection camera"
+        kind="inspection camera"
+        source="verified-alias-rule"
     else:
-        kind = next((label for label, parts in TYPE_RULES
-                     if all(word in text for word in parts)), "")
+        kind=next((label for label,parts in TYPE_RULES
+                   if all(word in text for word in parts)),"")
         if not kind:
-            extra = " " + re.sub(r"[^a-z0-9/ -]", " ", fallback)
-            kind = next((label for label, parts in TYPE_RULES
-                         if all(word in text + extra for word in parts)), "")
+            extra=" "+re.sub(r"[^a-z0-9/ -]"," ",fallback.lower())
+            kind=next((label for label,parts in TYPE_RULES
+                       if all(word in text+extra for word in parts)),"")
+        source="fixed-category-rule" if kind else "official-title-derived"
     if not kind:
-        raise ValueError(
-            "The official product title does not identify a supported tool type. "
-            "Try a more descriptive official Laser Tools product page.")
-    fitments = [v for v in VEHICLE_TERMS if re.search(
-        r"(?<![a-z])" + re.escape(v) + r"(?![a-z])", title)]
-    return {"type":kind,
-            "type_terms":tuple(
-                next(parts for label, parts in TYPE_RULES if label == kind)),
-            "fitments":fitments,"title":clean_text(product.get("title"),170)}
+        kind=_derived_type(title)
+    if source=="official-title-derived":
+        terms=tuple(_tokens(kind))
+    else:
+        terms=tuple(next(parts for label,parts in TYPE_RULES if label==kind))
+    # Never leak vehicle names from unrelated product-description marketing
+    # copy. Titles are official; fitment still requires individual review.
+    fits=[v for v in VEHICLE_TERMS if re.search(
+        r"(?<![a-z])"+re.escape(v)+r"(?![a-z])",title.lower())]
+    return {"type":kind,"type_terms":terms,"fitments":fits,
+            "title":title,"category_source":source}
+
+
+def _dynamic_match(signature, candidate):
+    original=_tokens(signature["type"])
+    candidate_words=set(_tokens(candidate))
+    anchors=[w for w in original if w not in GENERIC_WORDS
+             and w not in VEHICLE_TERMS and len(w)>=3]
+    overlap=[w for w in anchors if w in candidate_words]
+    if len(anchors)>=2 and len(overlap)<2:
+        return None
+    if len(anchors)==1 and (len(anchors[0])<5 or not overlap):
+        return None
+    if not anchors:
+        return None
+    # Accessory and replacement listings are not interchangeable with the
+    # complete primary tool unless that is what the official Laser item is.
+    original_words=set(_tokens(signature["title"]))
+    accessory=candidate_words & TOKEN_EXCLUSIONS
+    if accessory and not accessory.intersection(original_words):
+        return None
+    # Brand and vehicle terms aren't enough: a shared generic adjective or
+    # package size should not qualify a candidate as a competing product.
+    return ("Related product — verify technical equivalence",
+            "Search terms from official Laser title overlap this listing; "
+            "function, application, capacity and kit contents are unverified.")
 
 
 def match_status(signature, candidate_title):
@@ -202,6 +298,8 @@ def match_status(signature, candidate_title):
         return ("Comparable inspection camera — verify specifications",
                 "Same broad endoscope/borescope category. Check camera-head "
                 "articulation, probe diameter, screen, imaging and accessories.")
+    if signature.get("category_source")=="official-title-derived":
+        return _dynamic_match(signature,candidate_title)
     if not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
                for word in signature["type_terms"]):
         return None
