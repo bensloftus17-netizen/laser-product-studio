@@ -31,12 +31,12 @@ from promo_art_direction import normalise_art_direction, editor_preferences, sce
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
-from copy_rewriter import rewrite_copy
+from copy_rewriter import rewrite_copy, SUPPORTED_MODES, AUDIENCES
 from competitor_finder import research_competitors, report_csv
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos">
+<link rel="stylesheet" href="/static/styles.css?design=v61-copy-intent-english">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -74,7 +74,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V60 creative freedom</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V61 English copy studio</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -228,27 +228,44 @@ V7_HOME_PAGE = r'''
 <p class="campaign-legal">DRAFT ONLY · Check current RRP, VAT, claims, applications, customer logo permissions and company approval before any external use.</p>
 </section>
 <section id="unifiedCopyStudio" class="campaign-copy-studio" hidden aria-label="Single marketing copy editor">
-<div class="ai-copy-heading"><div><span id="copyStudioOrigin" class="sectioncap">CAMPAIGN COPY / READY-TO-EDIT DRAFTS</span><h3>Choose your marketing text</h3><p>Select a campaign angle and marketing channel to see the full suggested wording. Edit the draft, then copy the text you want to use.</p></div></div>
+<div class="ai-copy-heading"><div><span id="copyStudioOrigin" class="sectioncap">CAMPAIGN COPY / READY-TO-EDIT DRAFTS</span><h3>Marketing Copy Studio</h3><p>Choose the selling angle, then where you'll publish. Use one clear writing goal to make a genuinely different draft, not five versions of the same text.</p></div></div>
+<div class="copy-step-label">1 · What are we highlighting?</div>
 <div id="campaignCopyAngles" class="ai-copy-design-tabs" role="group" aria-label="Campaign selling angle"></div>
+<div class="copy-step-label">2 · Where will it be used?</div>
 <div id="campaignCopyChannels" class="ai-copy-channels" role="group" aria-label="Marketing content type">
- <button type="button" data-campaign-channel="social_caption">Social caption</button>
- <button type="button" data-campaign-channel="linkedin_post">LinkedIn post</button>
- <button type="button" data-campaign-channel="email_body">Product email</button>
- <button type="button" data-campaign-channel="hashtags">Hashtags</button>
- <button type="button" data-campaign-channel="website_listing">Website listing</button>
- <button type="button" data-campaign-channel="short_message">Short promo</button>
+ <button type="button" data-campaign-channel="social_caption">Social post</button>
+ <button type="button" data-campaign-channel="linkedin_post">LinkedIn</button>
+ <button type="button" data-campaign-channel="email_body">Email</button>
+ <button type="button" data-campaign-channel="website_listing">Website</button>
+ <details class="copy-extra-formats"><summary>Other formats</summary>
+  <div class="copy-extra-buttons">
+   <button type="button" data-campaign-channel="short_message">Short message</button>
+   <button type="button" data-campaign-channel="hashtags">Hashtags</button>
+  </div>
+ </details>
 </div>
 <label id="campaignCopyLabel" class="ai-copy-label" for="campaignCopyText">Social caption</label>
 <textarea id="campaignCopyText" rows="9" spellcheck="true" aria-label="Editable campaign copy text"></textarea>
 
 <div class="rewrite-tools" aria-label="Improve suggested marketing copy">
- <div class="rewrite-tools-title"><b>✦ Improve this wording</b><span>AI-assisted · Verified product information only</span></div>
- <div class="rewrite-options" id="rewriteOptions" role="group" aria-label="Copy rewrite styles">
-  <button type="button" data-rewrite-mode="shorter">Make shorter</button>
-  <button type="button" data-rewrite-mode="professional">More professional</button>
-  <button type="button" data-rewrite-mode="persuasive">More persuasive</button>
-  <button type="button" data-rewrite-mode="technical">More technical</button>
-  <button type="button" data-rewrite-mode="facebook">Rewrite for Facebook</button>
+ <div class="rewrite-tools-title"><b>3 · Choose one writing goal</b><span>Official verified facts · British English</span></div>
+ <div class="copy-audience-row">
+  <label for="copyAudience">Writing for</label>
+  <select id="copyAudience" aria-label="Target audience for rewriting">
+   <option value="trade">Trade buyers / distributors</option>
+   <option value="workshop">Workshop technicians</option>
+   <option value="retail">Retail customers</option>
+  </select>
+ </div>
+ <div class="rewrite-options" id="rewriteOptions" role="group" aria-label="Distinct copywriting goals">
+  <button type="button" data-rewrite-mode="shorter" title="Condense into an easy-to-scan message">Short &amp; sharp</button>
+  <button type="button" data-rewrite-mode="hook" title="Lead with a different opening using supported facts">Stronger opening</button>
+  <button type="button" data-rewrite-mode="evidence" title="Put a verified technical detail first">Lead with evidence</button>
+  <button type="button" data-rewrite-mode="enquiry" title="Give the customer a reason to request information">Invite enquiries</button>
+  <div class="rewrite-language-check">
+   <span>Language or factual issue?</span>
+   <button type="button" data-rewrite-mode="english">Check English &amp; facts</button>
+  </div>
  </div>
  <div id="rewritePreview" class="rewrite-preview" hidden>
   <div class="rewrite-preview-heading"><b>Suggested rewrite</b><small id="rewriteMethod">Review before applying</small></div>
@@ -1353,8 +1370,8 @@ function showCampaign(data){
 let copyStudioData=null,campaignCopyIndex=0,campaignCopyChannel='social_caption',campaignCopyEdits={};
 let pendingCopyRewrite=null,rewriteNonce=0,rewriteBusy=false,rewriteUndoHistory={};
 const campaignChannelLabels={
- social_caption:'Social caption',linkedin_post:'LinkedIn post',email_body:'Product email',
- hashtags:'Hashtags',website_listing:'Website listing',short_message:'Short promo'
+ social_caption:'Social post',linkedin_post:'LinkedIn post',email_body:'Product email',
+ hashtags:'Hashtags',website_listing:'Website listing',short_message:'Short message'
 };
 function campaignDraft(index,channel){
  const key=String(index)+':'+channel;
@@ -1389,14 +1406,18 @@ function renderCampaignCopyStudio(){
  const available=campaignCopyChannel!=='hashtags';
  $('rewriteOptions').hidden=!available;
  $('rewriteStatus').textContent=available
-  ?'Choose a style to preview a new draft. Review product claims before publishing.'
-  :'Hashtags are generated from verified categories and cannot be rewritten.';
+  ?'Choose a writing goal. English and product claims are checked against the source.'
+  :'Hashtags use verified categories and are not rewritten.';
  $('rewriteUndo').hidden=!available||!Object.prototype.hasOwnProperty.call(rewriteUndoHistory,rewriteKey());
 }
 $('campaignCopyAngles').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-angle]');
  if(!button||!copyStudioData)return;
  campaignCopyIndex=Number(button.dataset.campaignAngle);renderCampaignCopyStudio();
+});
+$('copyAudience').addEventListener('change',()=>{
+ resetRewriteSuggestion();
+ $('rewriteStatus').textContent='Audience selected. Choose a writing goal to create a new draft.';
 });
 $('campaignCopyChannels').addEventListener('click',event=>{
  const button=event.target.closest('button[data-campaign-channel]');
@@ -1453,7 +1474,8 @@ $('rewriteOptions').addEventListener('click',async event=>{
   const response=await fetch('/api/copy/rewrite/'+encodeURIComponent(part),{
    method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
    body:JSON.stringify({mode,channel:campaignCopyChannel,angle:campaignCopyIndex,
-    current_text:oldText,official_url:$('officialUrl').value.trim()||null,
+    current_text:oldText,audience:$('copyAudience').value,
+    official_url:$('officialUrl').value.trim()||null,
     staff_rrp_ex:rawPrice||staffApplied,
     staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
     staff_rrp_basis:rawPrice?$('staffRrpBasis').value:staffBasis})
@@ -2810,8 +2832,8 @@ def rewrite_marketing_copy(part):
         angle=body.get('angle')
         current_text=body.get('current_text')
         # Validate before manufacturer lookup or any optional Gemini call.
-        if mode not in ('shorter','professional','persuasive','technical','facebook'):
-            return jsonify(error='Choose one of the five rewrite options.'),400
+        if mode not in SUPPORTED_MODES:
+            return jsonify(error='Choose a valid writing goal.'),400
         if channel not in ('social_caption','linkedin_post','email_body','website_listing','short_message'):
             return jsonify(error='Select social, LinkedIn, email, web or short-promo copy.'),400
         if type(angle) is not int or angle not in (0,1,2):
@@ -2823,8 +2845,12 @@ def rewrite_marketing_copy(part):
             product,body.get('staff_rrp_ex'),
             body.get('staff_rrp_reviewed') is True,
             body.get('staff_rrp_basis','ex'))
+        audience=body.get('audience','trade')
+        if audience not in AUDIENCES:
+            return jsonify(error='Choose a valid target audience.'),400
         rewritten=rewrite_copy(
-            product,mode=mode,channel=channel,current_text=current_text,angle=angle)
+            product,mode=mode,channel=channel,current_text=current_text,
+            angle=angle,audience=audience)
         response=jsonify(rewritten)
         response.headers['Cache-Control']='no-store, private'
         return response
