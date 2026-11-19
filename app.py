@@ -988,8 +988,11 @@ function retainCompletedCampaignZIP(jobId,token,part){
   .then(response=>{
    if(!response.ok)throw Error('Temporary ZIP unavailable');
    return response.blob();
-  }).then(blob=>{
+  }).then(async blob=>{
    if(blob.size<22||campaignLocalJob!==jobId)return;
+   const head=new Uint8Array(await blob.slice(0,4).arrayBuffer());
+   if(head[0]!==80||head[1]!==75||![3,5,7].includes(head[2]))
+     throw Error('The server did not return a valid ZIP');
    const local=URL.createObjectURL(blob);
    campaignLocalZIP={token,url:local};
    const link=$('campaignDownload'),share=$('campaignShareZip');
