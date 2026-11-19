@@ -32,10 +32,11 @@ from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
 from copy_rewriter import rewrite_copy
+from competitor_finder import research_competitors, report_csv
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v48-progressive-assets">
+<link rel="stylesheet" href="/static/styles.css?design=v49-competitors">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -80,8 +81,27 @@ V7_HOME_PAGE = r'''
 <div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
 <section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Build a Unique Product Campaign</h2><p>Enter a part number. AI plans three different, product-specific posters, real workshop imagery, story suggestions and editable copy.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
+<div class="competitor-launch">
+ <button type="button" id="competitorBtn" class="competitor-launch-button">
+  <span aria-hidden="true">↔</span> Find Competitors &amp; UK Prices
+ </button>
+ <span>Independent product comparison using official Laser specifications and cited competitor listings.</span>
+</div>
 <div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
+<section id="competitorPanel" class="competitor-panel" aria-label="Competitor comparison results" hidden>
+ <div class="competitor-panel-heading"><div><span class="sectioncap">SALES RESEARCH / PRODUCT BENCHMARKING</span>
+  <h3 id="competitorTitle">Find comparable products</h3>
+  <p id="competitorStatus" role="status" aria-live="polite">Enter a Laser Tools part number to search.</p></div>
+  <div class="competitor-panel-actions">
+   <button type="button" id="competitorRefresh" class="secondary">Refresh prices</button>
+   <a id="competitorExport" class="competitor-export" download hidden>Export comparison CSV</a>
+  </div></div>
+ <div id="competitorStats" class="competitor-stats"></div>
+ <div id="competitorResults" class="competitor-results"></div>
+ <div id="competitorSources" class="competitor-sources"></div>
+ <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
+</section>
 <div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
  <span id="campaignRecoveryText">Your last campaign may still be available.</span>
  <button type="button" id="campaignResume">Reopen campaign</button>
@@ -1306,6 +1326,100 @@ $('campaignCopyReset').addEventListener('click',()=>{
  delete rewriteUndoHistory[rewriteKey()];
  renderCampaignCopyStudio();$('campaignCopyStatus').textContent='Original suggested wording restored.';
 });
+
+// V49 — source-linked competitor research. Never use model-suggested tool
+// illustrations or treat scraped list prices as Laser's manufacturer RRP.
+let competitorShownPart=null, competitorBusy=false;
+const competitorPriceLabel = item => item.price_gbp
+ ? '£'+Number(item.price_gbp).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})
+ : 'Not verified';
+function renderCompetitorReport(result){
+ const container=$('competitorResults'),stats=$('competitorStats');
+ const rows=Array.isArray(result.results)?result.results:[];
+ $('competitorTitle').textContent='Competitors for Laser '+result.laser.part;
+ $('competitorPanel').hidden=false;
+ $('competitorStatus').textContent=rows.length+
+  ' evidence-linked alternatives · checked '+new Date(result.checked_at_utc).toLocaleString('en-GB')+
+  (result.cached?' · cached research':' · fresh research');
+ stats.textContent='Source tool: '+String(result.laser.tool_type||'tool')+
+  ' · Laser '+String(result.laser.title||'')+' · '+
+  String(result.ai_matching||'Technical review required');
+ if(rows.length){
+  container.innerHTML='<div class="competitor-table-scroll"><table class="competitor-table">'+
+   '<thead><tr><th>Competitor</th><th>Verified listing / match</th>'+
+   '<th>UK advertised price</th><th>Evidence</th></tr></thead><tbody>'+
+   rows.map(item=>{
+    const url=String(item.url||'');
+    const trusted=url.startsWith('https://');
+    const vat=item.vat_basis==='inc'?'inc VAT':item.vat_basis==='ex'?'ex VAT':'VAT unconfirmed';
+    return '<tr><td><strong>'+esc(item.brand)+'</strong><small>'+
+      esc(item.part_number?'Part '+item.part_number:'Part number unconfirmed')+'</small></td>'+
+     '<td><b>'+esc(item.title)+'</b><span class="competitor-match">'+
+      esc(item.match_status)+'</span><small>'+esc(item.match_evidence)+'</small></td>'+
+     '<td><strong>'+esc(competitorPriceLabel(item))+'</strong><small>'+
+      esc(item.price_gbp?vat:'No verified GBP quote')+'</small>'+
+      '<small>'+esc(item.seller||'')+'</small></td>'+
+     '<td>'+(trusted?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">View source ↗</a>':'No verified link')+
+      '<small>'+esc(item.price_source||'Price unavailable from source')+'</small></td></tr>';
+   }).join('')+'</tbody></table></div>';
+ }else{
+  container.innerHTML='<p class="competitor-empty">No reliably matched products were found from the accessible sources. This does not mean competitors do not exist. Try Refresh prices or use a configured UK Shopping search provider.</p>';
+ }
+ const notes=Array.isArray(result.warnings)?result.warnings:[];
+ $('competitorSources').textContent=(result.providers||[]).join(' + ')+
+   (notes.length?' · '+notes.join(' · '):'');
+ const download=$('competitorExport');
+ download.hidden=!rows.length;
+ download.href=rows.length?'/api/competitors/'+encodeURIComponent(result.laser.part)+'/export.csv':'';
+ download.download='LASER_'+result.laser.part+'_Competitor_Comparison.csv';
+}
+async function findCompetitors(force=false){
+ if(competitorBusy)return;
+ const part=$('part').value.trim().toUpperCase();
+ if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){
+  $('competitorPanel').hidden=false;
+  $('competitorStatus').textContent='Enter a valid Laser Tools part number first.';
+  return;
+ }
+ competitorBusy=true;
+ const btn=$('competitorBtn'),refresh=$('competitorRefresh');
+ btn.disabled=true;refresh.disabled=true;
+ $('competitorPanel').hidden=false;
+ $('competitorTitle').textContent='Researching Laser '+part+' competitors';
+ $('competitorStatus').textContent='Verifying the Laser product, searching comparable tools and checking source-linked UK prices…';
+ $('competitorStats').textContent='';
+ $('competitorResults').innerHTML='<div class="competitor-searching">Searching live UK product sources. This may take a moment.</div>';
+ $('competitorExport').hidden=true;
+ try{
+  const uk=$('officialUrl').value.trim();
+  const params=new URLSearchParams();
+  if(force)params.set('refresh','1');
+  if(uk)params.set('uk_url',uk);
+  const endpoint='/api/competitors/'+encodeURIComponent(part)+
+      (params.toString()?'?'+params.toString():'');
+  const response=await fetch(endpoint,{cache:'no-store',
+      headers:{Accept:'application/json'}});
+  const data=await readApiJson(response);
+  competitorShownPart=part;
+  renderCompetitorReport(data);
+ }catch(err){
+  $('competitorStatus').textContent=err.message||'Competitor research failed.';
+  $('competitorResults').innerHTML=
+   '<p class="competitor-empty">Search could not complete. No products or prices were invented. Try again or check that a shopping search provider is available.</p>';
+  $('competitorSources').textContent='';
+ }finally{
+  competitorBusy=false;btn.disabled=false;refresh.disabled=false;
+ }
+}
+$('competitorBtn').addEventListener('click',()=>findCompetitors(false));
+$('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
+$('part').addEventListener('input',()=>{
+ if(competitorShownPart!==$('part').value.trim().toUpperCase()){
+  $('competitorPanel').hidden=true;
+  competitorShownPart=null;
+ }
+});
+
 $('campaignBtn').addEventListener('click',async()=>{
  if(inflight)return;
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
@@ -2233,6 +2347,79 @@ def distributor_logo(brand):
         return send_file(output,mimetype='image/png',download_name=code+'_logo.png')
     except ValueError:
         return jsonify(error='Unknown distributor'),404
+
+
+# Per-part short-lived competitor research results. This deliberately does
+# not store arbitrary external pages or replace the approved Laser product.
+COMPETITOR_REPORT_CACHE={}
+COMPETITOR_REPORT_LOCK=threading.Lock()
+COMPETITOR_REPORT_BUSY=threading.BoundedSemaphore(value=1)
+COMPETITOR_REPORT_TTL=20*60
+
+
+@app.get('/api/competitors/<part>')
+def find_competitor_products(part):
+    """Source-linked UK alternatives, not a promise of interchangeability."""
+    try:
+        part=sku_clean(part)
+        bypass=request.args.get('refresh')=='1'
+        with COMPETITOR_REPORT_LOCK:
+            cached=COMPETITOR_REPORT_CACHE.get(part)
+            if not bypass and cached and cached['expires']>time.time():
+                result=dict(cached['report'])
+                result['cached']=True
+                reply=jsonify(result)
+                reply.headers['Cache-Control']='private, no-store'
+                return reply
+        if not COMPETITOR_REPORT_BUSY.acquire(blocking=False):
+            return jsonify(error='A competitor research request is already running. Please retry shortly.'),429
+        try:
+            # lookup() independently verifies official UK source facts and
+            # manufacturer authenticity. No price or feature can be invented
+            # from a scraped competitor search result.
+            product,_=lookup(part,uk_url=request.args.get('uk_url') or None)
+            report=research_competitors(product)
+            with COMPETITOR_REPORT_LOCK:
+                now=time.time()
+                COMPETITOR_REPORT_CACHE[part]={
+                    'expires':now+COMPETITOR_REPORT_TTL,'report':report}
+                while len(COMPETITOR_REPORT_CACHE)>24:
+                    COMPETITOR_REPORT_CACHE.pop(next(iter(COMPETITOR_REPORT_CACHE)))
+            reply=jsonify(report)
+            reply.headers['Cache-Control']='private, no-store'
+            return reply
+        finally:
+            COMPETITOR_REPORT_BUSY.release()
+    except LookupErrorPublic as error:
+        return jsonify(error=str(error)),404
+    except ValueError as error:
+        return jsonify(error=str(error)),422
+    except requests.RequestException:
+        app.logger.exception('Competitor lookup source retrieval failed')
+        return jsonify(error='Manufacturer or competitor search service temporarily unavailable.'),503
+    except Exception:
+        app.logger.exception('Competitor lookup error')
+        return jsonify(error='Could not complete verified competitor research. Please retry.'),503
+
+
+@app.get('/api/competitors/<part>/export.csv')
+def download_competitor_report(part):
+    """Export exactly the previously sourced results; never regenerate claims."""
+    try:
+        part=sku_clean(part)
+        with COMPETITOR_REPORT_LOCK:
+            entry=COMPETITOR_REPORT_CACHE.get(part)
+            if not entry or entry['expires']<=time.time():
+                return jsonify(error='Search competitors before downloading a comparison.'),404
+            result=entry['report']
+        output=report_csv(result)
+        response=send_file(io.BytesIO(output),
+            mimetype='text/csv; charset=utf-8',as_attachment=True,
+            download_name='LASER_'+part+'_Competitor_Comparison.csv')
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except LookupErrorPublic as error:
+        return jsonify(error=str(error)),400
 
 
 @app.get('/api/lookup/<part>')

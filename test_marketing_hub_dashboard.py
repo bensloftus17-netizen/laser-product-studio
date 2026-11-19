@@ -48,7 +48,7 @@ class MarketingHubDashboardTests(unittest.TestCase):
         self.assertIn(b'Build a Unique Product Campaign',response.data)
         self.assertIn(b'Saved Promotions Library',response.data)
         self.assertIn(b'campaignCopyText',response.data)
-        self.assertIn(b'static/styles.css?design=v48-progressive-assets',response.data)
+        self.assertIn(b'static/styles.css?design=v49-competitors',response.data)
 
 
 if __name__=='__main__':
