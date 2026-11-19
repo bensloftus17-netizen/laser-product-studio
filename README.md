@@ -1,3 +1,43 @@
+## V61 — British-English Marketing Copy Studio (part 7823)
+
+The copy editor no longer presents overlapping "more professional / more
+persuasive / more technical / rewrite for Facebook" buttons alongside social
+and LinkedIn channel selectors. It now separates **three independent choices**:
+
+1. **Selling angle:** the three source-verified application, price and benefit
+   campaign directions from the full campaign;
+2. **Publishing channel:** social, LinkedIn, email and website, with short
+   messages and hashtags in a collapsible "Other formats" section;
+3. **Writing goal:** Short & sharp, Stronger opening, Lead with evidence,
+   Invite enquiries. Optional "Writing for" selects workshop technicians,
+   trade stockists/distributors or retail customers. A separate **Check
+   English & facts** action regenerates stale/bilingual copy from the official
+   source instead of blindly translating user-created marketing claims.
+
+The initial channel drafts are also differentiated by purpose: price/product
+enquiry, manufacturer-backed benefit and workshop application. Rewrites are
+draft previews: apply/discard/undo remains, original ZIP is unchanged.
+
+**7823 French language regression:** The exact screenshot fragment
+`Longueur : 120 mm, profondeur interne : 93 mm.` now converts to
+`Length: 120 mm. Internal depth: 93 mm.` only when complete known numeric
+labels and their literal source numbers/units match. Supported French numeric
+spec rows are translated the same way. Any unknown/non-numeric French
+marketing claim is rejected instead of guessed or silently promoted.
+Original raw source text remains audit-only; it is not used as marketing
+copy.
+
+The AI planning model is still allowed to choose only enumerated structure,
+hook/CTA and verified source fact indices. It cannot supply arbitrary prices,
+product claims or vehicle fitments. Legacy API rewrite modes remain supported
+for older clients, but they are removed from the new UI to avoid redundancy.
+The campaign angles are correctly mapped (application/technical, price-led,
+product-specific) when rewriting.
+
+All work requires manual review and company approval before publication.
+Existing campaign images, competitor research, customer branding, price/VAT
+logic, and poster-quality safeguards remain unchanged.
+
 ## V60 — AI has more visual freedom across ALL nine assets
 
 The 9197 screenshot showed nine complete marketing assets still dominated by
