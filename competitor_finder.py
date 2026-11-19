@@ -26,7 +26,7 @@ SEARCH_HOST = "https://www.bing.com/search"
 SHOPPING_HOST = "https://serpapi.com/search.json"
 TTL_SECONDS = 20 * 60
 MAX_RESULTS = 12
-MAX_PAGES = 6
+MAX_PAGES = 4
 # Pages are retrieved only from these publicly accessible established brands
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
@@ -100,7 +100,8 @@ def clean_text(value, limit=180):
 def safe_url(url, allow_google=False):
     """Host+protocol allowlist blocks SSRF, non-HTTPS and unsafe link schemes."""
     try:
-        parsed = urlparse(str(url or ""))
+        candidate = str(url or "")
+        parsed = urlparse(candidate)
         hostname = (parsed.hostname or "").lower().rstrip(".")
         allowed = APPROVED_HOSTS if allow_google else tuple(
             h for h in APPROVED_HOSTS if not h.startswith("google."))
@@ -108,8 +109,8 @@ def safe_url(url, allow_google=False):
             parsed.scheme == "https"
             and parsed.username is None and parsed.password is None
             and (parsed.port is None or parsed.port == 443)
-            and len(url) <= 1250
-            and not re.search(r"[\r\n\x00-\x1f]", str(url))
+            and len(candidate) <= 1250
+            and not re.search(r"[\r\n\x00-\x1f]", candidate)
             and any(hostname == h or hostname.endswith("." + h)
                     for h in allowed)
         )
@@ -263,7 +264,7 @@ def shopping_search(signature, session=requests, api_key=None):
         "engine":"google_shopping","q":query+" Sealey Draper BGS Gedore",
         "gl":"uk","hl":"en","google_domain":"google.co.uk",
         "api_key":api_key,"num":40
-    },timeout=14,allow_redirects=False)
+    },timeout=12,allow_redirects=False)
     response.raise_for_status()
     data=response.json()
     if data.get("error"):
@@ -298,7 +299,7 @@ def rss_search(signature,session=requests):
         try:
             response = session.get(SEARCH_HOST,params={
                 "q":q,"format":"rss","mkt":"en-GB",
-            },timeout=9,allow_redirects=False,headers={
+            },timeout=7,allow_redirects=False,headers={
                 "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
             response.raise_for_status()
             if response.status_code != 200:
@@ -397,7 +398,7 @@ def parse_product_page(content, url, signature):
 def _get_product_page(url, signature,session=requests):
     if not safe_url(url):
         return None
-    response=session.get(url,timeout=5,allow_redirects=False,headers={
+    response=session.get(url,timeout=4,allow_redirects=False,headers={
         "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
     if response.status_code != 200:
         return None
@@ -433,8 +434,17 @@ def keyless_discovery(signature,session=requests):
 
 
 def _distinct(results):
-    best={}
+    # Multiple providers may return exactly the same retail product URL.
+    # Keep one card, favouring a verified merchant SKU and a sourced quote.
+    by_url={}
     for item in results:
+        key=item["url"].lower().split("#",1)[0].rstrip("/")
+        old=by_url.get(key)
+        if old is None or (bool(item["part_number"]),bool(item["price_gbp"])) > (
+                bool(old["part_number"]),bool(old["price_gbp"])):
+            by_url[key]=item
+    best={}
+    for item in by_url.values():
         key=(item["brand"].lower(),
              item["part_number"].lower() if item["part_number"] else
              re.sub(r"\W+","",item["title"].lower())[:85])
@@ -462,7 +472,7 @@ def _ai_review(product, signature, rows, session=requests):
                  "type":signature["type"],
                  "fitments":signature["fitments"],
                  "features":[clean_text(f,140) for f in
-                             product.get("features",[])[:8]]},
+                             (product.get("features") or [])[:8]]},
         "candidates":[{"id":idx,"brand":item["brand"],
                        "title":item["title"],
                        "part_number":item["part_number"],
@@ -487,7 +497,7 @@ def _ai_review(product, signature, rows, session=requests):
             headers={"x-goog-api-key":key,"Content-Type":"application/json"},
             json={"contents":[{"parts":[{"text":instruction}]}],
                   "generationConfig":{"temperature":0.0,"responseMimeType":"application/json",
-                                      "maxOutputTokens":650}},timeout=13)
+                                      "maxOutputTokens":650}},timeout=10)
         response.raise_for_status()
         data=response.json()
         content=data["candidates"][0]["content"]["parts"][0]["text"]
