@@ -3088,9 +3088,6 @@ def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report
 def _progress_payload(job):
     return {
         'status':job['status'], 'part':job['part'],
-        # Surface the real quality-gate reason on failed jobs. Do not invent
-        # an error or expose internal exceptions for successful/running jobs.
-        'error':job.get('error') if job['status']=='failed' else None,
         'stage':job.get('stage','queued'),
         'elapsed_seconds':max(0,int(time.time()-job.get('started_at',time.time()))),
         'stage_age_seconds':max(0,int(time.time()-job.get('last_activity_at',time.time()))),
