@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageOps, ImageEnhance, ImageFilter, ImageStat
 from asset_quality import require_good_asset
 from campaign_art_quality import inspected_product
 from creative_director import ACCENTS, BACKGROUNDS, MOODS, MOTIFS, HEADLINE_STYLES, SHAPE_KINDS, SHAPE_INKS
+from creative_families import FAMILIES as CREATIVE_FAMILIES
 from flexible_canvas import _text
 from poster import font
 from poster_quality import record_text, record_product, capture
@@ -120,6 +121,7 @@ def validate_format_canvas(kind, raw, feature_count=0):
         "scene_role":scene,
         "proof_feature_index":index,
         "shapes":shapes,
+        "creative_family":choice("creative_family",CREATIVE_FAMILIES,"editorial_split"),
         "source":"AI-format-specific-canvas",
     }
 
@@ -166,6 +168,11 @@ def format_instruction():
         "manufacturer product titles and technical evidence, rather than tiny "
         "boxes. The app will always measure text and may select a different "
         "complete verified feature when your chosen one cannot fit. "
+        "In each native canvas, choose a credible visual design inherited from "
+        "its parent poster, using the safe creative_family values "
+        "engineering_grid/commercial_burst/premium_spotlight/workshop_motion/"
+        "editorial_split/toolkit_coverage. The six formats should inherit "
+        "different parent marketing roles rather than the same look. "
         "The genuine photo will be composited by the application; no AI "
         "image URLs, invented tool photos, logos, text or price values."
     )
@@ -234,6 +241,72 @@ def _background(kind, brief, scene, variant):
             d.line((box[0],box[1],box[2],box[3]),
                    fill=rgba,width=max(2,w//240))
     return Image.alpha_composite(canvas,shapes)
+
+
+def draw_family_background(canvas,creative_family,*,zones=None):
+    """Independent brand-safe large-scale art direction at native dimensions.
+
+    This deliberately differs across six families; it is applied BEHIND all
+    official tool pixels, text and mandatory Laser branding. Used by both
+    AI-authored native canvases and their clearly labelled verified backup.
+    """
+    w,h=canvas.size
+    family=creative_family if creative_family in CREATIVE_FAMILIES else "editorial_split"
+    layer=Image.new("RGBA",(w,h),(0,0,0,0))
+    d=ImageDraw.Draw(layer,"RGBA")
+    top=int(h*.16); bottom=int(h*.94)
+    if family=="engineering_grid":
+        d.rectangle((0,top,w,bottom),fill=(3,42,69,126))
+        for x in range(0,w,max(42,w//14)):
+            d.line((x,top,x,bottom),fill=(38,174,229,85),width=2)
+        for y in range(top,bottom,max(35,h//11)):
+            d.line((0,y,w,y),fill=(29,170,231,72),width=2)
+        d.rectangle((int(w*.04),top,int(w*.055),bottom),fill=(31,205,255,160))
+    elif family=="commercial_burst":
+        d.polygon(((0,int(h*.30)),(w,int(h*.16)),(w,int(h*.64)),
+                   (0,int(h*.83))),fill=(237,173,31,194))
+        d.polygon(((0,int(h*.82)),(w,int(h*.52)),(w,int(h*.8)),
+                   (0,int(h*.94))),fill=(13,118,188,205))
+        for n in range(3):
+            d.line((0,int(h*(.78+n*.04)),w,int(h*(.54+n*.04))),
+                   fill=(255,228,119,170),width=max(3,w//230))
+    elif family=="premium_spotlight":
+        d.rectangle((0,top,w,bottom),fill=(1,11,31,173))
+        cx,cy=int(w*.66),int(h*.52)
+        for fraction,opacity,width in ((.57,32,16),(.44,65,11),(.3,100,6)):
+            radius=int(min(w,h)*fraction)
+            d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),
+                      outline=(131,214,239,opacity),width=width)
+        d.rectangle((int(w*.06),int(h*.89),int(w*.93),int(h*.899)),
+                    fill=(112,220,250,143))
+    elif family=="workshop_motion":
+        d.polygon(((0,top),(int(w*.42),top),(w,int(h*.71)),
+                   (w,bottom),(int(w*.52),int(h*.51)),(0,int(h*.32))),
+                  fill=(4,153,190,165))
+        for offset in (0,int(w*.13),int(w*.27)):
+            d.polygon(((offset,int(h*.63)),(offset+int(w*.07),int(h*.63)),
+                       (offset+int(w*.47),bottom),(offset+int(w*.35),bottom)),
+                      fill=(56,199,235,135))
+    elif family=="editorial_split":
+        d.polygon(((0,top),(int(w*.49),top),(int(w*.36),bottom),(0,bottom)),
+                  fill=(17,91,137,190))
+        d.polygon(((int(w*.49),top),(w,top),(w,bottom),
+                   (int(w*.36),bottom)),fill=(3,30,53,145))
+        d.line((int(w*.49),top,int(w*.36),bottom),
+               fill=(163,230,246,195),width=max(3,w//230))
+    elif family=="toolkit_coverage":
+        d.rectangle((0,top,w,bottom),fill=(11,79,79,140))
+        for row in range(4):
+            y=int(h*(.23+row*.16))
+            d.rounded_rectangle((int(w*.035),y,int(w*.965),y+int(h*.11)),
+                                radius=max(3,h//130),fill=(7,35,53,144),
+                                outline=(126,221,216,147),
+                                width=max(2,w//350))
+        for col in range(5):
+            x=int(w*(.08+col*.19))
+            d.line((x,int(h*.2),x,int(h*.9)),
+                   fill=(92,226,207,53),width=2)
+    return Image.alpha_composite(canvas.convert("RGBA"),layer)
 
 
 def _hero(canvas,blob,bounds,variant=0):
@@ -329,6 +402,8 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
     scene_idx=roles[brief["scene_role"]]
     scene=scenes[scene_idx] if len(scenes)>scene_idx else None
     canvas=_background(kind,brief,scene,variant)
+    canvas=draw_family_background(canvas,brief["creative_family"],
+                                  zones=brief["zones"])
     _label(canvas,product.get("part"),distributor)
     region=brief["zones"]
     _hero(canvas,photo,_rect(region["product"],(w,h)),variant)
