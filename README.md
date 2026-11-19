@@ -1,3 +1,38 @@
+## V50 — Inspection camera competitor discovery and source-backed pricing
+
+Fixes the specific **Laser 9195 Portable Endoscope Camera** failure.
+Previously the strict tool type table did not recognise **endoscope** or
+**borescope**, so research stopped with HTTP 422 before searching.
+
+The finder now groups inspected endoscopes, borescopes, videoscopes,
+snake cameras and visual inspection devices into the **inspection camera**
+tool category, while retaining conservative category matching and rejecting
+unrelated diagnostic scanners, chargers and tool accessories.
+
+**Snap-on added:** both Snap-on UK and Snap-on Store product URLs are allowed,
+alongside verified UK Sealey and Draper stockists. Search queries use useful
+synonyms and Snap-on/Sealey/Draper models; audited manufacturer and seller URLs
+are fetched as real source pages even when the free RSS provider is down.
+No seeded item or price is returned without source-page evidence.
+
+Verified source-backed examples for inspection-camera discovery include
+Snap-on BK7000 (UK dealer price may not be published); used Snap-on BK5500
+marketplace listings (explicitly marked used); Sealey VS8118 video
+borescope and Draper 92578. UK retailer prices are accepted from correctly
+linked GBP Product structured data or a tightly limited, visible current
+offer ("Our Price", "Guest Price", "or Best Offer") on approved shops.
+Historic RRPs, shipping charges, other currencies and unverified
+Snap-on dealer quotes are never used as actual live prices.
+
+The UI and comparison CSV display **listing condition**. Users can see
+if a Snap-on figure is a used marketplace asking price rather than a
+new-tool RRP. Broadly comparable inspection cameras are *not* claimed to
+have identical swivel or dual-lens functions: validate head articulation,
+probe diameter, screen, image quality and supplied accessories.
+
+Tests: `python -m unittest -v test_competitor_finder_v50.py`,
+plus the existing V49 competitor and entire poster/QA/mobile suites.
+
 ## V49 — AI Competitor Finder: source-linked UK alternatives and prices
 
 The product search bar now has **Find Competitors & UK Prices**. Staff enter a Laser part number to open an independent comparison panel, preserving every existing poster and campaign feature.

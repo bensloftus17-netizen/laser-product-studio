@@ -250,8 +250,8 @@ class CompetitorFinderTests(unittest.TestCase):
         csv_rows=list(csv.reader(io.StringIO(blob.decode("utf-8-sig"))))
         self.assertEqual(csv_rows[0][5],"UK advertised price GBP")
         self.assertEqual(csv_rows[1][5],"123.45")
-        self.assertEqual(csv_rows[1][7],"'=HYPERLINK('x')")
-        self.assertEqual(csv_rows[1][10],PRODUCT_URL)
+        self.assertEqual(csv_rows[1][8],"'=HYPERLINK('x')")
+        self.assertEqual(csv_rows[1][11],PRODUCT_URL)
 
     def test_flask_endpoint_cache_refresh_and_excel_export(self):
         fake={
