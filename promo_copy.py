@@ -145,14 +145,14 @@ def compose_promotional_copy(product,concept):
         subject_prefix="Product and pricing enquiry"
     elif focus=="benefit":
         hook=f"Product detail | {short}"
-        social=[fact_line,short+".",price_line,cta] if fact_line else [
+        social=[fact_line,f"A closer look at {short}.",price_line,cta] if fact_line else [
             f"Take a closer look at {short}.",price_line,cta]
         linkedin=[hook,fact_line,price_line,cta]
         email_intro=f"Here's a closer look at {ref}: {product_name}."
         subject_prefix="Product details"
     else:
         hook=f"Workshop application | {short}"
-        social=[fact_line,short+".",price_line,cta] if fact_line else [
+        social=[f"Workshop applications | {short}.",fact_line,price_line,cta] if fact_line else [
             f"Workshop product information: {short}.",price_line,cta]
         linkedin=[hook,short+".",fact_line,price_line,cta]
         email_intro=f"Please find the manufacturer product information for {ref}."
