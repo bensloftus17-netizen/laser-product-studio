@@ -20,6 +20,9 @@ HEADLINE_STYLES=("massive","editorial","compact")
 FOCUSES=("left","centre","right")
 SHAPE_KINDS=("panel","outline","circle","ribbon","line")
 SHAPE_INKS=("accent","cyan","white")
+# Genuine model choices affect the actual rendered composition, not only copy.
+COMPOSITION_MODES=("engineering-precision","commercial-impact","hero-spotlight",
+                   "minimal-editorial","workshop-motion")
 
 
 def _intersects(a,b):
@@ -104,6 +107,10 @@ def validate_brief(raw,role):
         "headline_style":choice("headline_style",HEADLINE_STYLES,"massive"),
         "photo_focus":choice("photo_focus",FOCUSES,"centre"),
         "accent":choice("accent",ACCENTS,"#13B5EC"),
+        "composition_mode":choice("composition_mode",COMPOSITION_MODES,
+                                  "engineering-precision" if role=="technical_application"
+                                  else "commercial-impact" if role=="price_promo"
+                                  else "hero-spotlight"),
         "source":"ai-freeform-canvas",
     }
 
@@ -171,5 +178,13 @@ def creative_instruction():
         "composition, product position, headline hierarchy and mood. "
         "Do NOT supply product pixels, imagined photos, new technical claims "
         "or any text for the poster: the server inserts verified source text. "
+        "Choose a DIFFERENT composition_mode for each poster: one of "
+        "engineering-precision, commercial-impact, hero-spotlight, "
+        "minimal-editorial, workshop-motion. This controls genuine background "
+        "shape language, depth, rhythm and typographic surroundings, not just "
+        "colour. Match the style to this particular tool type and the selling "
+        "story. Use three visually separate arrangements rather than three "
+        "similar navy gradients. Product image and copy positions remain your "
+        "unique model-authored coordinates with no text or tool redraws. "
         "Avoid cheap white rectangles, clashing text, and tiny product heroes."
     )
