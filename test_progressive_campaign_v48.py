@@ -151,10 +151,15 @@ class ProgressiveCampaignTests(unittest.TestCase):
                 CampaignHubTests.product,CampaignHubTests.photo,
                 use_gemini=False,progress=report)
         ready=[(i,id) for i,(status,id,_,_) in enumerate(events) if status=="ready"]
-        self.assertEqual([id for _,id in ready],list(FOLDERS))
-        self.assertLess(next(i for i,(stage,_,_,_) in enumerate(events)
-                             if stage=="reviewing_posters"),ready[0][0])
-        self.assertLess(ready[2][0],ready[3][0])
+        # Independent native formats must be recoverable even if a poster's
+        # final vision check fails; posters remain gated until review passes.
+        from format_creative import FORMAT_ORDER
+        self.assertEqual([id for _,id in ready],
+                         list(FORMAT_ORDER)+list(FOLDERS)[:3])
+        review_index=next(i for i,(stage,_,_,_) in enumerate(events)
+                          if stage=="reviewing_posters")
+        self.assertLess(ready[5][0],review_index)
+        self.assertLess(review_index,ready[6][0])
         self.assertLess(ready[-1][0],next(i for i,(stage,_,_,_) in enumerate(events)
                                        if stage=="finalising_pack"))
         for _,id,qa,signature in (row for row in events if row[0]=="ready"):
@@ -185,7 +190,12 @@ class ProgressiveCampaignTests(unittest.TestCase):
                 build_campaign(PRODUCT,image_bytes(),use_gemini=True,
                                progress=lambda *args:events.append(args))
         self.assertTrue(any(e[0]=="reviewing_posters" for e in events))
-        self.assertFalse(any(e[0]=="ready" for e in events))
+        self.assertFalse(any(
+            e[0]=="ready" and e[1] in
+            ("poster_technical","poster_price","poster_smart")
+            for e in events))
+        # Completely independent approved formats may now be delivered.
+        self.assertTrue(any(e[0]=="rendering_formats" for e in events))
 
     @unittest.skipUnless(shutil.which("node"),"Node.js required to exercise browser UI")
     def test_browser_progress_cards_reveal_ready_png_only_once(self):

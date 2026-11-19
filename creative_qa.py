@@ -27,9 +27,12 @@ BLOCKING=set(ISSUE_CODES)
 
 def _small_jpeg(blob):
     picture=Image.open(io.BytesIO(blob)).convert("RGB")
-    picture.thumbnail((420,525),Image.Resampling.LANCZOS)
+    # 420 x 525 previews make small but legible poster copy look clipped.
+    # Review enough real pixels to distinguish cropped lettering from
+    # down-sampling artefacts, without sending the native 1200 x 1500 files.
+    picture.thumbnail((760,950),Image.Resampling.LANCZOS)
     data=io.BytesIO()
-    picture.save(data,"JPEG",quality=68,optimize=True)
+    picture.save(data,"JPEG",quality=80,optimize=True)
     return base64.b64encode(data.getvalue()).decode("ascii")
 
 

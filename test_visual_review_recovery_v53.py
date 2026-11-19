@@ -42,6 +42,9 @@ class VisualReviewRecoveryV53Tests(unittest.TestCase):
                  None,{"source":"No external photograph used","category":"hand_tools"})), \
              patch("campaign_hub.choose_best",side_effect=self.select), \
              patch("campaign_hub.render_creative_canvas",return_value=self.png), \
+             patch("campaign_hub.technical_poster",return_value=self.png), \
+             patch("campaign_hub.smart_poster",return_value=self.png), \
+             patch("campaign_hub.render_promo",return_value=self.png), \
              patch("campaign_hub.review_finished_artworks",side_effect=reviews) as vision, \
              patch("campaign_hub.check_distinctness",return_value={
                  "passed":True,"issues":[],"pairs":[]}):
@@ -68,10 +71,10 @@ class VisualReviewRecoveryV53Tests(unittest.TestCase):
                                     "poster_technical: cutoff_text"):
             self.run_campaign([
                 critic(["cutoff_text"]),critic(["cutoff_text"]),
-                critic(["cutoff_text"])])
+                critic(["cutoff_text"]),critic(["cutoff_text"])])
         self.assertEqual(
             [variant for role,variant,_ in self.seen
-             if role=="technical_application"],[1,2,0])
+             if role=="technical_application"][:3],[1,2,0])
         self.assertFalse(any(event[0]=="ready" and event[1] in POSTERS
                              for event in self.events))
 

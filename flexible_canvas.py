@@ -37,10 +37,21 @@ def _text(draw,text,rect,*,base=64,minsize=20,bold=True,maxlines=4,role="text",c
     for size in range(base,minsize-1,-2):
         rows=_wrap(draw,text,width,size,bold)
         step=round(size*1.24)
-        if len(rows)<=maxlines and step*len(rows)<=height:
+        face=font(size,"bold" if bold else "regular")
+        # Line-count * leading is not a pixel-boundary check: ascenders,
+        # descenders and glyph bearings can cross a small AI-authored zone.
+        # Measure each glyph's actual painted extents *before* drawing.
+        fits=(len(rows)<=maxlines and len(rows)*step<=height)
+        if fits:
             for j,line in enumerate(rows):
-                draw.text((x0,y0+j*step),line,font=font(size,"bold" if bold else "regular"),
-                          fill=colour)
+                left,top,right,bottom=draw.textbbox(
+                    (x0,y0+j*step),line,font=face)
+                if (left<x0 or right>x1 or top<y0 or bottom>y1):
+                    fits=False
+                    break
+        if fits:
+            for j,line in enumerate(rows):
+                draw.text((x0,y0+j*step),line,font=face,fill=colour)
             record_text(text,rect,rows,size,role)
             return
     raise ValueError("Verified copy does not fit AI-designed text zone")
@@ -95,12 +106,14 @@ def _background(scene,brief,variant):
 
 
 def render_creative_canvas(product,official_photo,concept,scene=None,
-                           distributor=None,variant=0):
+                           distributor=None,variant=0,text_safety=0):
     brief=validate_brief(concept.get("creative_canvas"),concept.get("campaign_role"))
     if not brief:
         raise ValueError("Invalid AI creative layout")
     if variant not in (0,1,2):
         raise ValueError("Unknown candidate variation")
+    if text_safety not in (0,1,2):
+        raise ValueError("Unknown text recovery level")
     image=_background(scene,brief,variant)
     accent=brief["accent"]
     d=ImageDraw.Draw(image,"RGBA")
@@ -131,18 +144,29 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
     if brief["headline_style"]=="massive":
         d.rectangle((headline[0]-9,headline[1],
                      headline[0]-3,min(headline[3],headline[1]+95)),fill=accent)
+    # Text-repair levels genuinely change typography AND its painted zone;
+    # the prior image/lighting-only retry had no effect on clipped copy.
+    inset=(0,11,20)[text_safety]
+    safe_head=(headline[0]+inset,headline[1]+inset,
+               headline[2]-inset,headline[3]-inset)
     _text(d,concept.get("headline") or product.get("title"),
-          headline,base=size,minsize=25,maxlines=5,role="headline")
+          safe_head,base=max(43,size-(0,14,26)[text_safety]),
+          minsize=23,maxlines=5,role="headline")
 
     proof=_box(zones["proof"])
     detail=concept.get("selling_point") or ""
     if detail:
         d.rectangle((proof[0],proof[1],min(proof[2],proof[0]+98),proof[1]+5),fill=accent)
-        line=(proof[0],proof[1]+16,proof[2],proof[3])
-        _text(d,detail,line,base=32,minsize=18,bold=False,maxlines=7,role="proof")
+        line=(proof[0]+inset,proof[1]+16+inset,
+              proof[2]-inset,proof[3]-inset)
+        _text(d,detail,line,base=32-(0,5,9)[text_safety],
+              minsize=18,bold=False,maxlines=7,role="proof")
     else:
+        line=(proof[0]+inset,proof[1]+inset,
+              proof[2]-inset,proof[3]-inset)
         _text(d,"Check official specifications before ordering.",
-              proof,base=28,minsize=18,bold=False,maxlines=4,role="proof")
+              line,base=28-(0,3,6)[text_safety],
+              minsize=18,bold=False,maxlines=4,role="proof")
 
     if concept.get("campaign_role")=="price_promo":
         rect=_box(zones["price"])
@@ -165,10 +189,10 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
     # Fixed source-confirmation footer (never arbitrarily created by the model).
     d=ImageDraw.Draw(image,"RGBA")
     _text(d,"LASER TOOLS  |  OFFICIAL PRODUCT PHOTOGRAPH",
-          (60,1420,1135,1457),base=23,minsize=18,maxlines=1,
+          (70,1410,1125,1448),base=23,minsize=18,maxlines=1,
           role="footer",colour="#E9F5FA")
     _text(d,"DRAFT FOR COMPANY REVIEW · VERIFY PRICE & APPLICATIONS",
-          (60,1461,1135,1492),base=17,minsize=15,maxlines=1,
+          (70,1450,1125,1482),base=17,minsize=15,maxlines=1,
           role="footer",colour="#B7D7E8")
     out=io.BytesIO()
     image.convert("RGB").save(out,"PNG",optimize=False,compress_level=3)

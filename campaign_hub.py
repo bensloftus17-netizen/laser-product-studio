@@ -549,6 +549,41 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                               scenes[index],distributor)
         return output,_geometry(tracked)
 
+    def _verified_safe_candidate(index, variant):
+        """Last-resort distinct legacy composition; still subject to full QA.
+
+        The AI's original genuine product pixels, approved factual record,
+        price and actual scene are unchanged. No template is advertised as
+        an AI-authored artboard.
+        """
+        if index==0:
+            return _role_candidate(index,technical_poster,variant)
+        if index==2:
+            return _role_candidate(index,smart_poster,variant)
+        candidate=dict(concepts[1])
+        candidate["variant"]=variant
+        visual=candidate["visual_plan"]
+        styles=(visual.get("price_style") or "panel","tag","plaque")
+        context_style={
+            "crop":((.46,.46),(.56,.55),(.42,.52))[variant],
+            "darkness":(.29,.25,.32)[variant],
+            "blur":(2.0,2.4,1.8)[variant],"colour":.82,
+        }
+        detail={}
+        output=render_promo(candidate,genuine_photo,product,distributor,editor={
+            "background":"context","_scene_bytes":scenes[1],
+            "_scene_style":context_style,"show_subline":False,
+            "price_style":styles[variant],
+            "accent":visual["accent"],
+            "product_scale":(115,105,112)[variant],
+            "product_x":visual.get("art_direction",{}).get("product_x",0),
+            "product_y":visual.get("art_direction",{}).get("product_y",0),
+            "price_position":visual.get("art_direction",{}).get("price_position","standard"),
+            "headline_size":visual.get("art_direction",{}).get("headline_size","normal"),
+            "_quality_report":detail})
+        return output,{"truncated":False,"out_of_bounds":False,
+                       "overlaps":bool(detail.get("issues"))}
+
     if creative_enabled:
         # The AI authored arbitrary composition coordinates, not template IDs.
         for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
@@ -616,100 +651,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[2]["relevance_warning"]})
         _emit("quality_checking","poster_smart")
-    _emit("reviewing_posters")
-    # Inspect actual poster pixels and diversity before producing the ZIP.
-    distinctness=check_distinctness(image_assets,concepts)
-    if creative_enabled and not distinctness["passed"]:
-        raise ValueError("AI artwork rejected for repeated compositions: "+
-                         "; ".join(distinctness["issues"]))
-    critic={"reviewed":False,"method":"legacy-layout-geometry-only",
-            "issues":{},"warning":None}
-    if creative_enabled:
-        critic=review_finished_artworks(image_assets)
-        blocking={key:codes for key,codes in critic["issues"].items() if codes}
-        if blocking:
-            # Keep the actual AI artboards and genuine manufacturer pixels.
-            # V52 retried only one variant, then failed the whole campaign with
-            # a generic message even if another bounded variant was available.
-            # Each repaired candidate still has to pass deterministic geometry
-            # checks AND a new independent visual review of the final pixels.
-            poster_ids=("poster_technical","poster_price","poster_smart")
-            original_variants={
-                key:int(quality_reports[key].get("variation",1))
-                for key in poster_ids
-            }
-            for attempt in (1,2):
-                local_rejections={}
-                for index,key in enumerate(poster_ids):
-                    if key not in blocking:
-                        continue
-                    codes=blocking[key]
-                    # Alternate scale/exposure cannot repair a genuinely bad
-                    # photo cutout, blurred manufacturer source or duplicate
-                    # layout. Never approve these by disabling the critic.
-                    if any(code in codes for code in (
-                            "white_box","white_halo","blurry_product",
-                            "duplicate_layout")):
-                        raise ValueError("AI visual review rejected "+key+
-                                         ": "+", ".join(codes)+
-                                         ". A better genuine source photo or "
-                                         "fresh creative plan is required.")
-                    alternative=(original_variants[key]+attempt)%3
-                    def _repair_candidate(variant,index=index):
-                        with capture() as tracked:
-                            payload=render_creative_canvas(
-                                product,genuine_photo,concepts[index],
-                                scenes[index],distributor,variant=variant)
-                        return payload,_geometry(tracked)
-                    try:
-                        revised,report=choose_best(
-                            _repair_candidate,ROLES[index],genuine_photo,
-                            variants=(alternative,))
-                    except ValueError as exc:
-                        # A failed local layout never replaces a previously
-                        # validated image. Try the last unused variant below.
-                        local_rejections[key]=str(exc)[:150]
-                        continue
-                    image_assets[key]=revised
-                    quality_reports[key]=report
-                    quality_reports[key]["auto_repaired"]=True
-                    quality_reports[key]["visual_repair_attempt"]=attempt
-                    quality_reports[key]["render_engine"]="ai-freeform-canvas"
-                next_review=review_finished_artworks(image_assets)
-                if not next_review["reviewed"]:
-                    raise ValueError(
-                        "AI visual re-review became unavailable after a "
-                        "rejected poster. Unapproved artwork was not released.")
-                updated={
-                    key:codes for key,codes in next_review["issues"].items()
-                    if codes
-                }
-                # A failed deterministic variant cannot be declared fixed by
-                # a second nondeterministic visual-critic response.
-                for key in local_rejections:
-                    updated.setdefault(key,blocking[key])
-                blocking=updated
-                critic=next_review
-                if not blocking:
-                    break
-            if blocking:
-                detail="; ".join(
-                    key+": "+", ".join(sorted(set(codes)))
-                    for key,codes in sorted(blocking.items()))
-                raise ValueError(
-                    "AI visual review could not approve the posters after "
-                    "two alternative layouts: "+detail+
-                    ". No unapproved artwork has been released.")
-            distinctness=check_distinctness(image_assets,concepts)
-            if not distinctness["passed"]:
-                raise ValueError("Revised artwork is not visually distinct.")
-        if critic.get("warning"):
-            warnings.append(critic["warning"])
-    # The batch critic must approve the complete poster set before ANY
-    # poster is revealed as ready. A later rejected design therefore never
-    # leaks an unreviewed intermediate poster to the user.
-    for key in ("poster_technical","poster_price","poster_smart"):
-        _emit("ready",key,image_assets[key],quality_reports[key])
+    # Format art is independently checked. Publish the six approved social,
+    # web and email graphics even if a poster's later vision review fails.
+    # This does not make a failed poster or a partial ZIP downloadable.
     _emit("rendering_formats")
     proof = marketing_strategy["proof_point"] or choose_feature(
         product, marketing_strategy["primary_focus"])
@@ -767,6 +711,141 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     if failed_formats:
         raise ValueError("Incomplete campaign; failed quality checks: "+
                          "; ".join(k+": "+reason for k,reason in failed_formats))
+    _emit("reviewing_posters")
+    # Inspect actual poster pixels and diversity before producing the ZIP.
+    distinctness=check_distinctness(image_assets,concepts)
+    if creative_enabled and not distinctness["passed"]:
+        raise ValueError("AI artwork rejected for repeated compositions: "+
+                         "; ".join(distinctness["issues"]))
+    critic={"reviewed":False,"method":"legacy-layout-geometry-only",
+            "issues":{},"warning":None}
+    if creative_enabled:
+        critic=review_finished_artworks(image_assets)
+        blocking={key:codes for key,codes in critic["issues"].items() if codes}
+        if blocking:
+            # Keep the actual AI artboards and genuine manufacturer pixels.
+            # V52 retried only one variant, then failed the whole campaign with
+            # a generic message even if another bounded variant was available.
+            # Each repaired candidate still has to pass deterministic geometry
+            # checks AND a new independent visual review of the final pixels.
+            poster_ids=("poster_technical","poster_price","poster_smart")
+            original_variants={
+                key:int(quality_reports[key].get("variation",1))
+                for key in poster_ids
+            }
+            for attempt in (1,2):
+                local_rejections={}
+                for index,key in enumerate(poster_ids):
+                    if key not in blocking:
+                        continue
+                    codes=blocking[key]
+                    # Alternate scale/exposure cannot repair a genuinely bad
+                    # photo cutout, blurred manufacturer source or duplicate
+                    # layout. Never approve these by disabling the critic.
+                    if any(code in codes for code in (
+                            "white_box","white_halo","blurry_product",
+                            "duplicate_layout")):
+                        raise ValueError("AI visual review rejected "+key+
+                                         ": "+", ".join(codes)+
+                                         ". A better genuine source photo or "
+                                         "fresh creative plan is required.")
+                    alternative=(original_variants[key]+attempt)%3
+                    def _repair_candidate(variant,index=index):
+                        with capture() as tracked:
+                            payload=render_creative_canvas(
+                                product,genuine_photo,concepts[index],
+                                scenes[index],distributor,variant=variant,
+                                text_safety=attempt)
+                        return payload,_geometry(tracked)
+                    try:
+                        revised,report=choose_best(
+                            _repair_candidate,ROLES[index],genuine_photo,
+                            variants=(alternative,))
+                    except ValueError as exc:
+                        # A failed local layout never replaces a previously
+                        # validated image. Try the last unused variant below.
+                        local_rejections[key]=str(exc)[:150]
+                        continue
+                    image_assets[key]=revised
+                    quality_reports[key]=report
+                    quality_reports[key]["auto_repaired"]=True
+                    quality_reports[key]["visual_repair_attempt"]=attempt
+                    quality_reports[key]["render_engine"]="ai-freeform-canvas"
+                next_review=review_finished_artworks(image_assets)
+                if not next_review["reviewed"]:
+                    raise ValueError(
+                        "AI visual re-review became unavailable after a "
+                        "rejected poster. Unapproved artwork was not released.")
+                updated={
+                    key:codes for key,codes in next_review["issues"].items()
+                    if codes
+                }
+                # A failed deterministic variant cannot be declared fixed by
+                # a second nondeterministic visual-critic response.
+                for key in local_rejections:
+                    updated.setdefault(key,blocking[key])
+                blocking=updated
+                critic=next_review
+                if not blocking:
+                    break
+            if blocking:
+                # Typography-safe AI rerenders might still be refused. Recover
+                # the specific failing roles with a separate, proven layout
+                # renderer rather than abandoning unrelated poster artwork.
+                # This is NOT an AI-authored design and must be labelled as such.
+                recovery={}
+                for index,key in enumerate(poster_ids):
+                    if key not in blocking:continue
+                    if any(code in blocking[key] for code in (
+                            "white_box","white_halo","blurry_product")):
+                        continue
+                    try:
+                        revised,report=choose_best(
+                            lambda variant,index=index:_verified_safe_candidate(index,variant),
+                            ROLES[index],genuine_photo,
+                            scene_relevance={"warning":
+                                scene_references[index]["relevance_warning"]})
+                    except (ValueError,OSError,RuntimeError):
+                        continue
+                    image_assets[key]=revised
+                    quality_reports[key]=report
+                    quality_reports[key]["render_engine"]="verified-safe-layout"
+                    quality_reports[key]["recovered_from_ai_visual_issue"]=list(blocking[key])
+                    recovery[key]=True
+                if recovery:
+                    safe_review=review_finished_artworks(image_assets)
+                    if not safe_review["reviewed"]:
+                        raise ValueError(
+                            "Independent visual review became unavailable for "
+                            "repaired poster artwork. No unreviewed poster was released.")
+                    critic=safe_review
+                    blocking={key:codes for key,codes in safe_review["issues"].items()
+                              if codes}
+                    if not blocking:
+                        creative_plan["render_engine"]="mixed-ai-and-verified-safe-layout"
+                        creative_plan["verified_safe_recoveries"]=list(recovery)
+                        warnings.append(
+                            "The independent AI critic rejected one or more original "
+                            "artboards. Those roles use separate verified-safe "
+                            "layouts, approved by all remaining quality checks.")
+            if blocking:
+                detail="; ".join(
+                    key+": "+", ".join(sorted(set(codes)))
+                    for key,codes in sorted(blocking.items()))
+                raise ValueError(
+                    "Poster layouts failed independent visual review after real "
+                    "text repairs and a safe layout recovery: "+detail+
+                    ". No unapproved posters have been released.")
+            distinctness=check_distinctness(image_assets,concepts)
+            if not distinctness["passed"]:
+                raise ValueError("Revised artwork is not visually distinct.")
+        if critic.get("warning"):
+            warnings.append(critic["warning"])
+    # The batch critic must approve the complete poster set before ANY
+    # poster is revealed as ready. A later rejected design therefore never
+    # leaks an unreviewed intermediate poster to the user.
+    for key in ("poster_technical","poster_price","poster_smart"):
+        _emit("ready",key,image_assets[key],quality_reports[key])
     _emit("finalising_pack")
     creative_plan["format_render_engines"]={
         key:format_reports[key]["render_engine"] for key in FORMAT_ORDER}
@@ -831,7 +910,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             {"name": concept.get("name") or FAMILIES_LABELS[index],
              "role":ROLES[index], "focus": concept["focus"],
              "third_angle":concept.get("third_angle"),
-             "layout":("AI original composition" if creative_enabled else concept["family"]),
+             "layout":("Verified-safe recovery" if quality_reports[
+                    ("poster_technical","poster_price","poster_smart")[index]
+                 ].get("render_engine")=="verified-safe-layout" else
+                 "AI original composition" if creative_enabled else concept["family"]),
              "headline": str(concept.get("headline") or ""),
              "selling_point": str(concept.get("selling_point") or "")}
             for index, concept in enumerate(concepts)

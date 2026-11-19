@@ -1,3 +1,37 @@
+## V54 — Fix the real cut-off-text failures and protect independent campaign assets
+
+A live report showed that the AI visual critic repeatedly rejected the third
+product poster for `cutoff_text`. Previous repair attempts changed only
+background lighting and photo scale, *not any words or text boundaries*.
+
+- The poster renderer now checks the **actual painted glyph extents** before
+  drawing each line, including ascenders/descenders and text-zone limits, and
+  refuses a line that does not fit.
+- When independent review flags clipped or unreadable copy, repair levels
+  now **really reflow the copy**: typography gets progressively safer, the text
+  is inset from zone edges, and the final review footer is farther from the
+  poster's lower boundary. The factual copy is preserved verbatim.
+- A persistently rejected AI artboard can be replaced for the affected role
+  only by the existing, independently quality-tested alternative renderer.
+  It still has to pass geometric asset checks, an actual independent image
+  review, and the three-poster distinctness gate. This recovery is
+  **explicitly labelled** `Verified-safe recovery` in the manifest and
+  angle report, never misrepresented as a model-authored artboard.
+- The six native social, story, website, email and landscape graphics are now
+  rendered with their **own** quality checks before the poster batch's final
+  visual critique. A failing poster can no longer hold back independently
+  approved native assets. A complete ZIP remains unavailable unless all nine
+  checks pass. No partial failure is called a complete campaign.
+- Real manufacturer pixels, verified part numbers/facts, actual RRP/VAT labels,
+  mandatory English text, no invented context photos, and human approval
+  remain essential. Known source-image defects still block approval.
+- Regression tests cover actual rendered text movement (not just mock retry
+  counts), bounds checking, safe alternative approval, six approved files
+  surviving an unrecoverable poster, and zero unapproved poster releases.
+
+No guarantee is made that Gemini's subjective image critic will always
+approve every product. Server-side user-facing reasons remain specific.
+
 ## V52 — Interface cleanup and more reliable completed campaigns
 
 This fixes two observed problems. The earlier hero image used absolute
