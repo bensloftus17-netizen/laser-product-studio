@@ -36,7 +36,7 @@ from competitor_finder import research_competitors, report_csv
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v61-copy-intent-english">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -2842,14 +2842,14 @@ def rewrite_marketing_copy(part):
             return jsonify(error='Choose a valid campaign direction.'),400
         if not isinstance(current_text,str) or not current_text.strip() or len(current_text)>5000:
             return jsonify(error='Select a draft of no more than 5,000 characters.'),400
+        audience=body.get('audience','trade')
+        if audience not in AUDIENCES:
+            return jsonify(error='Choose a valid target audience.'),400
         product,_=lookup(part,uk_url=body.get('official_url') or None)
         product=with_reviewed_price(
             product,body.get('staff_rrp_ex'),
             body.get('staff_rrp_reviewed') is True,
             body.get('staff_rrp_basis','ex'))
-        audience=body.get('audience','trade')
-        if audience not in AUDIENCES:
-            return jsonify(error='Choose a valid target audience.'),400
         rewritten=rewrite_copy(
             product,mode=mode,channel=channel,current_text=current_text,
             angle=angle,audience=audience)
