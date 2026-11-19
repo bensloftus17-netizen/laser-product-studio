@@ -100,7 +100,7 @@ V7_HOME_PAGE = r'''
  <div id="competitorStats" class="competitor-stats"></div>
  <div id="competitorResults" class="competitor-results"></div>
  <div id="competitorSources" class="competitor-sources"></div>
- <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
+ <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Used/pre-owned and new prices must not be compared as equivalent. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
 </section>
 <div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
  <span id="campaignRecoveryText">Your last campaign may still be available.</span>
@@ -1332,7 +1332,7 @@ $('campaignCopyReset').addEventListener('click',()=>{
 let competitorShownPart=null, competitorBusy=false;
 const competitorPriceLabel = item => item.price_gbp
  ? '£'+Number(item.price_gbp).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})
- : 'Not verified';
+ : item.brand==='Snap-on'?'UK price not publicly verified':'Price not verified';
 function renderCompetitorReport(result){
  const container=$('competitorResults'),stats=$('competitorStats');
  const rows=Array.isArray(result.results)?result.results:[];
@@ -1358,6 +1358,9 @@ function renderCompetitorReport(result){
       esc(item.match_status)+'</span><small>'+esc(item.match_evidence)+'</small></td>'+
      '<td><strong>'+esc(competitorPriceLabel(item))+'</strong><small>'+
       esc(item.price_gbp?vat:'No verified GBP quote')+'</small>'+
+      '<small>'+esc(item.listing_condition==='Used'?'USED / PRE-OWNED PRICE':
+        item.listing_condition==='New'?'New listing':
+        item.listing_condition==='Refurbished'?'Refurbished':'Condition not verified')+'</small>'+
       '<small>'+esc(item.seller||'')+'</small></td>'+
      '<td>'+(trusted?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">View source ↗</a>':'No verified link')+
       '<small>'+esc(item.price_source||'Price unavailable from source')+'</small></td></tr>';
