@@ -158,8 +158,17 @@ class IntelligentMarketingStrategyTests(unittest.TestCase):
         strategy = pack["manifest"]["marketing_strategy"]
         self.assertEqual(strategy["method"], "gemini-validated-choice")
         self.assertEqual(strategy["proof_point"], self.bearing["features"][1])
-        self.assertTrue(all(call.args[4] == self.bearing["features"][1]
-                            for call in native.call_args_list))
+        # V57 makes the six graphics inherit three distinct poster
+        # narratives instead of pasting one global strategy proof six times.
+        parents=pack["manifest"]["creative_plan"]["format_parent_roles"]
+        self.assertEqual(set(parents.values()),{
+            "technical_application","price_promo","product_selected"})
+        roles={a["role"]:a for a in pack["manifest"]["angles"]}
+        self.assertEqual(len(native.call_args_list),6)
+        for call in native.call_args_list:
+            kind=call.args[3]
+            expected=roles[parents[kind]]["selling_point"]
+            self.assertEqual(call.args[4],expected)
         with ZipFile(io.BytesIO(pack["archive"])) as z:
             note=z.read("05_Product_Info/Marketing_Strategy.txt").decode("utf-8")
             self.assertIn("vehicle specialists", strategy["target_audience"].lower())
