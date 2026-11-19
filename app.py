@@ -1061,21 +1061,31 @@ function renderProgressGallery(jobId,data){
  $('previewCampaignCallout').hidden=true;
  const assets=data.assets||{};
  const stage=PROGRESS_STAGE_LABELS[data.stage]||'Working on the campaign…';
+ const failed=data.status==='failed';
+ const failureReason=String(data.error||'Artwork did not pass the required checks.').slice(0,300);
  const ready=PROGRESS_FORMATS.filter(([id])=>assets[id]&&assets[id].status==='ready').length;
  $('campaignProgressCount').textContent=ready+' of 9 graphics ready';
  const elapsed=Math.max(0,Math.floor(Number(data.elapsed_seconds)||0));
  const elapsedLabel=Math.floor(elapsed/60)+'m '+String(elapsed%60).padStart(2,'0')+'s';
- $('campaignProgressStage').textContent=stage+' · '+elapsedLabel+
+ $('campaignProgressStage').textContent=failed
+   ?'Campaign stopped: '+failureReason+' · '+elapsedLabel
+   :stage+' · '+elapsedLabel+
    (ready===0&&elapsed>=120?' · No artwork has passed review yet. High-quality generation is still running on the limited server.':'');
  $('campaignProgressZip').textContent=data.status==='failed'
     ?'Full ZIP unavailable: the campaign did not pass every required check. Ready PNGs remain downloadable until the job expires.'
     :'Full ZIP preparing. Finished, quality-checked PNGs can be viewed or downloaded below.';
- $('assetWorkspaceStatus').textContent=ready+' of 9 artworks ready · '+stage;
+ $('assetWorkspaceStatus').textContent=failed
+   ?'Campaign stopped · '+ready+' of 9 approved · '+failureReason
+   :ready+' of 9 artworks ready · '+stage;
  for(const [id] of PROGRESS_FORMATS){
   const item=assets[id]||{};
-  const status=item.status||'queued';
+  // A finished, failed job must never leave queued or checking cards
+  // masquerading as if they are still working indefinitely.
+  const oldStatus=item.status||'queued';
+  const status=failed&&oldStatus!=='ready'
+    ?(oldStatus==='queued'?'skipped':'failed'):oldStatus;
   const message={queued:'Queued',rendering:'Generating',quality_checking:'Quality checking',
-    ready:'Ready · passed checks',failed:'Quality check failed'}[status]||'Queued';
+    ready:'Ready · passed checks',failed:'Not approved',skipped:'Not generated'}[status]||'Queued';
   $('progress-state-'+id).textContent=message;
   $('progress-card-'+id).dataset.status=status;
   if(status!=='ready'){
@@ -1085,8 +1095,10 @@ function renderProgressGallery(jobId,data){
      'Waiting in quality queue…'),
     rendering:'Rendering full-resolution artwork…',
     quality_checking:'Checking artwork quality…',
-    failed:'Artwork rejected by quality checks'};
-   $('progress-placeholder-'+id).textContent=context[status]||'Preparing artwork…';
+    failed:'Artwork not approved',skipped:'Campaign stopped before this graphic was made'};
+   $('progress-placeholder-'+id).textContent=status==='failed'
+     ?'Quality review stopped: '+String(item.error||failureReason).slice(0,165)
+     :(context[status]||'Preparing artwork…');
   }
   if(status==='ready'&&!progressDisplayed.has(id)){
    const url='/api/campaign/job-assets/'+encodeURIComponent(jobId)+'/'+id;
@@ -1152,6 +1164,13 @@ async function pollMobileCampaign(job_id){
    renderProgressGallery(job_id,data);
    if(data.status==='ready'&&data.manifest&&data.token)return data;
    if(data.status==='failed'){
+     // The server has confirmed a terminal failure: remove the stale
+     // "still preparing" recovery banner instead of offering a dead job.
+     const recover=getRecoverableCampaign();
+     if(recover&&recover.status==='running'&&recover.job_id===job_id){
+       try{sessionStorage.removeItem(CAMPAIGN_RESUME_KEY)}catch(ignore){}
+       updateCampaignRecovery();
+     }
      const fatal=new Error(data.error||'The server could not finish the campaign.');
      fatal.retryable=false;throw fatal;
    }
@@ -3069,6 +3088,9 @@ def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report
 def _progress_payload(job):
     return {
         'status':job['status'], 'part':job['part'],
+        # Surface the real quality-gate reason on failed jobs. Do not invent
+        # an error or expose internal exceptions for successful/running jobs.
+        'error':job.get('error') if job['status']=='failed' else None,
         'stage':job.get('stage','queued'),
         'elapsed_seconds':max(0,int(time.time()-job.get('started_at',time.time()))),
         'stage_age_seconds':max(0,int(time.time()-job.get('last_activity_at',time.time()))),
