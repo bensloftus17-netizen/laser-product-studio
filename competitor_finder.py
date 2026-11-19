@@ -475,7 +475,7 @@ def _dynamic_match(signature, candidate):
 
 
 def match_status(signature, candidate_title):
-    """Compare types conservatively; inspection camera synonyms are equivalent."""
+    """Compare broad tool families, never claim equivalent fitment/contents."""
     text = " " + re.sub(r"[^a-z0-9/ -]", " ",
                         clean_text(candidate_title, 260).lower()) + " "
     if signature["type"] == "inspection camera":
@@ -488,8 +488,24 @@ def match_status(signature, candidate_title):
                 "articulation, probe diameter, screen, imaging and accessories.")
     if signature.get("category_source")=="official-title-derived":
         return _dynamic_match(signature,candidate_title)
-    if not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
-               for word in signature["type_terms"]):
+    groups=TYPE_MATCH_GROUPS.get(signature["type"])
+    if groups:
+        if not all(any(re.search(pattern,text) for pattern in group)
+                   for group in groups):
+            return None
+    elif not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
+                 for word in signature["type_terms"]):
+        return None
+    if signature["type"]=="open end torque wrench" and not re.search(
+            r"open.end|open.jaw|crowfoot|spanner",text):
+        return ("Related torque tool — open-end function unverified",
+                "A torque wrench is a related tool class, but the open-spanner "
+                "head and working range require manufacturer confirmation.")
+    # Related products are NOT necessarily interchangeable even with the
+    # same generic English tool category. Vehicle fitments are checked below.
+    original_words=set(_tokens(signature["title"]))
+    accessory=set(_tokens(candidate_title)) & TOKEN_EXCLUSIONS
+    if accessory and not accessory.intersection(original_words):
         return None
     fitments = signature["fitments"]
     matched = [x for x in fitments if re.search(
@@ -614,37 +630,53 @@ def _parse_shopping(data, signature):
 
 
 def search_queries(signature):
-    """Brand-neutral multi-angle searches for all official product families."""
-    if signature["type"]=="inspection camera":
+    """Five varied, bounded catalogue searches for all Laser product names.
+
+    In contrast to V51, an official title contributes the *search words*,
+    while synonyms cover other makers' marketing names. Neither constitutes
+    evidence of equivalence.
+    """
+    name=signature["type"]
+    fit=" ".join(signature["fitments"][:2])
+    synonyms=TYPE_SYNONYMS.get(name,())
+    # For unknown categories extract manufacturer title vocabulary, not a
+    # hallucinated taxonomy. No Laser SKU is used as a competitor model.
+    broad=clean_text(name,95)
+    product_title=clean_text(signature["title"],105)
+    if name=="inspection camera":
         return [
-            "Snap-on BK7000 BK5500 borescope inspection camera UK price",
-            "Sealey VS8118 video borescope 5 screen price UK",
-            "Draper 92578 endoscope borescope inspection camera UK price",
+            "Snap-on BK7000 video borescope UK retailer product",
+            "Sealey video borescope camera UK seller",
+            "Draper inspection endoscope UK product",
+            "automotive videoscope inspection camera UK price",
+            "workshop borescope inspection camera alternative",
         ]
-    base=(signature["type"]+" "+" ".join(signature["fitments"][:2])).strip()
-    # An unfamiliar part should still search meaningfully, not fail taxonomy.
-    if signature.get("category_source")=="official-title-derived":
-        return [
-            base+" trade workshop product UK seller",
-            base+" alternative manufacturer equivalent UK price",
-            base+" comparable tool distributor UK",
-        ]
-    return [
-        base+" Sealey Draper UK price",
-        base+" BGS Gedore Sykes-Pickavant UK price",
-        base+" competitor alternatives UK tool",
+    queries=[
+        (broad+" "+fit+" competitor alternative tools UK").strip(),
+        ((synonyms[0] if synonyms else broad)+" "+fit+
+         " Sealey Draper BGS UK").strip(),
+        ((synonyms[1] if len(synonyms)>1 else broad)+
+         " Gedore Sykes Pickavant UK product").strip(),
+        (product_title+" alternative equivalent manufacturer").strip(),
+        ((synonyms[2] if len(synonyms)>2 else broad)+
+         " tool UK price comparison").strip(),
     ]
+    # Avoid repeated identical requests on shorter unusual tool names.
+    return list(dict.fromkeys(q[:145] for q in queries))
+
+
 
 
 def shopping_search(signature, session=requests, api_key=None):
     api_key = api_key or os.environ.get("SERPAPI_KEY","").strip()
     if not api_key:
         return [], "Google Shopping API key not configured; using keyless product-page discovery."
+    aliases=TYPE_SYNONYMS.get(signature["type"],())
     query = ("borescope endoscope inspection camera Snap-on Sealey Draper"
              if signature["type"]=="inspection camera" else
-             (signature["type"]+" "+" ".join(signature["fitments"][:2])+
-              (" UK tools" if signature.get("category_source")=="official-title-derived"
-               else " Sealey Draper BGS Gedore")).strip())
+             (" ".join([signature["type"],aliases[0] if aliases else "",
+                       " ".join(signature["fitments"][:2]),
+                       "UK Sealey Draper BGS Gedore"]).strip()))
     # Query synonyms are researched, not manufacturer fitment assertions.
     response = session.get(SHOPPING_HOST,params={
         "engine":"google_shopping","q":query,
@@ -680,23 +712,27 @@ def _parse_rss(content):
 
 def rss_search(signature,session=requests):
     queries=search_queries(signature)
-    results = []
-    errors = []
-    for q in queries:
+    def fetch(query):
         try:
-            response = session.get(SEARCH_HOST,params={
-                "q":q,"format":"rss","mkt":"en-GB",
+            response=session.get(SEARCH_HOST,params={
+                "q":query,"format":"rss","mkt":"en-GB",
             },timeout=7,allow_redirects=False,headers={
                 "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
             response.raise_for_status()
             if response.status_code != 200:
                 raise ValueError("Search provider redirected")
-            results += _parse_rss(response.content)
+            return _parse_rss(response.content),None
         except (requests.RequestException,ValueError,ET.ParseError) as exc:
-            errors.append(type(exc).__name__)
-    if errors and not results:
+            return [],type(exc).__name__
+    # Independent public searches run concurrently to avoid multiple 7s
+    # serial timeouts on free hosting. Results preserve input query ordering.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        responses=list(pool.map(fetch,queries))
+    rows=[row for hits,_ in responses for row in hits]
+    errors=[error for _,error in responses if error]
+    if errors and not rows:
         raise RuntimeError("Public web search is temporarily unavailable.")
-    return results,errors
+    return rows,errors
 
 
 def _jsonld_nodes(data):
@@ -882,31 +918,36 @@ def keyless_discovery(signature,session=requests):
         if key in found_urls:
             continue
         found_urls.add(key)
-        if len(found_urls)>MAX_PAGES:
+        if len(found_urls)>=MAX_PAGES:
             break
+    # Querying 18 individual product pages sequentially could exhaust the
+    # hosting request timeout. Parallelise page fetches, never redirects.
+    candidates=list(found_urls)
+    indexed_titles={r["url"]:r for r in hits}
+    def inspect(url):
         try:
-            item=_get_product_page(url,signature,session)
-            if item:
-                found.append(item)
-            else:
-                # An RSS index title is a research LEAD, not verified
-                # manufacturer-page content. Never attach a price or
-                # assume manufacturer SKU if the page could not be read.
-                indexed=next((r for r in hits if r["url"]==url),None)
-                if indexed:
-                    lead=_build_result(indexed["title"],url,signature)
-                    if lead:
-                        lead["price_gbp"]=None
-                        lead["price_source"]=None
-                        lead["part_number"]=None
-                        lead["source_type"]="unverified search-index title"
-                        lead["match_status"]="Search lead — verify manufacturer page"
-                        lead["match_evidence"]=(
-                            "Search engine indexed a similarly named product; "
-                            "the original product page could not be verified.")
-                        found.append(lead)
+            verified=_get_product_page(url,signature,session)
+            if verified:return verified
+            row=indexed_titles.get(url)
+            if row:
+                lead=_build_result(row["title"],url,signature)
+                if lead:
+                    lead["price_gbp"]=None
+                    lead["price_source"]=None
+                    lead["part_number"]=None
+                    lead["image_url"]=None
+                    lead["image_source"]=None
+                    lead["source_type"]="unverified search-index title"
+                    lead["match_status"]="Search lead — verify manufacturer page"
+                    lead["match_evidence"]=(
+                        "Search engine indexed a similarly named product; "
+                        "the original product page could not be verified.")
+                    return lead
         except (requests.RequestException,ValueError,OSError):
-            continue
+            return None
+        return None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        found.extend(item for item in pool.map(inspect,candidates) if item)
     warning=(" ".join(warnings) if warnings else None)
     return found,warning
 
