@@ -212,6 +212,11 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
              and value in allowed and value not in used),None
         ) if isinstance(chosen,list) else None
         fact=chosen_fact or _pick_proof(product,role,third,used)
+        if not fact:
+            # Keep the source-derived marketing roles distinct even when
+            # the category ranker had no preferred fact for one angle.
+            fact=next((item for item in _verified_facts(product)
+                       if item not in used),None)
         if fact:used.add(fact)
         variation,seed=_variation(product,role,category)
         model_art=proposed_art[role].get("art_direction") if isinstance(
