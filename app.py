@@ -1453,7 +1453,7 @@ $('campaignBtn').addEventListener('click',async()=>{
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
  const recover=getRecoverableCampaign();
- if(recover&&recover.part===part){
+ if(recover&&recover.part===part&&recover.status==='running'){
    // Never start a duplicate expensive AI job for the same part when this
    // tab can recover the existing one. Avoid needless HTTP 429s.
    await resumeLastMobileCampaign();
