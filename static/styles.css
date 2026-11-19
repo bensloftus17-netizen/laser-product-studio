@@ -1107,3 +1107,171 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .competitor-launch-button{width:100%}
  .competitor-launch>span{max-width:none}
 }
+
+
+/* V52: keep UI content strictly OUT of the hero product-image column.
+   Previous fixed max-width:780px let the competitor table/status and
+   long buttons flow underneath the absolutely positioned photograph. */
+.studio-main .searchpanel{isolation:isolate}
+.studio-main .searchpanel>.studio-hero-art{
+ right:0;width:28%;z-index:0;box-sizing:border-box;
+}
+.studio-main .searchpanel>:not(.studio-hero-art){
+ box-sizing:border-box;min-width:0;overflow-wrap:anywhere;
+}
+@media(min-width:1181px){
+ .studio-main .searchpanel>:not(.studio-hero-art){
+   position:relative;z-index:2;
+   width:calc(72% - 27px);max-width:calc(72% - 27px);
+ }
+ .studio-main .searchpanel .campaign-settings[open]{
+   width:calc(72% - 27px);max-width:calc(72% - 27px);
+ }
+ .studio-main .searchpanel>.studio-hero-art{width:28%}
+}
+@media(max-width:1180px){
+ .studio-main .searchpanel>.studio-hero-art{display:none!important}
+ .studio-main .searchpanel>:not(.studio-hero-art){
+   width:100%;max-width:100%;box-sizing:border-box;
+ }
+ .studio-main .searchpanel .campaign-settings[open]{
+   width:100%;max-width:100%;
+ }
+}
+.studio-main .searchpanel .lookup-heading,
+.studio-main .searchpanel .lookup-heading>div,
+.studio-main .searchpanel #searchForm,
+.studio-main .searchpanel #searchForm .searchrow,
+.studio-main .searchpanel .competitor-launch,
+.studio-main .searchpanel #competitorPanel,
+.studio-main .searchpanel #campaignStatus,
+.studio-main .searchpanel #campaignRecovery,
+.studio-main .searchpanel .campaign-settings{
+ overflow-wrap:anywhere;min-width:0;box-sizing:border-box;
+}
+.studio-main .searchpanel .lookup-heading h2{max-width:100%;overflow-wrap:break-word}
+.studio-main .searchpanel .searchrow input{min-width:0;width:100%}
+.studio-main .searchpanel .campaign-start{
+ white-space:normal;overflow-wrap:anywhere;min-width:155px;
+}
+.studio-main .searchpanel #competitorPanel{
+ overflow:hidden;min-width:0;
+}
+.competitor-panel-heading>div{min-width:0;flex:1 1 250px}
+.competitor-panel-heading h3{overflow-wrap:anywhere;line-height:1.25}
+.competitor-launch>span{flex:1 1 200px;min-width:0;max-width:none;color:#dcecfb}
+.competitor-panel .competitor-table-scroll{max-width:100%;overflow-x:auto}
+.competitor-table td{overflow-wrap:anywhere}
+@media(min-width:731px) and (max-width:1050px){
+ .studio-main .searchpanel .searchrow{flex-wrap:wrap}
+ .studio-main .searchpanel .searchrow input{flex:1 1 220px}
+ .studio-main .searchpanel .campaign-start{flex:1 1 180px}
+}
+@media(max-width:730px){
+ .studio-main .searchpanel{padding:22px 17px 20px}
+ .studio-main .searchpanel .searchrow{align-items:stretch}
+ .studio-main .searchpanel .campaign-start{
+    width:100%;max-width:100%;white-space:normal;
+ }
+ .studio-main .searchpanel .competitor-launch{
+    align-items:stretch;flex-direction:column;gap:9px;
+ }
+ .studio-main .searchpanel .competitor-launch>span{
+    flex:0 1 auto;max-width:100%;font-size:12px;line-height:1.5;
+ }
+}
+.studio-main .workspace-heading>*,
+.studio-main .campaign-results-heading>*,
+.studio-main .campaign-angle-cards>*,
+.studio-main .campaign-asset-grid>*,
+.studio-main .campaign-progress-grid>*{min-width:0}
+.studio-main .campaign-results-heading{align-items:start;flex-wrap:wrap;gap:12px}
+.studio-main .campaign-results-heading h3,
+.studio-main .campaign-angle b,
+.studio-main .campaign-asset b,
+.studio-main .campaign-progress-card>b{
+ overflow-wrap:anywhere;word-break:normal;line-height:1.4;
+ white-space:normal;
+}
+.asset-workspace .campaign-asset-grid{
+ grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));
+}
+.asset-workspace .campaign-asset{
+ display:flex;flex-direction:column;min-width:0;
+}
+.asset-workspace .campaign-asset>a{
+ display:block;min-width:0;aspect-ratio:5/4;
+}
+.asset-workspace .campaign-asset img{
+ width:100%;height:100%;object-fit:contain;max-height:260px;
+}
+.asset-workspace .campaign-asset .campaign-asset-actions{
+ display:flex;flex-direction:column;align-items:stretch;gap:7px;
+ margin-top:auto;padding-top:10px;
+}
+.asset-workspace .campaign-asset .campaign-asset-actions>a,
+.asset-workspace .campaign-asset .campaign-asset-actions>button{
+ white-space:normal;overflow-wrap:anywhere;min-width:0;
+ line-height:1.45;text-align:center;
+}
+.copy-workspace .ai-copy-design-tabs button,
+.copy-workspace .ai-copy-channels button,
+.quickbar-actions a,.quickbar-actions button{
+ white-space:normal;overflow-wrap:anywhere;line-height:1.4;
+}
+@media(max-width:730px){
+ .studio-main .campaign-progress-grid,
+ .asset-workspace .campaign-asset-grid{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr));
+ }
+ .studio-main .campaign-progress-card,
+ .studio-main .campaign-asset{min-width:0}
+}
+@media(max-width:450px){
+ .studio-main .campaign-progress-grid,
+ .asset-workspace .campaign-asset-grid{
+  grid-template-columns:minmax(0,1fr);
+ }
+}
+
+
+/* V52 navigation and visual hierarchy polish */
+.studio-topbar{min-width:0;box-sizing:border-box}
+.studio-brand{min-width:0;flex:0 1 auto}
+.studio-top-links{
+ flex:1 1 auto;min-width:0;overflow-x:auto;overflow-y:hidden;
+ scrollbar-width:thin;scrollbar-color:#497caa transparent;
+}
+.studio-top-links a{min-width:0;flex:0 0 auto}
+.studio-pilot-tag{flex:0 0 auto;max-width:180px;text-align:right}
+.studio-main .searchpanel .campaign-feedback{
+ font-size:12px;line-height:1.55;overflow-wrap:anywhere;
+}
+.studio-main .searchpanel .campaign-settings>summary{
+ white-space:normal;overflow-wrap:anywhere;line-height:1.5;
+}
+.asset-workspace .campaign-results-heading .campaign-download-choice{
+ min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:7px;
+}
+.asset-workspace .campaign-results-heading .campaign-download-choice>*{
+ max-width:100%;overflow-wrap:anywhere;white-space:normal;
+}
+.asset-workspace .campaign-angle-cards{
+ grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+}
+.asset-workspace .campaign-angle{min-width:0}
+.asset-workspace .campaign-angle p,
+.asset-workspace .campaign-angle small,
+.asset-workspace .campaign-quality{
+ overflow-wrap:anywhere;white-space:normal;
+}
+.studio-main .studio-quickbar>*{min-width:0}
+.studio-main .quickbar-item small{overflow-wrap:anywhere}
+.studio-main a:focus-visible,.studio-main button:focus-visible,
+.studio-main input:focus-visible{
+ outline:3px solid #55aeec;outline-offset:2px;
+}
+@media(max-width:1100px){
+ .studio-main .quickbar-actions{flex-wrap:wrap}
+ .studio-top-links{justify-content:flex-start}
+}

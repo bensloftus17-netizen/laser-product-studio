@@ -36,7 +36,7 @@ from competitor_finder import research_competitors, report_csv
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v49-competitors">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -192,7 +192,7 @@ V7_HOME_PAGE = r'''
  <small class="share-app-targets">WhatsApp · Instagram · Facebook</small>
  <a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a>
  <button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button>
- <small>Nothing downloads automatically. Sharing is optional too.</small>
+ <small>Nothing downloads automatically. Sharing is optional too. Save the ZIP to keep it permanently; server copies are temporary.</small>
  </div></div>
 <section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
  <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
@@ -852,6 +852,17 @@ function renderCampaignGallery(data){
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
   '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
   (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
+ // Reuse already fetched, QA-approved image bytes. Load every remaining PNG
+ // promptly so lazy thumbnails cannot fail after the server token expires.
+ if(campaignLocalJob){
+  for(const asset of m.images){
+   if(campaignLocalPNGs.has(asset.id)){
+    applyLocalCampaignPNG(asset.id,campaignLocalPNGs.get(asset.id));
+   }else{
+    retainVerifiedCampaignPNG(campaignLocalJob,asset.id,campaignAssetUrl(asset.id));
+   }
+  }
+ }
 
  $('previews').hidden=true;
  $('previewCampaignCallout').hidden=true;
@@ -871,7 +882,7 @@ $('campaignAssets').addEventListener('error',event=>{
  if(!card)return;
  const state=card.querySelector('[data-load-state]');
  const retry=card.querySelector('[data-retry-asset]');
- if(state)state.textContent='Preview did not load. The full ZIP may still be available.';
+ if(state)state.textContent='Preview could not load. Temporary server links may expire after a restart. Reopen the campaign or try again.';
  if(retry)retry.hidden=false;
 },true);
 $('campaignAssets').addEventListener('click',event=>{
@@ -888,6 +899,115 @@ $('campaignAssets').addEventListener('click',event=>{
 });
 
 
+
+// V52: keep a verified PNG copy in this browser tab. Once a render server
+// restarts or a short-lived token expires, already-loaded artwork should not
+// disappear when the user scrolls the gallery. No source/QA is bypassed.
+const campaignLocalPNGs=new Map();
+const campaignLocalPending=new Map();
+let campaignLocalJob=null;
+let campaignLocalZIP=null;
+function useCampaignLocalJob(jobId){
+ if(campaignLocalJob===jobId)return;
+ if(typeof URL!=='undefined'&&typeof URL.revokeObjectURL==='function'){
+  for(const local of campaignLocalPNGs.values()){
+   try{URL.revokeObjectURL(local)}catch(e){}
+  }
+ }
+ if(campaignLocalZIP&&typeof URL!=='undefined'&&typeof URL.revokeObjectURL==='function'){
+  try{URL.revokeObjectURL(campaignLocalZIP.url)}catch(e){}
+ }
+ campaignLocalZIP=null;
+ campaignLocalJob=jobId;
+ campaignLocalPNGs.clear();
+ campaignLocalPending.clear();
+}
+function applyLocalCampaignPNG(id,localUrl){
+ const image=$('progress-img-'+id),open=$('progress-open-'+id),
+       save=$('progress-save-'+id);
+ if(image&&image.closest('.campaign-progress-card')){
+  image.src=localUrl;image.hidden=false;
+  if(open){open.href=localUrl;open.hidden=false}
+  if(save){save.href=localUrl;save.hidden=false}
+ }
+ if(typeof document==='undefined')return;
+ const card=document.querySelector('[data-asset-card="'+id+'"]');
+ if(card&&campaignData&&campaignData.token){
+  const img=card.querySelector('img'),link=card.querySelector('a[aria-label]'),
+        download=card.querySelector('.campaign-save-image'),
+        share=card.querySelector('button[data-share-url]');
+  if(img)img.src=localUrl;
+  if(link)link.href=localUrl;
+  if(download)download.href=localUrl;
+  if(share)share.dataset.shareUrl=localUrl;
+  const state=card.querySelector('[data-load-state]');
+  if(state)state.textContent='Preview safely loaded in this tab';
+  const retry=card.querySelector('[data-retry-asset]');
+  if(retry)retry.hidden=true;
+ }
+ if(id==='social_square'&&$('campaignShareSocial')&&campaignData){
+  $('campaignShareSocial').dataset.shareUrl=localUrl;
+ }
+}
+function retainVerifiedCampaignPNG(jobId,id,remoteUrl){
+ // Existing tests and older browsers still use normal image URLs. Cache is
+ // an enhancement: failure never causes a new AI generation or a fake image.
+ if(typeof fetch!=='function'||typeof URL==='undefined'||
+    typeof URL.createObjectURL!=='function'||campaignLocalJob!==jobId)return;
+ if(campaignLocalPNGs.has(id)){
+  applyLocalCampaignPNG(id,campaignLocalPNGs.get(id));
+  return;
+ }
+ if(campaignLocalPending.has(id))return;
+ const task=fetch(remoteUrl,{cache:'no-store',headers:{Accept:'image/png'}})
+  .then(response=>{
+   if(!response.ok)throw Error('Preview temporarily unavailable');
+   return response.blob();
+  }).then(blob=>{
+   if(blob.type!=='image/png'||blob.size<12)throw Error('Invalid verified PNG');
+   if(campaignLocalJob!==jobId)return;
+   const local=URL.createObjectURL(blob);
+   campaignLocalPNGs.set(id,local);
+   applyLocalCampaignPNG(id,local);
+  }).catch(()=>{
+   // The gallery's normal retry control can request the image again.
+   // Do not show expired links as successfully cached.
+  }).finally(()=>{
+   if(campaignLocalJob===jobId)campaignLocalPending.delete(id);
+  });
+ campaignLocalPending.set(id,task);
+}
+function retainCompletedCampaignZIP(jobId,token,part){
+ if(typeof fetch!=='function'||typeof URL==='undefined'||
+    typeof URL.createObjectURL!=='function'||campaignLocalJob!==jobId)return;
+ if(campaignLocalZIP&&campaignLocalZIP.token===token)return;
+ const remote='/api/campaign/download/'+encodeURIComponent(token);
+ // Fetch only when ALL nine assets have passed QA and server has a finished
+ // ZIP. This is a temporary local browser-tab copy, not a server substitute.
+ fetch(remote,{cache:'no-store',headers:{Accept:'application/zip'}})
+  .then(response=>{
+   if(!response.ok)throw Error('Temporary ZIP unavailable');
+   return response.blob();
+  }).then(async blob=>{
+   if(blob.size<22||campaignLocalJob!==jobId)return;
+   const head=new Uint8Array(await blob.slice(0,4).arrayBuffer());
+   if(head[0]!==80||head[1]!==75||![3,5,7].includes(head[2]))
+     throw Error('The server did not return a valid ZIP');
+   const local=URL.createObjectURL(blob);
+   campaignLocalZIP={token,url:local};
+   const link=$('campaignDownload'),share=$('campaignShareZip');
+   if(link)link.href=local;
+   if(share)share.dataset.shareUrl=local;
+   const status=$('campaignStatus');
+   if(status&&/complete|ready|generated/i.test(status.textContent)&&
+      !status.textContent.includes('retained in this tab')){
+     status.textContent+=' Full ZIP retained in this tab until closed.';
+   }
+  }).catch(()=>{
+   // User can still download from the original server URL while valid.
+   // No automatic ZIP download or quality bypass occurs.
+  });
+}
 
 // A progressive campaign is not a lower-quality draft. Artwork appears ONLY
 // after the server's normal source, layout, image, and critic gates succeed.
@@ -921,6 +1041,7 @@ function renderProgressGallery(jobId,data){
  const section=$('campaignProgress');
  if(progressJobShown!==jobId){
   progressJobShown=jobId;
+  useCampaignLocalJob(jobId);
   progressDisplayed.clear();
   $('campaignProgressGrid').innerHTML=PROGRESS_FORMATS.map(([id,label])=>
    '<article class="campaign-progress-card" id="progress-card-'+id+'">'+
@@ -975,6 +1096,7 @@ function renderProgressGallery(jobId,data){
    save.href=url+'?download=1';save.hidden=false;
    $('progress-placeholder-'+id).hidden=true;
    progressDisplayed.add(id);
+   retainVerifiedCampaignPNG(jobId,id,url);
   }
   if(status==='failed'&&item.error){
    $('progress-state-'+id).title=String(item.error).slice(0,150);
@@ -989,7 +1111,7 @@ const CAMPAIGN_RESUME_KEY='laser-campaign-resume-v47';
 function getRecoverableCampaign(){
  try{
   const state=JSON.parse(sessionStorage.getItem(CAMPAIGN_RESUME_KEY)||'null');
-  if(!state||Date.now()-state.savedAt>14*60*1000)return null;
+  if(!state||Date.now()-state.savedAt>45*60*1000)return null;
   if(state.status==='running'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.job_id))return state;
   if(state.status==='ready'&&/^[A-Za-z0-9_-]{24,64}$/.test(state.token))return state;
  }catch(error){}
@@ -1018,21 +1140,40 @@ function rememberFinishedCampaign(data){
  updateCampaignRecovery();
 }
 async function pollMobileCampaign(job_id){
- // A finished campaign is looked up by a short-lived job ID, not regenerated.
- // Normal tab suspension pauses JS polling but does not cancel server work.
+ // Job polling is read-only. Retry network interruptions, never re-run
+ // image generation or drop already quality-approved previews.
+ let transientFailures=0;
  for(let attempt=0;attempt<250;attempt++){
-  const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
-                             {cache:'no-store',headers:{Accept:'application/json'}});
-  const data=await readApiJson(response);
-  renderProgressGallery(job_id,data);
-  if(data.status==='ready'&&data.manifest&&data.token)return data;
-  if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
-  $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+(PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+
-   ' · '+Math.floor((Number(data.elapsed_seconds)||0)/60)+' minutes elapsed. Finished PNGs appear as soon as they pass quality checks.';
-  // Lower status traffic while the small Render instance is doing heavy artwork work.
+  try{
+   const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
+                              {cache:'no-store',headers:{Accept:'application/json'}});
+   const data=await readApiJson(response);
+   transientFailures=0;
+   renderProgressGallery(job_id,data);
+   if(data.status==='ready'&&data.manifest&&data.token)return data;
+   if(data.status==='failed'){
+     const fatal=new Error(data.error||'The server could not finish the campaign.');
+     fatal.retryable=false;throw fatal;
+   }
+   $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+
+      (PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+
+      ' · '+Math.floor((Number(data.elapsed_seconds)||0)/60)+' minutes elapsed. '+
+      'Finished PNGs appear as soon as they pass quality checks.';
+  }catch(error){
+   const transient=error instanceof TypeError||error?.retryable===true||
+      /network|connection|failed to fetch|temporarily unavailable|timed out/i.test(String(error?.message||''));
+   if(!transient)throw error;
+   transientFailures++;
+   if(transientFailures>=12){
+     throw Error('Connection interrupted repeatedly. The campaign may still be running. Use Reopen Campaign to check its status without regenerating artwork.');
+   }
+   $('campaignStatus').textContent='Connection interrupted while checking progress ('+
+       transientFailures+'/12). Retrying automatically; the AI job continues on the server.';
+  }
+  // Reduce status traffic on free hosting, including during network recovery.
   await new Promise(resolve=>setTimeout(resolve,4500));
  }
- throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
+ throw Error('Your campaign may still be processing. Use Reopen Campaign to check it again.');
 }
 async function resumeLastMobileCampaign(){
  const state=getRecoverableCampaign();
@@ -1055,7 +1196,7 @@ async function resumeLastMobileCampaign(){
   $('campaignStatus').textContent='Recovered your complete campaign. Scroll through the artwork and use Download complete ZIP for every format.';
  }catch(error){
   $('campaignStatus').textContent=error.message||'Could not reopen the last campaign.';
-  if(!String(error.message||'').toLowerCase().includes('still processing')){
+  if(!/still processing|may still be|connection interrupted|temporarily unavailable|retry/i.test(String(error.message||''))){
    try{sessionStorage.removeItem(CAMPAIGN_RESUME_KEY);}catch(e){}
   }
  }finally{
@@ -1128,10 +1269,12 @@ function showCampaign(data){
  const socialButton=$('campaignShareSocial');
  preparedShareFiles.delete(socialButton);
  delete socialButton.dataset.shareLoading;
- socialButton.dataset.shareUrl=socialAsset?campaignAssetUrl('social_square'):'';
+ socialButton.dataset.shareUrl=socialAsset
+    ?(campaignLocalPNGs.get('social_square')||campaignAssetUrl('social_square')):'';
  socialButton.dataset.shareFilename='LASER_'+m.part+'_Social.png';
  socialButton.hidden=!socialAsset;
  if(socialAsset)prepareShareButtons($('campaignResults'));
+ if(campaignLocalJob)retainCompletedCampaignZIP(campaignLocalJob,data.token,m.part);
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
   (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
@@ -1429,10 +1572,49 @@ $('part').addEventListener('input',()=>{
  }
 });
 
+// Free Render only runs one high-resolution job at a time. Do not turn a
+// temporary HTTP 429 into an apparent failed image generation: queue the
+// browser's start attempts with visible status, without rerunning AI.
+async function startFullQualityCampaign(part,body){
+ for(let attempt=0;attempt<7;attempt++){
+  let response;
+  try{
+   response=await fetch('/api/campaign/start/'+encodeURIComponent(part),{
+     method:'POST',headers:{'Content-Type':'application/json',
+                            'Accept':'application/json'},
+     body:JSON.stringify(body)
+   });
+  }catch(error){
+   if(!(error instanceof TypeError)||attempt===6)throw error;
+   $('campaignStatus').textContent='The server connection is interrupted. Retrying your campaign request…';
+   await new Promise(resolve=>setTimeout(resolve,7000));
+   continue;
+  }
+  if(response.status===429){
+   const seconds=Math.min(45,Math.max(8,parseInt(
+       response.headers.get('Retry-After')||'15',10)||15));
+   $('campaignStatus').textContent='Another full-quality campaign is being prepared. '+
+      'Your campaign has not started yet; the website will retry automatically ('+
+      (attempt+1)+'/7). No artwork quality settings are reduced.';
+   await new Promise(resolve=>setTimeout(resolve,seconds*1000));
+   continue;
+  }
+  return await readApiJson(response);
+ }
+ throw Error('The server is still preparing another campaign. Please retry later; no new AI generation was started.');
+}
+
 $('campaignBtn').addEventListener('click',async()=>{
  if(inflight)return;
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
+ const recover=getRecoverableCampaign();
+ if(recover&&recover.part===part&&recover.status==='running'){
+   // Never start a duplicate expensive AI job for the same part when this
+   // tab can recover the existing one. Avoid needless HTTP 429s.
+   await resumeLastMobileCampaign();
+   return;
+ }
  const rawPrice=$('staffRrp').value.trim();
  // Capture staff review before lookup: load() resets inputs during first search.
  const reviewedPrice=$('staffReview').checked,reviewedBasis=$('staffRrpBasis').value;
@@ -1454,15 +1636,14 @@ $('campaignBtn').addEventListener('click',async()=>{
    $('previews').hidden=true;
    $('previewCampaignCallout').hidden=true;
    $('assetWorkspaceStatus').textContent='Preparing 9 high-quality graphics. Each will appear once it passes QA.';
-   const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
-     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-     body:JSON.stringify(body)}));
+   const started=await startFullQualityCampaign(part,body);
    rememberMobileJob(started.job_id,part);
    renderProgressGallery(started.job_id,{status:'queued',stage:'queued'});
+   $('studioWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
    const data=await pollMobileCampaign(started.job_id);
    rememberFinishedCampaign(data);
    showCampaign(data);
-   $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links expire after 15 minutes.';
+   $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links are temporary (up to 45 minutes while this server remains running). Download the ZIP to keep them.';
  }catch(error){
    $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
      ' The three basic previews are not a complete AI campaign.';
@@ -2761,7 +2942,7 @@ def edit_ai_promo(part):
 # from downloading other distributor drafts; expiry bounds memory on free Render.
 CAMPAIGN_PACKS = {}
 CAMPAIGN_PACK_LOCK = threading.Lock()
-CAMPAIGN_PACK_TTL = 15 * 60
+CAMPAIGN_PACK_TTL = 45 * 60
 
 
 def _get_campaign_pack(token):
@@ -2846,7 +3027,7 @@ def one_click_campaign(part):
 # GET poll / Resume action without requiring the browser to hold a request.
 CAMPAIGN_JOBS={}
 CAMPAIGN_JOBS_LOCK=threading.Lock()
-CAMPAIGN_JOB_TTL=20*60
+CAMPAIGN_JOB_TTL=55*60
 # Nine independent campaign artwork files, excluding the optional QR code.
 from campaign_hub import FOLDERS as CAMPAIGN_ARTWORK
 PROGRESS_ASSETS=tuple(CAMPAIGN_ARTWORK)
