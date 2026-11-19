@@ -628,33 +628,78 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         critic=review_finished_artworks(image_assets)
         blocking={key:codes for key,codes in critic["issues"].items() if codes}
         if blocking:
-            # One bounded repair: adjust scene exposure and genuine-tool scale,
-            # never repaint product pixels or fabricate information.
-            for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
-                if key not in blocking:continue
-                if any(code in blocking[key] for code in
-                       ("white_box","white_halo","blurry_product","duplicate_layout")):
-                    raise ValueError("AI visual review rejected "+key+": "+
-                                     ", ".join(blocking[key]))
-                old_variant=quality_reports[key].get("variation",1)
-                alternative=(old_variant+1)%3
-                def _repair_candidate(variant,index=index):
-                    with capture() as tracked:
-                        payload=render_creative_canvas(
-                            product,genuine_photo,concepts[index],scenes[index],
-                            distributor,variant=variant)
-                    return payload,_geometry(tracked)
-                image_assets[key],quality_reports[key]=choose_best(
-                    _repair_candidate,ROLES[index],genuine_photo,
-                    variants=(alternative,))
-                quality_reports[key]["auto_repaired"]=True
-                quality_reports[key]["render_engine"]="ai-freeform-canvas"
-            critique_retry=review_finished_artworks(image_assets)
-            if critique_retry["reviewed"] and any(
-                    critique_retry["issues"].get(key) for key in blocking):
-                raise ValueError("Revised AI poster still fails visual review; "
-                                 "regenerate or supply better source images.")
-            critic=critique_retry
+            # Keep the actual AI artboards and genuine manufacturer pixels.
+            # V52 retried only one variant, then failed the whole campaign with
+            # a generic message even if another bounded variant was available.
+            # Each repaired candidate still has to pass deterministic geometry
+            # checks AND a new independent visual review of the final pixels.
+            poster_ids=("poster_technical","poster_price","poster_smart")
+            original_variants={
+                key:int(quality_reports[key].get("variation",1))
+                for key in poster_ids
+            }
+            for attempt in (1,2):
+                local_rejections={}
+                for index,key in enumerate(poster_ids):
+                    if key not in blocking:
+                        continue
+                    codes=blocking[key]
+                    # Alternate scale/exposure cannot repair a genuinely bad
+                    # photo cutout, blurred manufacturer source or duplicate
+                    # layout. Never approve these by disabling the critic.
+                    if any(code in codes for code in (
+                            "white_box","white_halo","blurry_product",
+                            "duplicate_layout")):
+                        raise ValueError("AI visual review rejected "+key+
+                                         ": "+", ".join(codes)+
+                                         ". A better genuine source photo or "
+                                         "fresh creative plan is required.")
+                    alternative=(original_variants[key]+attempt)%3
+                    def _repair_candidate(variant,index=index):
+                        with capture() as tracked:
+                            payload=render_creative_canvas(
+                                product,genuine_photo,concepts[index],
+                                scenes[index],distributor,variant=variant)
+                        return payload,_geometry(tracked)
+                    try:
+                        revised,report=choose_best(
+                            _repair_candidate,ROLES[index],genuine_photo,
+                            variants=(alternative,))
+                    except ValueError as exc:
+                        # A failed local layout never replaces a previously
+                        # validated image. Try the last unused variant below.
+                        local_rejections[key]=str(exc)[:150]
+                        continue
+                    image_assets[key]=revised
+                    quality_reports[key]=report
+                    quality_reports[key]["auto_repaired"]=True
+                    quality_reports[key]["visual_repair_attempt"]=attempt
+                    quality_reports[key]["render_engine"]="ai-freeform-canvas"
+                next_review=review_finished_artworks(image_assets)
+                if not next_review["reviewed"]:
+                    raise ValueError(
+                        "AI visual re-review became unavailable after a "
+                        "rejected poster. Unapproved artwork was not released.")
+                updated={
+                    key:codes for key,codes in next_review["issues"].items()
+                    if codes
+                }
+                # A failed deterministic variant cannot be declared fixed by
+                # a second nondeterministic visual-critic response.
+                for key in local_rejections:
+                    updated.setdefault(key,blocking[key])
+                blocking=updated
+                critic=next_review
+                if not blocking:
+                    break
+            if blocking:
+                detail="; ".join(
+                    key+": "+", ".join(sorted(set(codes)))
+                    for key,codes in sorted(blocking.items()))
+                raise ValueError(
+                    "AI visual review could not approve the posters after "
+                    "two alternative layouts: "+detail+
+                    ". No unapproved artwork has been released.")
             distinctness=check_distinctness(image_assets,concepts)
             if not distinctness["passed"]:
                 raise ValueError("Revised artwork is not visually distinct.")
