@@ -121,7 +121,10 @@ def _role_art_direction(image,brief,role):
     product=_box(brief["zones"]["product"])
     cx=(product[0]+product[2])//2
     cy=(product[1]+product[3])//2
-    if role=="technical_application":
+    mode=brief.get("composition_mode") or (
+        "engineering-precision" if role=="technical_application" else
+        "commercial-impact" if role=="price_promo" else "hero-spotlight")
+    if mode=="engineering-precision":
         # Technical engineering precision: photo-context and measured rails.
         for y in range(245,1330,84):
             d.line((65,y,110,y),fill=(*accent,78),width=3)
@@ -132,7 +135,7 @@ def _role_art_direction(image,brief,role):
             d.arc((cx-270-offset//2,cy-270-offset//2,
                    cx+270+offset//2,cy+270+offset//2),
                   28,300,fill=(*accent,38),width=3)
-    elif role=="price_promo":
+    elif mode=="commercial-impact":
         # Commercial energy: sweeping geometry, rather than technical grid.
         d.polygon(((0,830),(W,335),(W,615),(0,1120)),
                   fill=(*accent,49))
@@ -141,7 +144,7 @@ def _role_art_direction(image,brief,role):
         d.line(((0,1120),(W,620)),fill=(*accent,120),width=9)
         d.ellipse((cx-290,cy-290,cx+290,cy+290),
                   outline=(*accent,64),width=10)
-    elif role=="product_selected":
+    elif mode=="hero-spotlight":
         # Product / premium: a bold centrepiece with quieter circular depth.
         for radius,alpha,width in ((440,43,8),(356,47,5),(275,51,3)):
             d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),
@@ -149,6 +152,20 @@ def _role_art_direction(image,brief,role):
         d.polygon(((W-250,182),(W,182),(W,1160),(W-90,1120)),
                   fill=(*accent,35))
         d.line((75,1325,W-75,1325),fill=(*accent,99),width=5)
+    elif mode=="minimal-editorial":
+        # Quieter, premium negative space: fine offset lines, not the grid.
+        d.polygon(((0,185),(W//5,185),(W//3,1390),(0,1390)),
+                  fill=(*accent,25))
+        d.line((W-90,220,W-90,1310),fill=(*accent,85),width=5)
+        d.line((W-130,250,W-130,1290),fill=(*accent,35),width=3)
+    elif mode=="workshop-motion":
+        # A brand-safe energetic workshop treatment without fictional parts.
+        for shift,alpha in ((-230,50),(-30,60),(170,41)):
+            d.polygon(((shift,400),(shift+290,400),
+                       (shift+1050,1180),(shift+760,1180)),
+                      fill=(*accent,alpha))
+        d.arc((cx-330,cy-330,cx+330,cy+330),
+              0,290,fill=(*accent,90),width=6)
     return Image.alpha_composite(image,layer)
 
 
