@@ -202,7 +202,7 @@ function el(k){
   dataset:{},href:'',src:'',title:''};
  return els[k];
 }
-const ctx={$:el,Set,encodeURIComponent};
+const ctx={$:el,Set,encodeURIComponent,retainVerifiedCampaignPNG:()=>{}};
 vm.createContext(ctx);
 vm.runInContext(SOURCE,ctx);
 const assets={poster_technical:{status:'ready'},
