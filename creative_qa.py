@@ -94,3 +94,56 @@ def review_finished_artworks(images):
                 "issues":{},"warning":"AI visual critic could not complete: "+
                                      type(exc).__name__+
                                      ". Image geometry and source QA were still checked."}
+
+
+def reconcile_with_measured_geometry(visual, quality_reports):
+    """Do not let a fallible image model overrule objective font/hero metrics.
+
+    Text clipping is checked at render time against the actual glyph bbox,
+    safe areas and collisions. Product prominence is checked with the
+    placed, genuine cutout's actual bounds. A model sometimes confuses a
+    narrow tool with a tiny one, or misreads dense legal/footer text as
+    clipping. Resolve ONLY those two measurable claims, and ONLY when the
+    corresponding deterministic inspection is present and passing.
+
+    White-box, white-halo, blur, clutter, unrelated backgrounds, duplicate
+    compositions and other visual observations are NEVER silently cleared.
+    """
+    if not visual.get("reviewed"):
+        return visual
+    issues=visual.get("issues")
+    if not isinstance(issues,dict):
+        return visual
+    preserved={}
+    disputed={}
+    for role in POSTERS:
+        reported=issues.get(role) or []
+        report=(quality_reports or {}).get(role) or {}
+        remaining=[]
+        contradicted=[]
+        for issue in reported:
+            if (issue=="cutoff_text"
+                    and report.get("passed") is True
+                    and report.get("text_bounds_verified") is True):
+                contradicted.append(issue)
+            elif (issue=="tiny_product"
+                  and report.get("passed") is True
+                  and report.get("product_bounds_verified") is True
+                  and isinstance(report.get("product_visible_fraction"),(float,int))
+                  and report["product_visible_fraction"] >= .08):
+                contradicted.append(issue)
+            else:
+                remaining.append(issue)
+        preserved[role]=remaining
+        if contradicted:
+            disputed[role]=contradicted
+    outcome=dict(visual)
+    outcome["issues"]=preserved
+    outcome["geometry_disagreements"]=disputed
+    if disputed:
+        message=("Visual model disagreed with measurable font/product placement "
+                 "checks; those two issue types were resolved by independently "
+                 "recorded geometry. All other quality gates remain active. "
+                 "Review final artwork before publishing.")
+        outcome["warning"]="; ".join(filter(None,(visual.get("warning"),message)))
+    return outcome

@@ -111,6 +111,16 @@ def visual_review(data:bytes,role:str,*,source_info=None,text_status=None):
         "warnings":list(dict.fromkeys(warnings)),
         "white_fraction":round(white_fraction,4),
         "contrast":round(colour_range,2),
+        # These are gathered from the actual finished Pillow render, never
+        # inferred from the independent AI's aesthetic judgement.
+        "text_bounds_verified":bool(
+            status.get("text_bounds_verified") and
+            not status.get("truncated") and
+            not status.get("out_of_bounds") and
+            not status.get("overlaps") and
+            not status.get("missing_headline")),
+        "product_bounds_verified":bool(status.get("product_bounds_verified")),
+        "product_visible_fraction":status.get("product_visible_fraction"),
         "criteria":["dimensions","large_white_areas","scene_contrast",
                     "text_safe_area","headline_presence","product_hero_area",
                     "manufacturer_cutout_confidence"],

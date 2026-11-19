@@ -35,7 +35,7 @@ from creative_director import distinct_briefs
 from flexible_canvas import render_creative_canvas
 from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
-from creative_qa import review_finished_artworks
+from creative_qa import review_finished_artworks, reconcile_with_measured_geometry
 from format_creative import (FORMAT_ORDER, validate_format_canvas,
                              generate_format,quality_check_safe_native)
 from product_evidence_ranker import verified_candidates
@@ -521,7 +521,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     # All candidates reuse the same verified product pixels and scene sources.
     from poster_quality import capture
 
-    def _geometry(tracked):
+    def _geometry(tracked, *, measured_text=False):
         from poster_quality import _overlap
         texts=[t for t in tracked.texts if str(t.get("text") or "").strip()]
         main=[t for t in texts if t.get("role")=="headline"]
@@ -541,6 +541,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 or t["box"][3]>1500 for t in texts),
             "overlaps": overlaps,
             "missing_headline":not main,
+            # Only the freeform renderer has measured each *painted glyph*.
+            # Do not grant legacy/price-fallback layouts this proof.
+            "text_bounds_verified":bool(measured_text and texts and main),
+            "product_bounds_verified":bool(
+                tracked.products and all(p.get("isolated") for p in tracked.products)),
             "product_visible_fraction":max(
                 (p.get("visible_fraction",0) for p in tracked.products),
                 default=None),
@@ -598,7 +603,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     poster=render_creative_canvas(
                         product,genuine_photo,concepts[index],scenes[index],
                         distributor,variant=variant)
-                return poster,_geometry(tracked)
+                return poster,_geometry(tracked,measured_text=True)
             image_assets[key],quality_reports[key]=choose_best(
                 _creative_candidate,ROLES[index],genuine_photo,
                 preferred_variant=1,
@@ -755,7 +760,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     critic={"reviewed":False,"method":"legacy-layout-geometry-only",
             "issues":{},"warning":None}
     if creative_enabled:
-        critic=review_finished_artworks(image_assets)
+        critic=reconcile_with_measured_geometry(
+            review_finished_artworks(image_assets),quality_reports)
         blocking={key:codes for key,codes in critic["issues"].items() if codes}
         if blocking:
             # Keep the actual AI artboards and genuine manufacturer pixels.
@@ -791,7 +797,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                                 product,genuine_photo,concepts[index],
                                 scenes[index],distributor,variant=variant,
                                 text_safety=attempt)
-                        return payload,_geometry(tracked)
+                        return payload,_geometry(tracked,measured_text=True)
                     try:
                         revised,report=choose_best(
                             _repair_candidate,ROLES[index],genuine_photo,
@@ -806,7 +812,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     quality_reports[key]["auto_repaired"]=True
                     quality_reports[key]["visual_repair_attempt"]=attempt
                     quality_reports[key]["render_engine"]="ai-freeform-canvas"
-                next_review=review_finished_artworks(image_assets)
+                next_review=reconcile_with_measured_geometry(
+                    review_finished_artworks(image_assets),quality_reports)
                 if not next_review["reviewed"]:
                     raise ValueError(
                         "AI visual re-review became unavailable after a "
@@ -848,7 +855,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     quality_reports[key]["recovered_from_ai_visual_issue"]=list(blocking[key])
                     recovery[key]=True
                 if recovery:
-                    safe_review=review_finished_artworks(image_assets)
+                    safe_review=reconcile_with_measured_geometry(
+                        review_finished_artworks(image_assets),quality_reports)
                     if not safe_review["reviewed"]:
                         raise ValueError(
                             "Independent visual review became unavailable for "
@@ -931,7 +939,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "product_photo_quality":asset_report,
         "creative_critic":{
             "method":critic["method"],"reviewed":critic["reviewed"],
-            "issues":critic["issues"],"warning":critic["warning"]},
+            "issues":critic["issues"],"warning":critic["warning"],
+            "geometry_disagreements":critic.get("geometry_disagreements",{})},
         "campaign_distinctness":distinctness,
         "scene_photography": scene_references,
         "poster_editor":{

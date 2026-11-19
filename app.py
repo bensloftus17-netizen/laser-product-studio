@@ -1254,6 +1254,13 @@ function showCampaign(data){
    $('campaignQuality').textContent+=' · '+(vision.reviewed
       ?'Independent AI review of finished posters completed.'
       :'AI visual review unavailable; deterministic QA applied.');
+   const disagreements=Object.entries(vision.geometry_disagreements||{});
+   if(disagreements.length){
+      $('campaignQuality').textContent+=' · Manual artwork inspection recommended: '+
+       disagreements.map(([role,codes])=>role.replace('poster_','')+' ('+
+        codes.join(', ')+')').join('; ')+
+       ' raised by the visual model but contradicted by measured render data.';
+   }
  }
  const formatChecks=m.format_artwork_quality||{};
  const nativeKinds=['social_square','social_story','website_banner','email_header','linkedin_graphic','landscape_ad'];
