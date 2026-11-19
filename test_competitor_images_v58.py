@@ -165,10 +165,14 @@ class RichCompetitorCoverageTests(unittest.TestCase):
                         "part":part,"title":laser,"features":[],
                         "source":"https://www.toolconnection.co.uk/products/"
                                  +part},session=fixture,enable_ai=False)
-                self.assertEqual(result["count"],1,result)
+                # The 9197 lamp now also returns source-attributed official
+                # manufacturer search leads when their current pages block
+                # the server. They are not source-checked image/price claims.
+                self.assertGreaterEqual(result["count"],1,result)
                 self.assertEqual(result["images_found"],1,result)
-                self.assertEqual(result["product_links_found"],1,result)
-                row=result["results"][0]
+                self.assertEqual(result["product_links_found"],result["count"],result)
+                row=next(r for r in result["results"]
+                         if r["url"]==product_url(part))
                 self.assertEqual(row["url"],product_url(part))
                 self.assertEqual(row["image_url"],IMAGE)
                 self.assertEqual(row["price_gbp"],"124.95")
