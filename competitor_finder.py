@@ -249,7 +249,8 @@ def candidate_sku(title, brand, explicit=None):
 
 
 def _build_result(title, url, signature, *, brand=None, sku=None,
-                  seller=None, price=None, price_origin=None, vat=None):
+                  seller=None, price=None, price_origin=None, vat=None,
+                  listing_condition=None):
     title = clean_text(title, 230)
     if len(title) < 8 or not safe_url(url, allow_google=True):
         return None
@@ -266,6 +267,8 @@ def _build_result(title, url, signature, *, brand=None, sku=None,
             urlparse(url).hostname.replace("www.", ""),95),
         "price_gbp":value,"vat_basis":vat if vat in ("inc","ex") else "unknown",
         "price_source":price_origin if value else None,
+        "listing_condition":listing_condition if listing_condition in
+            ("New","Used","Refurbished") else "Unconfirmed",
         "match_status":match[0],"match_evidence":match[1],
         "url":url,"source_type":"shopping" if price_origin=="Google Shopping listing"
               else "retailer/manufacturer page",
@@ -294,7 +297,11 @@ def _parse_shopping(data, signature):
         result = _build_result(
             title,url,signature,brand=row.get("brand"),seller=row.get("source"),
             sku=row.get("model") or row.get("sku"),
-            price=price,price_origin="Google Shopping listing")
+            price=price,price_origin="Google Shopping listing",
+            listing_condition=("Used" if str(row.get("condition","")).lower() in
+                               ("used","second hand","pre-owned")
+                               else "New" if str(row.get("condition","")).lower()=="new"
+                               else None))
         if result:
             found.append(result)
     return found
@@ -426,12 +433,58 @@ def _schema_price(node):
     return None
 
 
+def _merchant_visible_price(soup, url):
+    """Very limited, host-specific *visible* live price evidence.
+
+    Never interpret "was", "RRP" or postage as the current price. Other
+    merchants must publish GBP JSON-LD Offer data; do not OCR or guess.
+    """
+    host=(urlparse(url).hostname or "").lower().removeprefix("www.")
+    text=clean_text(soup.get_text(" ",strip=True),100000)
+    specs=(
+        # Workshopping: "Our Price £240.16 (inc VAT) £200.13 (ex VAT)"
+        ("workshopping.co.uk",r"\bOur Price\s*£\s*([0-9,.]+)\s*\(inc VAT\)","inc"),
+        ("mymotorworld.com",r"\bGuest Price\s*£\s*([0-9,.]+)","unknown"),
+        ("ebay.co.uk",r"£\s*([0-9,.]+)\s+or Best Offer","unknown"),
+    )
+    for domain,pattern,vat in specs:
+        if host==domain or host.endswith("."+domain):
+            match=re.search(pattern,text,re.IGNORECASE)
+            if match:
+                amount=price_from_raw(match.group(1))
+                if amount:
+                    return amount,vat,"Visible UK retailer product price"
+    return None,"unknown",None
+
+
+def _listing_condition(soup, node=None):
+    words=[]
+    if isinstance(node,dict):
+        offers=node.get("offers")
+        values=offers if isinstance(offers,list) else [offers]
+        for offer in values:
+            if isinstance(offer,dict):
+                words.append(str(offer.get("itemCondition","")))
+        words.append(str(node.get("itemCondition","")))
+    candidate=" ".join(words).lower()
+    if "usedcondition" in candidate or "refurbishedcondition" in candidate:
+        return "Used" if "usedcondition" in candidate else "Refurbished"
+    if "newcondition" in candidate:
+        return "New"
+    host_condition=soup.get_text(" ",strip=True)[:16000]
+    if re.search(r"\bCondition:\s*(?:Used|Pre[- ]owned)\b",host_condition,re.I):
+        return "Used"
+    return None
+
+
 def parse_product_page(content, url, signature):
-    """Claim a SKU and GBP price only from matching product JSON-LD."""
+    """Source-derived product name and exact GBP offer, never fictitious RRP."""
     if len(content)>1100000:
         return None
     soup=BeautifulSoup(content,"html.parser")
     title=clean_text(soup.title.get_text(" ",strip=True) if soup.title else "",220)
+    headings=[clean_text(tag.get_text(" ",strip=True),220)
+              for tag in soup.select("h1")[:3]]
     rows=[]
     for tag in soup.select('script[type="application/ld+json"]')[:16]:
         try:
@@ -445,19 +498,27 @@ def parse_product_page(content, url, signature):
             brand=_schema_brand(node)
             sku=node.get("sku") or node.get("mpn")
             price=_schema_price(node)
-            # Prefer name from product markup over generic shop page headings.
             result=_build_result(name,url,signature,
                 brand=brand,sku=sku,price=price,
                 price_origin="Retailer JSON-LD product offer",
-                seller=urlparse(url).hostname)
+                seller=urlparse(url).hostname,
+                listing_condition=_listing_condition(soup,node))
             if result:
                 rows.append(result)
     if rows:
-        # Only source-derived verified product names, SKUs, prices are shown.
         return max(rows,key=lambda r:bool(r["price_gbp"]))
-    # When the seller does not provide structured Product metadata, the
-    # listing title can suggest a similar tool but no price or SKU is proved.
-    return _build_result(title,url,signature)
+    # Manufacturer pages with genuine product heading and UK merchant
+    # listings may not publish JSON-LD. Only a known explicit current-price
+    # label on a supported merchant is accepted, never a generic pound sign
+    # or an old RRP.
+    candidate=next((x for x in headings+[title]
+                    if _build_result(x,url,signature)),None)
+    if not candidate:
+        return None
+    visible_price,vat,origin=_merchant_visible_price(soup,url)
+    return _build_result(candidate,url,signature,price=visible_price,
+                         vat=vat,price_origin=origin,
+                         listing_condition=_listing_condition(soup))
 
 
 def _get_product_page(url, signature,session=requests):
