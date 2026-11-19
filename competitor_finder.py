@@ -314,7 +314,7 @@ def safe_image_url(image_url, page_url):
             parsed.username is None and parsed.password is None and
             (parsed.port is None or parsed.port==443) and
             len(value)<=1400 and
-            not re.search(r"[\\r\\n\\x00-\\x1f]",value) and
+            not re.search(r"[\r\n\x00-\x1f]",value) and
             not re.search(r"(?:^|[/_-])(?:logo|favicon)(?:[./_-]|$)",path) and
             not path.endswith((".svg",".gif",".pdf"))
         ) else None
