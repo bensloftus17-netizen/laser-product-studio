@@ -906,6 +906,7 @@ $('campaignAssets').addEventListener('click',event=>{
 const campaignLocalPNGs=new Map();
 const campaignLocalPending=new Map();
 let campaignLocalJob=null;
+let campaignLocalZIP=null;
 function useCampaignLocalJob(jobId){
  if(campaignLocalJob===jobId)return;
  if(typeof URL!=='undefined'&&typeof URL.revokeObjectURL==='function'){
@@ -913,6 +914,10 @@ function useCampaignLocalJob(jobId){
    try{URL.revokeObjectURL(local)}catch(e){}
   }
  }
+ if(campaignLocalZIP&&typeof URL!=='undefined'&&typeof URL.revokeObjectURL==='function'){
+  try{URL.revokeObjectURL(campaignLocalZIP.url)}catch(e){}
+ }
+ campaignLocalZIP=null;
  campaignLocalJob=jobId;
  campaignLocalPNGs.clear();
  campaignLocalPending.clear();
@@ -971,6 +976,34 @@ function retainVerifiedCampaignPNG(jobId,id,remoteUrl){
    if(campaignLocalJob===jobId)campaignLocalPending.delete(id);
   });
  campaignLocalPending.set(id,task);
+}
+function retainCompletedCampaignZIP(jobId,token,part){
+ if(typeof fetch!=='function'||typeof URL==='undefined'||
+    typeof URL.createObjectURL!=='function'||campaignLocalJob!==jobId)return;
+ if(campaignLocalZIP&&campaignLocalZIP.token===token)return;
+ const remote='/api/campaign/download/'+encodeURIComponent(token);
+ // Fetch only when ALL nine assets have passed QA and server has a finished
+ // ZIP. This is a temporary local browser-tab copy, not a server substitute.
+ fetch(remote,{cache:'no-store',headers:{Accept:'application/zip'}})
+  .then(response=>{
+   if(!response.ok)throw Error('Temporary ZIP unavailable');
+   return response.blob();
+  }).then(blob=>{
+   if(blob.size<22||campaignLocalJob!==jobId)return;
+   const local=URL.createObjectURL(blob);
+   campaignLocalZIP={token,url:local};
+   const link=$('campaignDownload'),share=$('campaignShareZip');
+   if(link)link.href=local;
+   if(share)share.dataset.shareUrl=local;
+   const status=$('campaignStatus');
+   if(status&&/complete|ready|generated/i.test(status.textContent)&&
+      !status.textContent.includes('retained in this tab')){
+     status.textContent+=' Full ZIP retained in this tab until closed.';
+   }
+  }).catch(()=>{
+   // User can still download from the original server URL while valid.
+   // No automatic ZIP download or quality bypass occurs.
+  });
 }
 
 // A progressive campaign is not a lower-quality draft. Artwork appears ONLY
@@ -1238,6 +1271,7 @@ function showCampaign(data){
  socialButton.dataset.shareFilename='LASER_'+m.part+'_Social.png';
  socialButton.hidden=!socialAsset;
  if(socialAsset)prepareShareButtons($('campaignResults'));
+ if(campaignLocalJob)retainCompletedCampaignZIP(campaignLocalJob,data.token,m.part);
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
   (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
