@@ -847,8 +847,26 @@ function renderCampaignGallery(data){
  const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
  social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
  email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
+ const angleByRole=Object.fromEntries((m.angles||[]).map(a=>[a.role,a]));
+ const posterRoles={poster_technical:'technical_application',poster_price:'price_promo',poster_smart:'product_selected'};
+ function creativeAssetDetails(asset){
+   if(posterRoles[asset.id]){
+     const a=angleByRole[posterRoles[asset.id]]||{};
+     return 'Angle: '+posterRoles[asset.id].replaceAll('_',' ')+' · Creative family: '+
+       String(a.creative_family||'source-verified layout').replaceAll('_',' ')+
+       ' · Headline: '+String(a.headline_strategy||'product')+
+       ' · Proof: '+String(a.proof_strategy||'verified');
+   }
+   const report=(m.format_artwork_quality||{})[asset.id];
+   if(!report)return '';
+   return 'Parent: '+String(report.parent_role||'source verified').replaceAll('_',' ')+
+     ' · Style: '+String(report.creative_family||'source-verified').replaceAll('_',' ')+
+     ' · '+(report.render_engine==='ai-original-format-canvas'
+       ?'AI native composition': 'Verified fallback layout');
+ }
  $('campaignAssets').innerHTML=m.images.map((asset,index)=>
-  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="'+(index<3?'eager':'lazy')+'" decoding="async" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><small class="campaign-asset-load" data-load-state>Loading preview…</small><button class="campaign-asset-retry" type="button" data-retry-asset="'+esc(asset.id)+'" hidden>Retry image</button><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small>'+
+  '<article class="campaign-asset" data-asset-card="'+esc(asset.id)+'"><a href="'+campaignAssetUrl(asset.id)+'" target="_blank" rel="noopener noreferrer" aria-label="Open '+esc(names[asset.id]||asset.id)+'"><img loading="'+(index<3?'eager':'lazy')+'" decoding="async" src="'+campaignAssetUrl(asset.id)+'" alt="'+esc(names[asset.id]||asset.id)+'"></a><small class="campaign-asset-load" data-load-state>Loading preview…</small><button class="campaign-asset-retry" type="button" data-retry-asset="'+esc(asset.id)+'" hidden>Retry image</button><b>'+esc(names[asset.id]||asset.id)+'</b><small>'+esc(asset.path)+'</small><small class="campaign-creative-meta">'+
+  esc(creativeAssetDetails(asset))+'</small>'+
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
   '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
   (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
@@ -1307,7 +1325,10 @@ function showCampaign(data){
  if(campaignLocalJob)retainCompletedCampaignZIP(campaignLocalJob,data.token,m.part);
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
-  (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
+  (angle.role==='product_selected'?' · PRODUCT-SELECTED':'')+'</span><b>'+esc(angle.headline)+'</b><small>Layout: '+esc(angle.layout||'product-specific')+
+  ' · Family: '+esc(String(angle.creative_family||'verified').replaceAll('_',' '))+
+  ' · Headline strategy: '+esc(angle.headline_strategy||'product')+
+  ' · Proof strategy: '+esc(angle.proof_strategy||'verified')+'</small><p>'+esc(angle.selling_point)+'</p></div>').join('');
  prepareShareButtons($('campaignResults'));
  const social=m.social_suggestions||{};
  const frames=Array.isArray(social.instagram_story)?social.instagram_story:[];
