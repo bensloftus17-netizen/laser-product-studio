@@ -23,6 +23,7 @@ from promo_scene_library import classify_product
 from promo_selling_points import choose_feature
 from promo_art_direction import normalise_art_direction
 from creative_director import validate_brief
+from creative_families import sanitize_contract,source_supported_headline
 from product_evidence_ranker import choose_verified_fact, verified_candidates
 
 ROLES = ("technical_application", "price_promo", "product_selected")
@@ -196,6 +197,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
     }
     role_focus=("application","price",THIRD_ANGLES[third][1])
     used=set()
+    used_headlines=set()
     planned=[]
     scenes=[]
     for i,role in enumerate(ROLES):
@@ -224,9 +226,28 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
             for extra in _verified_facts(product):
                 if extra!=fact and len(facts)<3:facts.append(extra)
         title=_headline(product,role,third,fact)
+        # Gemini proposes copy, but the server only accepts vocabulary backed
+        # by the exact manufacturer product title, description or official
+        # specs. Factual wording is never invented to add apparent variety.
+        suggested=source_supported_headline(proposed.get("headline"),product)
+        if suggested:
+            title=suggested
+        if title.casefold() in used_headlines:
+            # Avoid a repeated hero headline by selecting a different COMPLETE
+            # official selling point; never silently truncate the feature.
+            alternatives=[
+                str(x).strip() for x in ([fact]+_verified_facts(product))
+                if isinstance(x,str) and x.strip() and len(x.strip())<=74
+            ]
+            title=next((x for x in alternatives if x.casefold() not in used_headlines),title)
+        used_headlines.add(title.casefold())
         role_label=POSTER_LABELS[i] if i<2 else THIRD_ANGLES[third][0]
         raw_canvas=proposed_art[role].get("creative_canvas") if isinstance(proposed_art[role],dict) else None
         canvas=validate_brief(raw_canvas,role)
+        proposed_direction=(proposed.get("creative_direction") or
+                            raw_canvas or {})
+        direction=sanitize_contract(proposed_direction,role,
+                                    family=(canvas or {}).get("creative_family"))
         concept={
             "id":i,"family":family_map[i],"variant":variation,
             "focus":role_focus[i],
@@ -235,6 +256,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                            "PRODUCT-SPECIFIC / "+THIRD_ANGLES[third][0].upper()),
             "campaign_role":role,
             "creative_canvas":canvas,
+            "creative_direction":direction,
             "third_angle":third if i==2 else None,
             "name":role_label,
             "headline":title,
@@ -242,7 +264,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
             "angle":role_label+" using verified manufacturer information",
             "features":([] if role=="price_promo" else facts),
             "selling_point":fact,
-            "copy_direction":{"tone":"professional",
+            "copy_direction":{"tone":direction["copy_tone"],
                               "hook":"application" if i==0 else "product" if i==1 else "feature",
                               "cta":"specifications" if i==0 else "enquire"},
             "part":str(product.get("part") or ""),"title":str(product.get("title") or ""),
@@ -256,6 +278,11 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                 "photo_focus":art["photo_focus"] if model_art else ("right","left","centre")[variation],
                 "art_direction":art,
                 "preferred_variant":variation,
+                "creative_family":direction["creative_family"],
+                "headline_strategy":direction["headline_strategy"],
+                "proof_strategy":direction["proof_strategy"],
+                "hero_emphasis":direction["hero_emphasis"],
+                "price_emphasis":direction["price_emphasis"],
                 "creative_source":("gemini-freeform-canvas" if canvas else
                     "gemini-bounded-art-direction" if model_art else "category-aware-composition"),
                 "purpose":role_label,
