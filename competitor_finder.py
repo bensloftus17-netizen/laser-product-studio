@@ -276,7 +276,10 @@ def shopping_search(signature, session=requests, api_key=None):
 def _parse_rss(content):
     if len(content) > 750000:
         raise ValueError("Web-search feed exceeded size limits")
-    root = ET.fromstring(content)
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise ValueError("Search provider returned malformed RSS") from exc
     if root.tag.lower() != "rss" and not root.tag.lower().endswith("rss"):
         raise ValueError("Search did not return a valid RSS feed")
     result = []
