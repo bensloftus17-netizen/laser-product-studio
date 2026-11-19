@@ -26,7 +26,7 @@ SEARCH_HOST = "https://www.bing.com/search"
 SHOPPING_HOST = "https://serpapi.com/search.json"
 TTL_SECONDS = 20 * 60
 MAX_RESULTS = 12
-MAX_PAGES = 4
+MAX_PAGES = 8
 # Pages are retrieved only from these publicly accessible established brands
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
@@ -114,6 +114,8 @@ INSPECTION_CAMERA_SEEDS = (
     "https://www.sealey.co.uk/video-borescope-5-5mm-camera-dual-lens-5-screen-vs8118/",
     "https://workshopping.co.uk/products/automotive-service-tools/sealey-vs8118-video-borescope-55mm-camera-dual-lens-5-screen",
     "https://www.lawson-his.co.uk/draper-92578-bspg100-rechargeable-pistol-grip-boroscope",
+    "https://www.mymotorworld.com/draper-expert-rechargeable-pistol-grip-borescope",
+    "https://www.ebay.co.uk/itm/127057347158",
 )
 CACHE = {}
 CACHE_LOCK = threading.Lock()
@@ -298,15 +300,32 @@ def _parse_shopping(data, signature):
     return found
 
 
+def search_queries(signature):
+    """Alternative brand/type synonyms, not literal source-title matching."""
+    if signature["type"]=="inspection camera":
+        return [
+            "Snap-on BK7000 BK5500 borescope inspection camera UK price",
+            "Sealey VS8118 video borescope 5 screen price UK",
+            "Draper 92578 endoscope borescope inspection camera UK price",
+        ]
+    base=signature["type"]+" "+" ".join(signature["fitments"][:2])
+    return [
+        base+" Sealey Draper UK price",
+        base+" BGS Gedore Sykes-Pickavant UK price",
+    ]
+
+
 def shopping_search(signature, session=requests, api_key=None):
     api_key = api_key or os.environ.get("SERPAPI_KEY","").strip()
     if not api_key:
         return [], "Google Shopping API key not configured; using keyless product-page discovery."
-    query = signature["type"] + " " + " ".join(signature["fitments"][:2])
-    # Source tokens are manufacturer-confirmed. Generic search results are
-    # never treated as a verified direct competitor without title matching.
+    query = ("borescope endoscope inspection camera Snap-on Sealey Draper"
+             if signature["type"]=="inspection camera" else
+             signature["type"]+" "+" ".join(signature["fitments"][:2])+
+             " Sealey Draper BGS Gedore")
+    # Query synonyms are researched, not manufacturer fitment assertions.
     response = session.get(SHOPPING_HOST,params={
-        "engine":"google_shopping","q":query+" Sealey Draper BGS Gedore",
+        "engine":"google_shopping","q":query,
         "gl":"uk","hl":"en","google_domain":"google.co.uk",
         "api_key":api_key,"num":40
     },timeout=12,allow_redirects=False)
@@ -338,9 +357,7 @@ def _parse_rss(content):
 
 
 def rss_search(signature,session=requests):
-    terms = signature["type"] + " " + " ".join(signature["fitments"][:2])
-    queries = [terms+" Sealey Draper BGS equivalent",
-               terms+" Gedore Sykes-Pickavant KS Tools buy UK"]
+    queries=search_queries(signature)
     results = []
     errors = []
     for q in queries:
@@ -456,28 +473,43 @@ def _get_product_page(url, signature,session=requests):
 
 
 def keyless_discovery(signature,session=requests):
-    hits,feed_errors=rss_search(signature,session)
+    """Supplement unreliable web search with source-verified catalogue leads.
+
+    A seed is a *URL to inspect*, never a fabricated product, brand, price or
+    technical specification. Every returned price comes from the live page.
+    """
     found=[]
-    dedup=set()
-    for row in hits:
-        url=row["url"]
-        if not safe_url(url):
+    found_urls=set()
+    warnings=[]
+    urls=[]
+    if signature["type"]=="inspection camera":
+        urls.extend(INSPECTION_CAMERA_SEEDS)
+    try:
+        hits,feed_errors=rss_search(signature,session)
+        urls.extend(row["url"] for row in hits)
+        if feed_errors:
+            warnings.append("Some public search requests failed; results may be incomplete.")
+    except (requests.RequestException,ValueError,RuntimeError) as exc:
+        # Do not throw out a verified source simply because a free RSS search
+        # provider has blocked or changed its feed.
+        hits=[]
+        warnings.append("Public search provider unavailable; checked approved catalogue leads.")
+    for url in urls:
+        if not safe_url(url) or urlparse(url).path in ("","/"):
             continue
-        if urlparse(url).path in ("","/"):
+        key=url.lower().split("#",1)[0]
+        if key in found_urls:
             continue
-        if url.lower() in dedup:
-            continue
-        dedup.add(url.lower())
-        if len(dedup)>MAX_PAGES:
+        found_urls.add(key)
+        if len(found_urls)>MAX_PAGES:
             break
         try:
             item=_get_product_page(url,signature,session)
             if item:
                 found.append(item)
-        except (requests.RequestException,ValueError):
+        except (requests.RequestException,ValueError,OSError):
             continue
-    warning=("Some public web-search requests failed; results may be incomplete."
-             if feed_errors else None)
+    warning=(" ".join(warnings) if warnings else None)
     return found,warning
 
 
