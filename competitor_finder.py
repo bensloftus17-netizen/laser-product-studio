@@ -162,8 +162,10 @@ CATEGORY_SEEDS={
         "https://www.sealey.co.uk/front-wheel-bearing-gen2-removal-installation-kit-72mm-audi-seat-skoda-vw-vs7029/",
     ),
     "under bonnet light":(
-        "https://www.sealey.co.uk/under-bonnet-rechargeable-light-13w-smd-led-led139/",
+        # Official manufacturer product pages verified by public research.
+        "https://www.sealey.co.uk/rechargeable-flexible-under-bonnet-light-10w-cob-led-led142/",
         "https://www.sealey.co.uk/under-bonnet-rechargeable-light-9w-smd-led-led141/",
+        "https://www.drapertools.com/product/65391/draper-expert-50-smd-led-under-bonnet-rechargeable-inspection-lamp-50w-2000-lumens-usb-c-charger-supplied/",
     ),
     "ratchet set":(
         "https://www.sealey.co.uk/premier-pear-head-ratchet-wrench-set-with-flip-reverse-3pc-ak6672/",
@@ -181,6 +183,18 @@ CATEGORY_SEEDS={
     "injector return flow tester":(
         "https://www.sealey.co.uk/diesel-injector-flow-common-rail-test-kit-vs2046/",
     ),
+}
+
+# Published manufacturer product pages verified 2026-11-19. These are indexed
+# research leads only, NOT a substitute for fetching today's live page, image,
+# price, stock, specification, or product fitment.
+CURATED_CATALOGUE_LEADS={
+    "https://www.sealey.co.uk/rechargeable-flexible-under-bonnet-light-10w-cob-led-led142/":
+        "Sealey Rechargeable Flexible Under-Bonnet Light 10W COB LED LED142",
+    "https://www.sealey.co.uk/under-bonnet-rechargeable-light-9w-smd-led-led141/":
+        "Sealey Under-Bonnet Rechargeable Light 9W SMD LED LED141",
+    "https://www.drapertools.com/product/65391/draper-expert-50-smd-led-under-bonnet-rechargeable-inspection-lamp-50w-2000-lumens-usb-c-charger-supplied/":
+        "Draper Expert 50 SMD LED Under Bonnet Rechargeable Inspection Lamp 65391",
 }
 
 # Product photographs must be attributable to a real listing. Image hosts
@@ -440,6 +454,12 @@ def tool_signature(product):
     if _is_inspection_camera(title) or _is_inspection_camera(fallback):
         kind="inspection camera"
         source="verified-alias-rule"
+    elif (re.search(r"\b(?:under[ -]?bonnet|under[ -]?hood|engine[ -]?bay)\b",text)
+          and re.search(r"\b(?:lamp|light|lighting|worklight)\b",text)):
+        # Official 9197 title: "Under Bonnet Compact Work Lamp 10W COB
+        # Infrared"; "work lamp cob infrared" was the wrong search type.
+        kind="under bonnet light"
+        source="verified-alias-rule"
     else:
         kind=next((label for label,parts in TYPE_RULES
                    if all(word in text for word in parts)),"")
@@ -675,6 +695,14 @@ def search_queries(signature):
     # hallucinated taxonomy. No Laser SKU is used as a competitor model.
     broad=clean_text(name,95)
     product_title=clean_text(signature["title"],105)
+    if name=="under bonnet light":
+        return [
+            "Sealey LED142 under bonnet rechargeable 10W COB light",
+            "Sealey LED141 under bonnet 9W inspection lamp",
+            "Draper 65391 rechargeable under bonnet inspection lamp",
+            "magnetic under bonnet work lamp workshop UK",
+            "underhood LED engine bay inspection lamp UK",
+        ]
     if name=="inspection camera":
         return [
             "Snap-on BK7000 video borescope UK retailer product",
@@ -1014,17 +1042,26 @@ def keyless_discovery(signature,session=requests):
             verified=_get_product_page(url,signature,session)
             if verified:return verified
             row=indexed_titles.get(url)
-            if row:
-                lead=_build_result(row["title"],url,signature)
+            curated=CURATED_CATALOGUE_LEADS.get(url)
+            if row or curated:
+                lead=_build_result(row["title"] if row else curated,url,signature)
                 if lead:
+                    # Even a previously researched official product link is
+                    # NOT live verification. Retain URL and title only.
                     lead["price_gbp"]=None
                     lead["price_source"]=None
                     lead["part_number"]=None
                     lead["image_url"]=None
                     lead["image_source"]=None
                     lead["source_type"]="unverified search-index title"
-                    lead["match_status"]="Search lead — verify manufacturer page"
+                    lead["match_status"]=(
+                        "Manufacturer catalogue lead — verify live product page"
+                        if curated else "Search lead — verify manufacturer page")
                     lead["match_evidence"]=(
+                        "Official manufacturer product link was independently "
+                        "researched, but this server could not check today's "
+                        "page, photograph, price, stock or exact specifications."
+                        if curated else
                         "Search engine indexed a similarly named product; "
                         "the original product page could not be verified.")
                     return lead
