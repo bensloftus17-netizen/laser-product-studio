@@ -88,7 +88,11 @@ class MockSearch:
             return DummyResponse(body=RSS,content_type="application/rss+xml")
         if url==PRODUCT_URL:
             return DummyResponse(body=PAGE)
-        raise AssertionError("Unexpected external request: "+url)
+        # The bounded catalogue-lead catalogue now contains genuine
+        # manufacturer pages. Simulate a temporarily unavailable listing.
+        if cf.safe_url(url):
+            return DummyResponse(status=404)
+        raise AssertionError("Unsafe external request: "+url)
     def post(self,url,**kwargs):
         return DummyResponse(data={"candidates":[{
             "content":{"parts":[{"text":json.dumps({"downgrade":[
