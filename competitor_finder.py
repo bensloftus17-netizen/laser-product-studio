@@ -173,6 +173,15 @@ def detect_brand(title, explicit=None, domain=None):
         if any(re.search(r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])",
                          text) for alias in aliases):
             return brand
+    # Broader manufacturer coverage: use explicit brand values from actual
+    # merchant Product schema or Shopping data even when absent from our
+    # small preconfigured list. Never guess manufacturer from product name.
+    named=clean_text(explicit,70)
+    if (named and 2<=len(named)<=55
+            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 .&+/\-]*",named)
+            and named.lower() not in
+            ("laser","laser tools","unknown","n/a","generic","unbranded")):
+        return named
     return None
 
 
@@ -366,8 +375,10 @@ def _build_result(title, url, signature, *, brand=None, sku=None,
     if len(title) < 8 or not safe_url(url, allow_google=True):
         return None
     brand = detect_brand(title, explicit=brand, domain=urlparse(url).hostname)
-    if not brand or brand == "Laser Tools":
+    if brand == "Laser Tools":
         return None
+    if not brand:
+        brand="Manufacturer unverified"
     match = match_status(signature, title)
     if not match:
         return None
@@ -419,17 +430,25 @@ def _parse_shopping(data, signature):
 
 
 def search_queries(signature):
-    """Alternative brand/type synonyms, not literal source-title matching."""
+    """Brand-neutral multi-angle searches for all official product families."""
     if signature["type"]=="inspection camera":
         return [
             "Snap-on BK7000 BK5500 borescope inspection camera UK price",
             "Sealey VS8118 video borescope 5 screen price UK",
             "Draper 92578 endoscope borescope inspection camera UK price",
         ]
-    base=signature["type"]+" "+" ".join(signature["fitments"][:2])
+    base=(signature["type"]+" "+" ".join(signature["fitments"][:2])).strip()
+    # An unfamiliar part should still search meaningfully, not fail taxonomy.
+    if signature.get("category_source")=="official-title-derived":
+        return [
+            base+" trade workshop product UK seller",
+            base+" alternative manufacturer equivalent UK price",
+            base+" comparable tool distributor UK",
+        ]
     return [
         base+" Sealey Draper UK price",
         base+" BGS Gedore Sykes-Pickavant UK price",
+        base+" competitor alternatives UK tool",
     ]
 
 
@@ -439,8 +458,9 @@ def shopping_search(signature, session=requests, api_key=None):
         return [], "Google Shopping API key not configured; using keyless product-page discovery."
     query = ("borescope endoscope inspection camera Snap-on Sealey Draper"
              if signature["type"]=="inspection camera" else
-             signature["type"]+" "+" ".join(signature["fitments"][:2])+
-             " Sealey Draper BGS Gedore")
+             (signature["type"]+" "+" ".join(signature["fitments"][:2])+
+              (" UK tools" if signature.get("category_source")=="official-title-derived"
+               else " Sealey Draper BGS Gedore")).strip())
     # Query synonyms are researched, not manufacturer fitment assertions.
     response = session.get(SHOPPING_HOST,params={
         "engine":"google_shopping","q":query,
@@ -679,6 +699,23 @@ def keyless_discovery(signature,session=requests):
             item=_get_product_page(url,signature,session)
             if item:
                 found.append(item)
+            else:
+                # An RSS index title is a research LEAD, not verified
+                # manufacturer-page content. Never attach a price or
+                # assume manufacturer SKU if the page could not be read.
+                indexed=next((r for r in hits if r["url"]==url),None)
+                if indexed:
+                    lead=_build_result(indexed["title"],url,signature)
+                    if lead:
+                        lead["price_gbp"]=None
+                        lead["price_source"]=None
+                        lead["part_number"]=None
+                        lead["source_type"]="unverified search-index title"
+                        lead["match_status"]="Search lead — verify manufacturer page"
+                        lead["match_evidence"]=(
+                            "Search engine indexed a similarly named product; "
+                            "the original product page could not be verified.")
+                        found.append(lead)
         except (requests.RequestException,ValueError,OSError):
             continue
     warning=(" ".join(warnings) if warnings else None)
@@ -807,10 +844,16 @@ def research_competitors(product, *, session=requests,
         "laser":{"part":str(product.get("part") or ""),
                  "title":signature["title"],"source":product.get("source"),
                  "tool_type":signature["type"],
+                 "category_source":signature["category_source"],
                  "price":product.get("price"),
                  "price_status":product.get("price_status")},
         "results":rows,"count":len(rows),"checked_at_utc":checked,
-        "providers":providers,"warnings":list(dict.fromkeys(warnings)),
+        "providers":providers,"warnings":list(dict.fromkeys(
+            warnings+(
+                ["This product type was derived from the official title; "
+                 "compare functions and technical specifications manually."]
+                if signature["category_source"]=="official-title-derived"
+                else []))),
         "ai_matching":ai_status,
         "disclaimer":"Indicative competitor research, not an interchangeability or "
                      "price-parity certification. Retail advertised prices are "
