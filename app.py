@@ -852,6 +852,17 @@ function renderCampaignGallery(data){
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
   '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
   (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
+ // Reuse already fetched, QA-approved image bytes. Load every remaining PNG
+ // promptly so lazy thumbnails cannot fail after the server token expires.
+ if(campaignLocalJob){
+  for(const asset of m.images){
+   if(campaignLocalPNGs.has(asset.id)){
+    applyLocalCampaignPNG(asset.id,campaignLocalPNGs.get(asset.id));
+   }else{
+    retainVerifiedCampaignPNG(campaignLocalJob,asset.id,campaignAssetUrl(asset.id));
+   }
+  }
+ }
 
  $('previews').hidden=true;
  $('previewCampaignCallout').hidden=true;
@@ -889,6 +900,79 @@ $('campaignAssets').addEventListener('click',event=>{
 
 
 
+// V52: keep a verified PNG copy in this browser tab. Once a render server
+// restarts or a short-lived token expires, already-loaded artwork should not
+// disappear when the user scrolls the gallery. No source/QA is bypassed.
+const campaignLocalPNGs=new Map();
+const campaignLocalPending=new Map();
+let campaignLocalJob=null;
+function useCampaignLocalJob(jobId){
+ if(campaignLocalJob===jobId)return;
+ if(typeof URL!=='undefined'&&typeof URL.revokeObjectURL==='function'){
+  for(const local of campaignLocalPNGs.values()){
+   try{URL.revokeObjectURL(local)}catch(e){}
+  }
+ }
+ campaignLocalJob=jobId;
+ campaignLocalPNGs.clear();
+ campaignLocalPending.clear();
+}
+function applyLocalCampaignPNG(id,localUrl){
+ const image=$('progress-img-'+id),open=$('progress-open-'+id),
+       save=$('progress-save-'+id);
+ if(image&&image.closest('.campaign-progress-card')){
+  image.src=localUrl;image.hidden=false;
+  if(open){open.href=localUrl;open.hidden=false}
+  if(save){save.href=localUrl;save.hidden=false}
+ }
+ if(typeof document==='undefined')return;
+ const card=document.querySelector('[data-asset-card="'+id+'"]');
+ if(card&&campaignData&&campaignData.token){
+  const img=card.querySelector('img'),link=card.querySelector('a[aria-label]'),
+        download=card.querySelector('.campaign-save-image'),
+        share=card.querySelector('button[data-share-url]');
+  if(img)img.src=localUrl;
+  if(link)link.href=localUrl;
+  if(download)download.href=localUrl;
+  if(share)share.dataset.shareUrl=localUrl;
+  const state=card.querySelector('[data-load-state]');
+  if(state)state.textContent='Preview safely loaded in this tab';
+  const retry=card.querySelector('[data-retry-asset]');
+  if(retry)retry.hidden=true;
+ }
+ if(id==='social_square'&&$('campaignShareSocial')&&campaignData){
+  $('campaignShareSocial').dataset.shareUrl=localUrl;
+ }
+}
+function retainVerifiedCampaignPNG(jobId,id,remoteUrl){
+ // Existing tests and older browsers still use normal image URLs. Cache is
+ // an enhancement: failure never causes a new AI generation or a fake image.
+ if(typeof fetch!=='function'||typeof URL==='undefined'||
+    typeof URL.createObjectURL!=='function'||campaignLocalJob!==jobId)return;
+ if(campaignLocalPNGs.has(id)){
+  applyLocalCampaignPNG(id,campaignLocalPNGs.get(id));
+  return;
+ }
+ if(campaignLocalPending.has(id))return;
+ const task=fetch(remoteUrl,{cache:'no-store',headers:{Accept:'image/png'}})
+  .then(response=>{
+   if(!response.ok)throw Error('Preview temporarily unavailable');
+   return response.blob();
+  }).then(blob=>{
+   if(blob.type!=='image/png'||blob.size<12)throw Error('Invalid verified PNG');
+   if(campaignLocalJob!==jobId)return;
+   const local=URL.createObjectURL(blob);
+   campaignLocalPNGs.set(id,local);
+   applyLocalCampaignPNG(id,local);
+  }).catch(()=>{
+   // The gallery's normal retry control can request the image again.
+   // Do not show expired links as successfully cached.
+  }).finally(()=>{
+   if(campaignLocalJob===jobId)campaignLocalPending.delete(id);
+  });
+ campaignLocalPending.set(id,task);
+}
+
 // A progressive campaign is not a lower-quality draft. Artwork appears ONLY
 // after the server's normal source, layout, image, and critic gates succeed.
 const PROGRESS_FORMATS=[
@@ -921,6 +1005,7 @@ function renderProgressGallery(jobId,data){
  const section=$('campaignProgress');
  if(progressJobShown!==jobId){
   progressJobShown=jobId;
+  useCampaignLocalJob(jobId);
   progressDisplayed.clear();
   $('campaignProgressGrid').innerHTML=PROGRESS_FORMATS.map(([id,label])=>
    '<article class="campaign-progress-card" id="progress-card-'+id+'">'+
@@ -975,6 +1060,7 @@ function renderProgressGallery(jobId,data){
    save.href=url+'?download=1';save.hidden=false;
    $('progress-placeholder-'+id).hidden=true;
    progressDisplayed.add(id);
+   retainVerifiedCampaignPNG(jobId,id,url);
   }
   if(status==='failed'&&item.error){
    $('progress-state-'+id).title=String(item.error).slice(0,150);
