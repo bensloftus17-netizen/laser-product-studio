@@ -112,7 +112,7 @@ class EnglishCopyStudioV61Tests(unittest.TestCase):
         self.assertNotIn("Guaranteed",response["text"])
         self.assertNotIn("50%",response["text"])
         self.assertTrue(response["review_required"])
-        self.assertEqual(response["method"],"verified-template")
+        self.assertEqual(response["method"],"verified-source")
 
     def test_selected_channel_cannot_be_overridden_by_writing_goal(self):
         with patch.dict(os.environ,{"GEMINI_API_KEY":""}):
