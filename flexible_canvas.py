@@ -105,6 +105,70 @@ def _background(scene,brief,variant):
     return Image.alpha_composite(image,shape_layer)
 
 
+def _role_art_direction(image,brief,role):
+    """Amplify each different model composition without drawing any fake tools.
+
+    Earlier canvases shared almost the same navy background even when the
+    model supplied different freeform placements. These transparent bands,
+    industrial rails and spotlight rings respond to the *AI's actual product
+    zone and selected brand colour*. All shapes sit behind genuine copy and
+    manufacturer artwork and may never replace the creative-canvas zones.
+    """
+    from PIL import ImageColor
+    accent=ImageColor.getrgb(brief["accent"])
+    layer=Image.new("RGBA",(W,H),(0,0,0,0))
+    d=ImageDraw.Draw(layer,"RGBA")
+    product=_box(brief["zones"]["product"])
+    cx=(product[0]+product[2])//2
+    cy=(product[1]+product[3])//2
+    mode=brief.get("composition_mode") or (
+        "engineering-precision" if role=="technical_application" else
+        "commercial-impact" if role=="price_promo" else "hero-spotlight")
+    if mode=="engineering-precision":
+        # Technical engineering precision: photo-context and measured rails.
+        for y in range(245,1330,84):
+            d.line((65,y,110,y),fill=(*accent,78),width=3)
+        for x in range(80,1120,185):
+            d.line((x,245,x,1305),fill=(*accent,19),width=2)
+        d.line((62,245,62,1315),fill=(*accent,80),width=4)
+        for offset in (56,104,152):
+            d.arc((cx-270-offset//2,cy-270-offset//2,
+                   cx+270+offset//2,cy+270+offset//2),
+                  28,300,fill=(*accent,38),width=3)
+    elif mode=="commercial-impact":
+        # Commercial energy: sweeping geometry, rather than technical grid.
+        d.polygon(((0,830),(W,335),(W,615),(0,1120)),
+                  fill=(*accent,49))
+        d.polygon(((0,1180),(W,775),(W,870),(0,1295)),
+                  fill=(*accent,32))
+        d.line(((0,1120),(W,620)),fill=(*accent,120),width=9)
+        d.ellipse((cx-290,cy-290,cx+290,cy+290),
+                  outline=(*accent,64),width=10)
+    elif mode=="hero-spotlight":
+        # Product / premium: a bold centrepiece with quieter circular depth.
+        for radius,alpha,width in ((440,43,8),(356,47,5),(275,51,3)):
+            d.ellipse((cx-radius,cy-radius,cx+radius,cy+radius),
+                      outline=(*accent,alpha),width=width)
+        d.polygon(((W-250,182),(W,182),(W,1160),(W-90,1120)),
+                  fill=(*accent,35))
+        d.line((75,1325,W-75,1325),fill=(*accent,99),width=5)
+    elif mode=="minimal-editorial":
+        # Quieter, premium negative space: fine offset lines, not the grid.
+        d.polygon(((0,185),(W//5,185),(W//3,1390),(0,1390)),
+                  fill=(*accent,25))
+        d.line((W-90,220,W-90,1310),fill=(*accent,85),width=5)
+        d.line((W-130,250,W-130,1290),fill=(*accent,35),width=3)
+    elif mode=="workshop-motion":
+        # A brand-safe energetic workshop treatment without fictional parts.
+        for shift,alpha in ((-230,50),(-30,60),(170,41)):
+            d.polygon(((shift,400),(shift+290,400),
+                       (shift+1050,1180),(shift+760,1180)),
+                      fill=(*accent,alpha))
+        d.arc((cx-330,cy-330,cx+330,cy+330),
+              0,290,fill=(*accent,90),width=6)
+    return Image.alpha_composite(image,layer)
+
+
 def render_creative_canvas(product,official_photo,concept,scene=None,
                            distributor=None,variant=0,text_safety=0):
     brief=validate_brief(concept.get("creative_canvas"),concept.get("campaign_role"))
@@ -115,6 +179,7 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
     if text_safety not in (0,1,2):
         raise ValueError("Unknown text recovery level")
     image=_background(scene,brief,variant)
+    image=_role_art_direction(image,brief,concept.get("campaign_role"))
     accent=brief["accent"]
     d=ImageDraw.Draw(image,"RGBA")
     # Fixed brand safe areas; the art direction controls all other geometry.
