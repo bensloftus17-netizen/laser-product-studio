@@ -100,7 +100,24 @@ def validate_brief(raw,role):
                            "opacity":max(10,min(85,opacity))})
     # Only safe enumerated style choices. Tool pixels, claims and price remain
     # locked to the official manufacturer record.
-    chosen_family=choice("creative_family",CREATIVE_FAMILIES,DEFAULT_FAMILY[role])
+    mode_family={
+        "engineering-precision":"engineering_grid",
+        "commercial-impact":"commercial_burst",
+        "hero-spotlight":"premium_spotlight",
+        "minimal-editorial":"editorial_split",
+        "workshop-motion":"workshop_motion",
+    }
+    explicit_family=raw.get("creative_family")
+    if explicit_family in CREATIVE_FAMILIES:
+        chosen_family=explicit_family
+        chosen_mode=FAMILY_MODES[chosen_family]
+    else:
+        # V55 clients passed composition_mode but no creative_family. Keep
+        # that genuine existing model choice working, rather than silently
+        # resetting everything to engineering_grid.
+        chosen_mode=choice("composition_mode",COMPOSITION_MODES,
+                           FAMILY_MODES[DEFAULT_FAMILY[role]])
+        chosen_family=mode_family[chosen_mode]
     return {
         "zones":clean,
         "shapes":shapes,
@@ -112,7 +129,7 @@ def validate_brief(raw,role):
         "accent":choice("accent",ACCENTS,"#13B5EC"),
         "creative_family":chosen_family,
         "background_mood":FAMILY_MOOD[chosen_family],
-        "composition_mode":FAMILY_MODES[chosen_family],
+        "composition_mode":chosen_mode,
         "source":"ai-freeform-canvas",
     }
 
