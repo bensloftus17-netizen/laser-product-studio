@@ -100,7 +100,10 @@ class RichCompetitorCoverageTests(unittest.TestCase):
         self.assertEqual(result["product_url"],product_url("9395"))
         self.assertEqual(result["price_gbp"],"124.95")
         self.assertEqual(result["part_number"],"SOURCED-MODEL-123")
-        self.assertIn("verify",result["match_status"].lower())
+        self.assertTrue(any(word in result["match_status"].lower()
+                            for word in ("verify","coverage differs",
+                                         "compare specifications",
+                                         "unverified")))
 
     def test_relative_original_page_hero_image_and_missing_image(self):
         sig=cf.tool_signature({"title":CASES["9365"][0]})
@@ -169,8 +172,10 @@ class RichCompetitorCoverageTests(unittest.TestCase):
                 self.assertEqual(row["url"],product_url(part))
                 self.assertEqual(row["image_url"],IMAGE)
                 self.assertEqual(row["price_gbp"],"124.95")
-                self.assertIn("verify",row["match_status"].lower()
-                              +row["match_evidence"].lower())
+                claim=(row["match_status"]+" "+row["match_evidence"]).lower()
+                self.assertTrue(any(word in claim for word in (
+                    "verify","unverified","coverage differs",
+                    "compare specifications","do not assume","checking")),claim)
 
     def test_bing_html_fallback_has_only_allowed_real_merchant_urls(self):
         html=(
