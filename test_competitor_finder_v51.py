@@ -150,7 +150,8 @@ class UniversalCompetitorTests(unittest.TestCase):
         underhood=cf.tool_signature({
             "title":"Rechargeable LED Under Bonnet Light"})
         self.assertIn(underhood["category_source"],
-                      ("official-title-derived","fixed-category-rule"))
+                      ("official-title-derived","fixed-category-rule",
+                       "verified-alias-rule"))
         self.assertEqual(underhood["type"],"under bonnet light")
         self.assertIsNotNone(cf.match_status(
             underhood,"Sealey Rechargeable LED Under Bonnet Light"))
