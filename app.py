@@ -1485,8 +1485,10 @@ $('rewriteOptions').addEventListener('click',async event=>{
   pendingCopyRewrite={key,text:result.text,original:oldText,source:currentData};
   $('rewritePreviewText').value=result.text;
   $('rewriteMethod').textContent=result.method==='gemini-assisted'
-    ?'Gemini-assisted · Official verified facts'
-    :'Verified-source rewrite · AI unavailable';
+    ?'AI-planned · Manufacturer verified facts'
+    :result.method==='verified-source'
+     ?'English & claims checked against official product record'
+     :'Manufacturer-verified draft · AI unavailable';
   $('rewritePreview').hidden=false;
   $('rewriteStatus').textContent=(result.warning?result.warning+' ':'')+
    'Compare with your draft, then apply or keep the original.';
