@@ -17,7 +17,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html import unescape
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from bs4 import BeautifulSoup
@@ -25,8 +26,8 @@ from bs4 import BeautifulSoup
 SEARCH_HOST = "https://www.bing.com/search"
 SHOPPING_HOST = "https://serpapi.com/search.json"
 TTL_SECONDS = 20 * 60
-MAX_RESULTS = 12
-MAX_PAGES = 8
+MAX_RESULTS = 18
+MAX_PAGES = 18
 # Pages are retrieved only from these publicly accessible established brands
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
@@ -54,6 +55,8 @@ APPROVED_HOSTS = (
     "britool.co.uk", "hazet.de", "wurth.co.uk", "gedore.co.uk",
     "stahlwille.co.uk", "beta-tools.com", "neilsen-tools.com",
     "clarkeinternational.com", "paddockspares.com", "snapon.co.uk",
+    "powertoolsdirect.com", "esska-tech.co.uk", "hoffmann-group.com",
+    "wallmektools.com", "sealey.co.uk", "toolteam.com",
     "facom.co.uk", "draper.co.uk", "brilliant-tools.com",
 )
 BRANDS = (
@@ -81,6 +84,16 @@ BRANDS = (
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
+    ("open end torque wrench", ("torque", "wrench")),
+    ("split hub spreader", ("hub", "spreader")),
+    ("brake caliper windback", ("brake", "caliper", "windback")),
+    ("engine support beam", ("engine", "support")),
+    ("cooling pressure tester", ("cooling", "pressure")),
+    ("paint thickness gauge", ("paint", "thickness")),
+    ("tyre inflator", ("tyre", "inflator")),
+    ("fluid extractor", ("fluid", "extractor")),
+    ("injector return flow tester", ("injector", "return", "flow")),
+    ("battery cable crimper", ("cable", "crimp")),
     # Endoscopes/borescopes are one product category. A candidate need not
     # repeat the source title's exact synonym ("endoscope" vs "borescope").
     ("inspection camera", ("inspection", "camera")),
@@ -138,6 +151,81 @@ INSPECTION_CAMERA_SEEDS = (
     "https://www.mymotorworld.com/draper-expert-rechargeable-pistol-grip-borescope",
     "https://www.ebay.co.uk/itm/127057347158",
 )
+# Product photographs must be attributable to a real listing. Image hosts
+# are intentionally narrower than product/seller hosts. These CDN hosts are
+# used by approved retailer product pages and UK Shopping thumbnails.
+IMAGE_CDN_HOSTS=(
+    "cdn.shopify.com","cdn11.bigcommerce.com","cdn12.bigcommerce.com",
+    "encrypted-tbn0.gstatic.com","encrypted-tbn1.gstatic.com",
+    "media.screwfix.com","media.toolstation.com","images.ctfassets.net",
+    "cdn.media.amplience.net","images.bigcommerce.com",
+)
+# Search synonyms improve discovery, NEVER certify interchangeability.
+TYPE_SYNONYMS={
+    "inspection camera":(
+        "borescope endoscope","video inspection camera","articulating videoscope"),
+    "wheel bearing":(
+        "front wheel bearing removal installation kit",
+        "wheel hub bearing tool set","bearing removal press kit"),
+    "under bonnet light":(
+        "under bonnet work light","underhood LED inspection lamp",
+        "engine bay work light"),
+    "open end torque wrench":(
+        "open end torque spanner set","crowfoot torque wrench set",
+        "open jaw torque wrench"),
+    "ratchet set":(
+        "ratchet wrench set","reversible ratchet set","socket ratchet kit"),
+    "split hub spreader":(
+        "split hub knuckle spreader","strut hub splitter",
+        "suspension hub spreader"),
+    "hydraulic press":(
+        "workshop hydraulic press","garage hydraulic press","hydraulic workshop press"),
+    "injector return flow tester":(
+        "diesel injector leak off tester","injector return flow test kit"),
+    "brake caliper windback":(
+        "brake piston rewind kit","caliper piston wind back tool"),
+    "tyre inflator":(
+        "tyre air compressor","portable tyre inflator"),
+    "battery cable crimper":(
+        "battery cable crimping pliers","cable lug crimping tool"),
+    "engine support beam":(
+        "engine support bar","engine support bridge"),
+    "cooling pressure tester":(
+        "radiator cooling system pressure tester","coolant pressure testing kit"),
+    "paint thickness gauge":(
+        "automotive coating thickness meter","digital paint thickness tester"),
+    "fluid extractor":(
+        "fluid transfer pump","fluid extraction tool"),
+    "brake bleeder":(
+        "brake bleeding kit","brake fluid bleeder"),
+    "injector puller":(
+        "fuel injector extractor tool","injector removal kit"),
+}
+# Each group describes a requirement for product family similarity; at least
+# one term per group must be present on the ORIGINAL competitor listing.
+# Do not make up missing vehicle fits, capacities or complete kit contents.
+TYPE_MATCH_GROUPS={
+    "inspection camera":((r"borescope|boroscope|endoscope|videoscope|inspection.camera|snake.camera",),),
+    "wheel bearing":((r"bearing",),(r"wheel|hub",)),
+    "under bonnet light":((r"bonnet|hood|engine.bay",),
+                          (r"lamp|light|inspection",)),
+    "open end torque wrench":((r"torque",),(r"wrench|spanner|crowfoot|open.end|open.jaw",)),
+    "ratchet set":((r"ratchet",),(r"set|kit|piece|pc|pcs",)),
+    "split hub spreader":((r"hub|knuckle|strut|suspension",),
+                          (r"spreader|splitter|separator",)),
+    "hydraulic press":((r"hydraulic",),(r"press",)),
+    "injector return flow tester":((r"injector",),(r"return|leak.off|flow|tester",)),
+    "brake caliper windback":((r"brake|caliper",),(r"windback|wind.back|rewind|piston",)),
+    "tyre inflator":((r"tyre|tire",),(r"inflat|compressor",)),
+    "battery cable crimper":((r"cable|battery|lug",),(r"crimp",)),
+    "engine support beam":((r"engine|motor",),(r"support|beam|bridge|bar",)),
+    "cooling pressure tester":((r"coolant|cooling|radiator",),(r"pressure",)),
+    "paint thickness gauge":((r"paint|coating",),(r"thickness|depth|gauge|meter",)),
+    "fluid extractor":((r"fluid|oil|liquid",),(r"extract|pump|transfer",)),
+    "brake bleeder":((r"brake",),(r"bleed|bleeder|fluid",)),
+    "injector puller":((r"injector",),(r"puller|extract|removal",)),
+}
+
 CACHE = {}
 CACHE_LOCK = threading.Lock()
 
