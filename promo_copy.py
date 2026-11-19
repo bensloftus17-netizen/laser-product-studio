@@ -133,60 +133,59 @@ def compose_promotional_copy(product,concept):
     fact_line=(fact.rstrip(".")+"." if fact else "")
     price_line=price.rstrip(".")+"."
 
-    # The three families lead with different verified evidence, not simply
-    # the same caption reworded three times.
-    if focus=="price":
-        social=[short+".",price_line]
-        if fact_line:social.append(fact_line)
-        social.append(cta)
-        linkedin=[
-            f"Product spotlight: {short}",
-            price_line,
-        ]
-        if fact_line:linkedin.append(fact_line)
-        linkedin.append(cta)
-    elif focus=="benefit":
-        social=[f"On the bench: {short}."]
-        if fact_line:social.append(fact_line)
-        social.extend([price_line,cta])
-        linkedin=[f"Workshop product spotlight — {short}"]
-        if fact_line:linkedin.append(fact_line)
-        linkedin.extend([price_line,cta])
-    else:
-        social=[f"For workshop applications: {short}."]
-        if fact_line:social.append(fact_line)
-        social.extend([price_line,cta])
-        linkedin=[f"Workshop applications | {short}"]
-        if fact_line:linkedin.append(fact_line)
-        linkedin.extend([price_line,cta])
-
-    if direction["tone"]=="direct":
-        linkedin[0]=linkedin[0].replace("Product spotlight:","Laser Tools |")
-    elif direction["tone"]=="practical":
-        linkedin.append("Check the product information for the intended application.")
-
+    # The three messages now have genuinely different jobs:
+    # 1 price / ordering, 2 product benefit, 3 workshop application.
+    # Keep the *actual manufacturer claim* intact in every variant.
     tags=_hashtags(product)
+    if focus=="price":
+        hook=f"Laser Tools {part} | Price and product enquiry"
+        social=[short+".",price_line,fact_line,cta]
+        linkedin=[hook,short+".",price_line,fact_line,cta]
+        email_intro=f"We're sharing the pricing and product details for {ref}."
+        subject_prefix="Product and pricing enquiry"
+    elif focus=="benefit":
+        hook=f"Product detail | {short}"
+        social=[fact_line,f"A closer look at {short}.",price_line,cta] if fact_line else [
+            f"Take a closer look at {short}.",price_line,cta]
+        linkedin=[hook,fact_line,price_line,cta]
+        email_intro=f"Here's a closer look at {ref}: {product_name}."
+        subject_prefix="Product details"
+    else:
+        hook=f"Workshop application | {short}"
+        social=[f"Workshop applications | {short}.",fact_line,price_line,cta] if fact_line else [
+            f"Workshop product information: {short}.",price_line,cta]
+        linkedin=[hook,short+".",fact_line,price_line,cta]
+        email_intro=f"Please find the manufacturer product information for {ref}."
+        subject_prefix="Technical overview"
+
+    if direction["tone"]=="direct" and focus=="price":
+        linkedin[0]=f"Laser Tools {part} | Product enquiry"
+    elif direction["tone"]=="practical":
+        linkedin.append("Check the intended application in the official product information.")
+
     if direction["hook"]=="feature" and fact_line:
-        # The Gemini-selected writing approach changes the first line only;
-        # the supporting assertion stays verbatim from the manufacturer.
+        # The model may reorder only an *existing verified fact*, not write
+        # the promotional claim itself.
         social=[fact_line]+[line for line in social if line!=fact_line]
     elif direction["hook"]=="application" and focus=="application":
-        social[0]="Workshop application | "+short+"."
-    social_caption="\n".join(social[:5])
-    linkedin_post="\n\n".join(linkedin[:5])+"\n\n"+" ".join(tags[:4])
-    subject=f"Laser Tools {part} | {product_name}"[:110] if part else product_name[:110]
+        social[0]=fact_line or ("Workshop application | "+short+".")
 
-    body=[
+    social_caption="\n".join(line for line in social if line)[:1700]
+    linkedin_post="\n\n".join(line for line in linkedin if line) + "\n\n" + " ".join(tags[:4])
+    subject=f"{subject_prefix}: Laser Tools {part} | {product_name}"[:110]
+
+    email_body="\n\n".join([
         "Hello,",
-        f"We're highlighting {ref}: {product_name}.",
-    ]
-    if fact_line:body.append(fact_line)
-    body.extend([
+        email_intro,
+        fact_line,
         price_line,
-        f"Please review the product details and suitability for your customers. {cta}",
+        f"Please review the official product details and suitability. {cta}",
+        "Kind regards,\n[Your name]",
+    ] if fact_line else [
+        "Hello,",email_intro,price_line,
+        f"Please review the official product details and suitability. {cta}",
         "Kind regards,\n[Your name]",
     ])
-    email_body="\n\n".join(body)
     return {
         "social_caption":social_caption,
         "linkedin_post":linkedin_post,

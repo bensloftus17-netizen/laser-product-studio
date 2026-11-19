@@ -128,8 +128,11 @@ class CopyRewriteTests(unittest.TestCase):
 
     def test_ui_has_five_actions_single_editor_and_preview_controls(self):
         page=studio.V7_HOME_PAGE
-        for mode in REWRITE_MODES:
+        from copy_rewriter import GOAL_MODES
+        for mode in GOAL_MODES:
             self.assertEqual(page.count('data-rewrite-mode="'+mode+'"'),1)
+        for old_mode in ("professional","persuasive","technical","facebook"):
+            self.assertNotIn('data-rewrite-mode="'+old_mode+'"',page)
         for element in ("rewriteOptions","rewritePreview","rewritePreviewText",
                         "rewriteApply","rewriteDiscard","rewriteUndo","rewriteStatus"):
             self.assertEqual(page.count('id="'+element+'"'),1)

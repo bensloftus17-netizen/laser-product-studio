@@ -32,6 +32,55 @@ INTERCHANGEABLE_HEADS_RE = re.compile(
     r"\s*mm\.?\s*$", re.I,
 )
 
+# V61: Strict English labels for verified *French numeric measurements*.
+# A mixed/unsupported statement is not partially translated; its original
+# foreign wording remains for the language gate to reject entirely.
+FRENCH_NUMERIC_LABELS = {
+    "longueur": "Length",
+    "profondeur interne": "Internal depth",
+    "profondeur": "Depth",
+    "largeur": "Width",
+    "hauteur": "Height",
+    "diamètre": "Diameter",
+    "épaisseur": "Thickness",
+    "poids": "Weight",
+}
+FRENCH_NUMERIC_LABEL_RE = re.compile(
+    r"^\s*(?P<label>" + "|".join(
+        re.escape(k) for k in sorted(FRENCH_NUMERIC_LABELS,key=len,reverse=True)
+    ) + r")\s*:\s*(?P<value>\d{1,5}(?:[.,]\d{1,3})?\s*"
+    r"(?:mm|cm|kg|g|m))\s*\.?\s*$", re.I,
+)
+FRENCH_NUMERIC_MARKER = re.compile(
+    r"\b(?:longueur|profondeur(?:\s+interne)?|largeur|hauteur|"
+    r"diam[èe]tre|[ée]paisseur|poids)\s*:",re.I,
+)
+
+
+def _translate_french_numeric(text):
+    """Convert exactly matched source measurements, retaining numbers/units.
+
+    Example: 'Longueur : 120 mm, profondeur interne : 93 mm.'
+    -> 'Length: 120 mm. Internal depth: 93 mm.'
+    Other foreign claims are unchanged and subsequently rejected.
+    """
+    if not FRENCH_NUMERIC_MARKER.search(text):
+        return None
+    # Split only between a finished measurement and a new named label.
+    pieces=re.split(
+        r"\s*[,;]\s*(?=[A-Za-zÀ-ÿ][^,;:]{1,35}\s*:)",
+        text.strip(),
+    )
+    rows=[]
+    for piece in pieces:
+        match=FRENCH_NUMERIC_LABEL_RE.fullmatch(piece)
+        if not match:
+            return None
+        label=FRENCH_NUMERIC_LABELS[match.group("label").casefold()]
+        rows.append(f'{label}: {match.group("value").strip()}.')
+    return " ".join(rows) if rows else None
+
+
 LABEL_RE = re.compile(
     r"^\s*(?P<label>" + "|".join(re.escape(s) for s in NUMERIC_LABELS) +
     r")\s*:\s*(?P<value>\d[\d.,\s×xX/+%-]*\s*"
@@ -67,7 +116,12 @@ def translate_known_numeric_labels(text):
     promoted as a translated manufacturer claim.
     """
     original=" ".join(str(text or "").split()).strip()
-    if not original or not RAW_GERMAN_TECH.search(original):
+    if not original:
+        return original
+    french=_translate_french_numeric(original)
+    if french is not None:
+        return french
+    if not RAW_GERMAN_TECH.search(original):
         return original
     heads=INTERCHANGEABLE_HEADS_RE.fullmatch(original)
     if heads:
