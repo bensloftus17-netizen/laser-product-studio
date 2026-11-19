@@ -1338,10 +1338,15 @@ function renderCompetitorReport(result){
  const rows=Array.isArray(result.results)?result.results:[];
  $('competitorTitle').textContent='Competitors for Laser '+result.laser.part;
  $('competitorPanel').hidden=false;
- $('competitorStatus').textContent=rows.length+
-  ' evidence-linked alternatives · checked '+new Date(result.checked_at_utc).toLocaleString('en-GB')+
+ const confirmed=rows.filter(item=>item.source_type!=='unverified search-index title').length;
+ const leads=rows.length-confirmed;
+ $('competitorStatus').textContent=confirmed+' source-checked product leads'+
+  (leads?' · '+leads+' search-index leads require verification':'')+
+  ' · checked '+new Date(result.checked_at_utc).toLocaleString('en-GB')+
   (result.cached?' · cached research':' · fresh research');
- stats.textContent='Source tool: '+String(result.laser.tool_type||'tool')+
+ stats.textContent='Research category: '+String(result.laser.tool_type||'tool')+
+  (result.laser.category_source==='official-title-derived'?
+   ' (derived from official title; function not yet verified)':'')+
   ' · Laser '+String(result.laser.title||'')+
   ' · Official Laser UK RRP: '+String(result.laser.price||'Not verified')+
   ' · '+String(result.ai_matching||'Technical review required');
