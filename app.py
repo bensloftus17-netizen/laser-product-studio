@@ -32,6 +32,7 @@ from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
 from copy_rewriter import rewrite_copy
+from competitor_finder import research_competitors, report_csv
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -2233,6 +2234,79 @@ def distributor_logo(brand):
         return send_file(output,mimetype='image/png',download_name=code+'_logo.png')
     except ValueError:
         return jsonify(error='Unknown distributor'),404
+
+
+# Per-part short-lived competitor research results. This deliberately does
+# not store arbitrary external pages or replace the approved Laser product.
+COMPETITOR_REPORT_CACHE={}
+COMPETITOR_REPORT_LOCK=threading.Lock()
+COMPETITOR_REPORT_BUSY=threading.BoundedSemaphore(value=1)
+COMPETITOR_REPORT_TTL=20*60
+
+
+@app.get('/api/competitors/<part>')
+def find_competitor_products(part):
+    """Source-linked UK alternatives, not a promise of interchangeability."""
+    try:
+        part=sku_clean(part)
+        bypass=request.args.get('refresh')=='1'
+        with COMPETITOR_REPORT_LOCK:
+            cached=COMPETITOR_REPORT_CACHE.get(part)
+            if not bypass and cached and cached['expires']>time.time():
+                result=dict(cached['report'])
+                result['cached']=True
+                reply=jsonify(result)
+                reply.headers['Cache-Control']='private, no-store'
+                return reply
+        if not COMPETITOR_REPORT_BUSY.acquire(blocking=False):
+            return jsonify(error='A competitor research request is already running. Please retry shortly.'),429
+        try:
+            # lookup() independently verifies official UK source facts and
+            # manufacturer authenticity. No price or feature can be invented
+            # from a scraped competitor search result.
+            product,_=lookup(part,uk_url=request.args.get('uk_url') or None)
+            report=research_competitors(product)
+            with COMPETITOR_REPORT_LOCK:
+                now=time.time()
+                COMPETITOR_REPORT_CACHE[part]={
+                    'expires':now+COMPETITOR_REPORT_TTL,'report':report}
+                while len(COMPETITOR_REPORT_CACHE)>24:
+                    COMPETITOR_REPORT_CACHE.pop(next(iter(COMPETITOR_REPORT_CACHE)))
+            reply=jsonify(report)
+            reply.headers['Cache-Control']='private, no-store'
+            return reply
+        finally:
+            COMPETITOR_REPORT_BUSY.release()
+    except LookupErrorPublic as error:
+        return jsonify(error=str(error)),404
+    except ValueError as error:
+        return jsonify(error=str(error)),422
+    except requests.RequestException:
+        app.logger.exception('Competitor lookup source retrieval failed')
+        return jsonify(error='Manufacturer or competitor search service temporarily unavailable.'),503
+    except Exception:
+        app.logger.exception('Competitor lookup error')
+        return jsonify(error='Could not complete verified competitor research. Please retry.'),503
+
+
+@app.get('/api/competitors/<part>/export.csv')
+def download_competitor_report(part):
+    """Export exactly the previously sourced results; never regenerate claims."""
+    try:
+        part=sku_clean(part)
+        with COMPETITOR_REPORT_LOCK:
+            entry=COMPETITOR_REPORT_CACHE.get(part)
+            if not entry or entry['expires']<=time.time():
+                return jsonify(error='Search competitors before downloading a comparison.'),404
+            result=entry['report']
+        output=report_csv(result)
+        response=send_file(io.BytesIO(output),
+            mimetype='text/csv; charset=utf-8',as_attachment=True,
+            download_name='LASER_'+part+'_Competitor_Comparison.csv')
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except LookupErrorPublic as error:
+        return jsonify(error=str(error)),400
 
 
 @app.get('/api/lookup/<part>')
