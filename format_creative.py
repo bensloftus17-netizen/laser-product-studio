@@ -16,6 +16,7 @@ from asset_quality import require_good_asset
 from campaign_art_quality import inspected_product
 from creative_director import ACCENTS, BACKGROUNDS, MOODS, MOTIFS, HEADLINE_STYLES, SHAPE_KINDS, SHAPE_INKS
 from creative_families import FAMILIES as CREATIVE_FAMILIES
+from creative_expression import express_background,normalise_expression
 from flexible_canvas import _text
 from poster import font
 from poster_quality import record_text, record_product, capture
@@ -122,6 +123,7 @@ def validate_format_canvas(kind, raw, feature_count=0):
         "proof_feature_index":index,
         "shapes":shapes,
         "creative_family":choice("creative_family",CREATIVE_FAMILIES,"editorial_split"),
+        **normalise_expression(raw,kind=kind),
         "source":"AI-format-specific-canvas",
     }
 
@@ -173,6 +175,18 @@ def format_instruction():
         "engineering_grid/commercial_burst/premium_spotlight/workshop_motion/"
         "editorial_split/toolkit_coverage. The six formats should inherit "
         "different parent marketing roles rather than the same look. "
+        "Choose YOUR OWN visual style for every asset: creative_palette "
+        "laser_blue/signal_yellow/cold_cyan/studio_silver/graphite_orange/"
+        "electric_violet/workshop_teal, visual_treatment photo_editorial/"
+        "bold_geometry/clean_minimal/cinematic/split_canvas/"
+        "technical_infographic, text_treatment rail/panel/banner/underline/"
+        "minimal, hero_treatment spotlight/clean_cutout/graphic_frame/floating. "
+        "Choose varied palettes across all six canvases, rather than six "
+        "similar navy-gradient layouts. Use model-authored safe text/product "
+        "zones, real workshop photography when source-approved, bold coloured "
+        "sections, varied typographic hierarchy and visible tool hero. "
+        "Original product pixels, LASER branding, UK RRP, VAT labels and "
+        "manufacturer copy are inserted by code; do not invent them. "
         "The genuine photo will be composited by the application; no AI "
         "image URLs, invented tool photos, logos, text or price values."
     )
@@ -416,6 +430,11 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
     canvas=_background(kind,brief,scene,variant)
     canvas=draw_family_background(canvas,brief["creative_family"],
                                   zones=brief["zones"])
+    canvas=express_background(
+        canvas,brief["creative_palette"],brief["visual_treatment"],
+        zones={name:_rect(rect,(w,h)) for name,rect in brief["zones"].items()
+               if name!="product"},
+        variant=variant,hero_treatment=brief["hero_treatment"])
     _label(canvas,product.get("part"),distributor)
     region=brief["zones"]
     _hero(canvas,photo,_rect(region["product"],(w,h)),variant)
@@ -427,10 +446,20 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
                   if isinstance(v,str) and v.strip()]
         if verified:heading=min(verified,key=len)
     rect=_rect(region["headline"],(w,h))
-    if brief["headline_style"]=="massive":
-        rail=max(3,w//280)
+    treatment=brief["text_treatment"]
+    rail=max(3,w//280)
+    if treatment=="rail" or (brief["headline_style"]=="massive" and treatment=="minimal"):
         d.rectangle((rect[0]-rail*3,rect[1],rect[0]-rail,
-                     min(rect[3],rect[1]+round(h*.10))),fill=accent)
+                     min(rect[3],rect[1]+round(h*.12))),fill=accent)
+    elif treatment=="underline":
+        d.line((rect[0],rect[3]-rail*2,rect[0]+int((rect[2]-rect[0])*.67),
+                rect[3]-rail*2),fill=accent,width=rail)
+    elif treatment in ("panel","banner"):
+        d.rounded_rectangle(
+            (max(0,rect[0]-rail*2),max(0,rect[1]-rail*2),
+             min(w,rect[2]+rail*2),min(h,rect[3]+rail*2)),
+            radius=max(9,w//100),fill=(3,25,43,226),
+            outline=accent,width=rail)
     _fit_text(d,heading,rect,kind,brief["headline_style"],True,
               copy_fit=variant)
     proof_idx=brief["proof_feature_index"]
