@@ -57,6 +57,7 @@ APPROVED_HOSTS = (
     "clarkeinternational.com", "paddockspares.com", "snapon.co.uk",
     "powertoolsdirect.com", "esska-tech.co.uk", "hoffmann-group.com",
     "wallmektools.com", "sealey.co.uk", "toolteam.com",
+    "neilsentools.com",
     "facom.co.uk", "draper.co.uk", "brilliant-tools.com",
 )
 BRANDS = (
@@ -151,6 +152,37 @@ INSPECTION_CAMERA_SEEDS = (
     "https://www.mymotorworld.com/draper-expert-rechargeable-pistol-grip-borescope",
     "https://www.ebay.co.uk/itm/127057347158",
 )
+# Verified manufacturer URLs: discovery pointers, NOT hard-coded matches.
+# A candidate is only returned after reading that product page live, checking
+# its original title and tool type, and extracting photo/price source data.
+# Categories are deliberately broad; technical equivalence is NOT asserted.
+CATEGORY_SEEDS={
+    "wheel bearing":(
+        "https://www.hoffmann-group.com/GB/en/houk/p/3283690-",
+        "https://www.sealey.co.uk/front-wheel-bearing-gen2-removal-installation-kit-72mm-audi-seat-skoda-vw-vs7029/",
+    ),
+    "under bonnet light":(
+        "https://www.sealey.co.uk/under-bonnet-rechargeable-light-13w-smd-led-led139/",
+        "https://www.sealey.co.uk/under-bonnet-rechargeable-light-9w-smd-led-led141/",
+    ),
+    "ratchet set":(
+        "https://www.sealey.co.uk/premier-pear-head-ratchet-wrench-set-with-flip-reverse-3pc-ak6672/",
+    ),
+    "open end torque wrench":(
+        "https://www.neilsentools.com/products/ct1219-7pc-torque-wrench-spanner-head-set",
+    ),
+    "split hub spreader":(
+        "https://www.sealey.co.uk/suspension-split-hub-ball-joint-spreader-vs393/",
+        "https://www.sealey.co.uk/ball-joint-strut-hub-clamp-spreader-tool-vs390/",
+    ),
+    "hydraulic press":(
+        "https://www.drapertools.com/product/35582/draper-expert-pneumatic-hydraulic-floor-press-50-tonne/",
+    ),
+    "injector return flow tester":(
+        "https://www.sealey.co.uk/diesel-injector-flow-common-rail-test-kit-vs2046/",
+    ),
+}
+
 # Product photographs must be attributable to a real listing. Image hosts
 # are intentionally narrower than product/seller hosts. These CDN hosts are
 # used by approved retailer product pages and UK Shopping thumbnails.
@@ -941,6 +973,7 @@ def keyless_discovery(signature,session=requests):
     urls=[]
     if signature["type"]=="inspection camera":
         urls.extend(INSPECTION_CAMERA_SEEDS)
+    urls.extend(CATEGORY_SEEDS.get(signature["type"],()))
     try:
         hits,feed_errors=rss_search(signature,session)
         urls.extend(row["url"] for row in hits)
