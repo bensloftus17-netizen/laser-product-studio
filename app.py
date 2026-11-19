@@ -36,7 +36,7 @@ from competitor_finder import research_competitors, report_csv
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -74,7 +74,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V57 creative direction</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V58 competitor finder</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -1534,8 +1534,10 @@ function renderCompetitorReport(result){
  $('competitorPanel').hidden=false;
  const confirmed=rows.filter(item=>item.source_type!=='unverified search-index title').length;
  const leads=rows.length-confirmed;
+ const photos=rows.filter(item=>String(item.image_url||'').startsWith('https://')).length;
  $('competitorStatus').textContent=confirmed+' source-checked product leads'+
   (leads?' · '+leads+' search-index leads require verification':'')+
+  ' · '+photos+' genuine source-linked photos'+
   ' · checked '+new Date(result.checked_at_utc).toLocaleString('en-GB')+
   (result.cached?' · cached research':' · fresh research');
  stats.textContent='Research category: '+String(result.laser.tool_type||'tool')+
@@ -1546,16 +1548,29 @@ function renderCompetitorReport(result){
   ' · '+String(result.ai_matching||'Technical review required');
  if(rows.length){
   container.innerHTML='<div class="competitor-table-scroll"><table class="competitor-table">'+
-   '<thead><tr><th>Competitor</th><th>Verified listing / match</th>'+
+   '<thead><tr><th>Photo</th><th>Competitor</th><th>Product listing / match</th>'+
    '<th>UK advertised price</th><th>Evidence</th></tr></thead><tbody>'+
    rows.map(item=>{
-    const url=String(item.url||'');
+    const url=String(item.product_url||item.url||'');
     const trusted=url.startsWith('https://');
+    const imageUrl=String(item.image_url||'');
+    const photoTrusted=imageUrl.startsWith('https://');
+    const lead=item.source_type==='unverified search-index title';
+    const productLink=trusted
+      ?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" class="competitor-product-link">'+
+        (lead?'Open search lead ↗':'View competitor product ↗')+'</a>'
+      :'Product page unavailable';
+    const photo=photoTrusted
+      ?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" aria-label="View '+esc(item.title)+' on source website">'+
+       '<img src="'+esc(imageUrl)+'" loading="lazy" decoding="async" alt="'+esc(item.brand)+' '+esc(item.title)+' genuine listing photograph">'+
+       '</a><small>'+esc(item.image_source||'Product photo from source')+'</small>'
+      :'<span class="competitor-no-photo">Photo not available from source</span>';
     const vat=item.vat_basis==='inc'?'inc VAT':item.vat_basis==='ex'?'ex VAT':'VAT unconfirmed';
-    return '<tr><td><strong>'+esc(item.brand)+'</strong><small>'+
+    return '<tr><td class="competitor-photo-cell">'+photo+'</td><td><strong>'+esc(item.brand)+'</strong><small>'+
       esc(item.part_number?'Part '+item.part_number:'Part number unconfirmed')+'</small></td>'+
      '<td><b>'+esc(item.title)+'</b><span class="competitor-match">'+
-      esc(item.match_status)+'</span><small>'+esc(item.match_evidence)+'</small></td>'+
+      esc(item.match_status)+'</span><small>'+esc(item.match_evidence)+'</small>'+
+      '<div class="competitor-product-action">'+productLink+'</div></td>'+
      '<td><strong>'+esc(competitorPriceLabel(item))+'</strong><small>'+
       esc(item.price_gbp?vat:'No verified GBP quote')+'</small>'+
       '<small>'+esc(item.listing_condition==='Used'?'USED / PRE-OWNED PRICE':
@@ -1614,6 +1629,14 @@ async function findCompetitors(force=false){
   competitorBusy=false;btn.disabled=false;refresh.disabled=false;
  }
 }
+// A remote retailer may prevent third-party thumbnails from loading. Never
+// replace a missing product photo with a generated or unrelated image.
+$('competitorResults').addEventListener('error',event=>{
+ if(event.target.tagName!=='IMG')return;
+ const cell=event.target.closest('.competitor-photo-cell');
+ if(!cell)return;
+ cell.innerHTML='<span class="competitor-no-photo">Source photo unavailable</span>';
+},true);
 $('competitorBtn').addEventListener('click',()=>findCompetitors(false));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
 $('part').addEventListener('input',()=>{

@@ -1275,3 +1275,28 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .studio-main .quickbar-actions{flex-wrap:wrap}
  .studio-top-links{justify-content:flex-start}
 }
+
+/* V58 — verified manufacturer/retailer product images and product-page links. */
+.competitor-table{min-width:900px}
+.competitor-table th:first-child{min-width:116px}
+.competitor-photo-cell{min-width:118px;width:128px;text-align:center}
+.competitor-photo-cell>a{display:block;width:105px;height:102px;max-width:100%;
+  margin:0 auto;background:#f4f8fb;border:1px solid #dae7f1;border-radius:10px;
+  padding:7px;overflow:hidden;text-decoration:none}
+.competitor-photo-cell img{display:block;width:100%;height:100%;object-fit:contain}
+.competitor-photo-cell small{max-width:120px;margin:7px auto 0;line-height:1.3;
+  text-align:center;color:#738798}
+.competitor-no-photo{display:flex;min-height:98px;align-items:center;justify-content:center;
+  font-size:11px;line-height:1.5;font-weight:650;color:#627b8c;background:#f3f7fb;
+  border:1px dashed #cadae4;border-radius:9px;padding:10px}
+.competitor-product-action{margin:12px 0 0}
+.competitor-product-action .competitor-product-link{
+  display:inline-flex;padding:9px 12px;border-radius:8px;border:1px solid #b7dbed;
+  background:#e8f7ff;color:#065b91;font-size:12px;text-decoration:none;
+  font-weight:850;line-height:1.5}
+.competitor-product-action .competitor-product-link:hover{background:#d6effd}
+@media(max-width:660px){
+  .competitor-panel .competitor-table-scroll{overflow-x:auto;overscroll-behavior-x:contain}
+  .competitor-photo-cell>a{width:95px;height:90px}
+  .competitor-table{min-width:840px}
+}

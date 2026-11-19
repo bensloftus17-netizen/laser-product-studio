@@ -1,3 +1,43 @@
+## V58 — Competitor Finder: genuine photos, direct product links and broader coverage
+
+Previously the comparison table had no `image_url` fields, and the backend
+searched three restrictive phrases with only eight source-page checks. This
+could leave almost any non-endoscope Laser part with zero visible alternatives.
+
+V58:
+- Extracts product photos from verified retailer/manufacturer `Product`
+  JSON-LD and declared `og:image`/Twitter product hero metadata; trusted
+  Google Shopping thumbnails are supported when the optional Shopping
+  service is configured. A photo is NEVER synthesised or inferred from a
+  product title. If unavailable or blocked by the merchant, the UI says so.
+- Adds clickable photos, **View competitor product** links, explicit search
+  lead labels, photo provenance, direct product URLs and image URLs in CSV.
+- Broadens manufacturer terminology for bearing kits, LED under-bonnet lights,
+  ratchets, hydraulic presses, split hub spreaders, torque-spanner tools,
+  injector test tools, and further derived official-title types. Terms are
+  SEARCH/MATCH HINTS, never interchangeability certifications.
+- Supplements the optional UK Shopping feed with five varied web queries,
+  public RSS and a second HTML search fallback; checks up to 18 distinct
+  live approved product pages concurrently. Curated **manufacturer page
+  pointers**, publicly verified in November 2026, cover several common
+  tool families. Seeds must be fetched and validated live before display.
+- Never invents a missing competitor part number, technical fitment,
+  image, GBP price or VAT basis. Product images have an HTTPS host allowlist,
+  no arbitrary browser/proxy fetch, and a safe broken-photo placeholder.
+  Search-only index leads display no guessed photo/price/SKU.
+
+**Coverage depends on the runtime environment.** Without `SERPAPI_KEY`,
+the app uses public keyless search + trusted brand pointers. Public search
+and retailer websites sometimes block server requests; configuring
+`SERPAPI_KEY` in your Render environment (never in frontend/GitHub code)
+enables structured UK Shopping results and more reliable picture listings,
+but still does not guarantee competitors for every Laser SKU.
+
+Tests include real source-markup extraction with mocked merchant pages and
+eight varied Laser-style part numbers. These prove search-path coverage, not
+that the publicly hosted site currently lists any particular alternative.
+Check all live prices and manufacturer applications before publishing.
+
 ## V57 — Actual visual differentiation, not nine resized clones
 
 V57 addresses the 9/9 campaign screenshot that showed essentially the same

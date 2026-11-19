@@ -17,7 +17,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html import unescape
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from bs4 import BeautifulSoup
@@ -25,8 +26,8 @@ from bs4 import BeautifulSoup
 SEARCH_HOST = "https://www.bing.com/search"
 SHOPPING_HOST = "https://serpapi.com/search.json"
 TTL_SECONDS = 20 * 60
-MAX_RESULTS = 12
-MAX_PAGES = 8
+MAX_RESULTS = 18
+MAX_PAGES = 18
 # Pages are retrieved only from these publicly accessible established brands
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
@@ -54,6 +55,9 @@ APPROVED_HOSTS = (
     "britool.co.uk", "hazet.de", "wurth.co.uk", "gedore.co.uk",
     "stahlwille.co.uk", "beta-tools.com", "neilsen-tools.com",
     "clarkeinternational.com", "paddockspares.com", "snapon.co.uk",
+    "powertoolsdirect.com", "esska-tech.co.uk", "hoffmann-group.com",
+    "wallmektools.com", "sealey.co.uk", "toolteam.com",
+    "neilsentools.com",
     "facom.co.uk", "draper.co.uk", "brilliant-tools.com",
 )
 BRANDS = (
@@ -81,6 +85,16 @@ BRANDS = (
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
+    ("open end torque wrench", ("torque", "wrench")),
+    ("split hub spreader", ("hub", "spreader")),
+    ("brake caliper windback", ("brake", "caliper", "windback")),
+    ("engine support beam", ("engine", "support")),
+    ("cooling pressure tester", ("cooling", "pressure")),
+    ("paint thickness gauge", ("paint", "thickness")),
+    ("tyre inflator", ("tyre", "inflator")),
+    ("fluid extractor", ("fluid", "extractor")),
+    ("injector return flow tester", ("injector", "return", "flow")),
+    ("battery cable crimper", ("cable", "crimp")),
     # Endoscopes/borescopes are one product category. A candidate need not
     # repeat the source title's exact synonym ("endoscope" vs "borescope").
     ("inspection camera", ("inspection", "camera")),
@@ -138,6 +152,112 @@ INSPECTION_CAMERA_SEEDS = (
     "https://www.mymotorworld.com/draper-expert-rechargeable-pistol-grip-borescope",
     "https://www.ebay.co.uk/itm/127057347158",
 )
+# Verified manufacturer URLs: discovery pointers, NOT hard-coded matches.
+# A candidate is only returned after reading that product page live, checking
+# its original title and tool type, and extracting photo/price source data.
+# Categories are deliberately broad; technical equivalence is NOT asserted.
+CATEGORY_SEEDS={
+    "wheel bearing":(
+        "https://www.hoffmann-group.com/GB/en/houk/p/3283690-",
+        "https://www.sealey.co.uk/front-wheel-bearing-gen2-removal-installation-kit-72mm-audi-seat-skoda-vw-vs7029/",
+    ),
+    "under bonnet light":(
+        "https://www.sealey.co.uk/under-bonnet-rechargeable-light-13w-smd-led-led139/",
+        "https://www.sealey.co.uk/under-bonnet-rechargeable-light-9w-smd-led-led141/",
+    ),
+    "ratchet set":(
+        "https://www.sealey.co.uk/premier-pear-head-ratchet-wrench-set-with-flip-reverse-3pc-ak6672/",
+    ),
+    "open end torque wrench":(
+        "https://www.neilsentools.com/products/ct1219-7pc-torque-wrench-spanner-head-set",
+    ),
+    "split hub spreader":(
+        "https://www.sealey.co.uk/suspension-split-hub-ball-joint-spreader-vs393/",
+        "https://www.sealey.co.uk/ball-joint-strut-hub-clamp-spreader-tool-vs390/",
+    ),
+    "hydraulic press":(
+        "https://www.drapertools.com/product/35582/draper-expert-pneumatic-hydraulic-floor-press-50-tonne/",
+    ),
+    "injector return flow tester":(
+        "https://www.sealey.co.uk/diesel-injector-flow-common-rail-test-kit-vs2046/",
+    ),
+}
+
+# Product photographs must be attributable to a real listing. Image hosts
+# are intentionally narrower than product/seller hosts. These CDN hosts are
+# used by approved retailer product pages and UK Shopping thumbnails.
+IMAGE_CDN_HOSTS=(
+    "cdn.shopify.com","cdn11.bigcommerce.com","cdn12.bigcommerce.com",
+    "encrypted-tbn0.gstatic.com","encrypted-tbn1.gstatic.com",
+    "media.screwfix.com","media.toolstation.com","images.ctfassets.net",
+    "cdn.media.amplience.net","images.bigcommerce.com",
+)
+# Search synonyms improve discovery, NEVER certify interchangeability.
+TYPE_SYNONYMS={
+    "inspection camera":(
+        "borescope endoscope","video inspection camera","articulating videoscope"),
+    "wheel bearing":(
+        "front wheel bearing removal installation kit",
+        "wheel hub bearing tool set","bearing removal press kit"),
+    "under bonnet light":(
+        "under bonnet work light","underhood LED inspection lamp",
+        "engine bay work light"),
+    "open end torque wrench":(
+        "open end torque spanner set","crowfoot torque wrench set",
+        "open jaw torque wrench"),
+    "ratchet set":(
+        "ratchet wrench set","reversible ratchet set","socket ratchet kit"),
+    "split hub spreader":(
+        "split hub knuckle spreader","strut hub splitter",
+        "suspension hub spreader"),
+    "hydraulic press":(
+        "workshop hydraulic press","garage hydraulic press","hydraulic workshop press"),
+    "injector return flow tester":(
+        "diesel injector leak off tester","injector return flow test kit"),
+    "brake caliper windback":(
+        "brake piston rewind kit","caliper piston wind back tool"),
+    "tyre inflator":(
+        "tyre air compressor","portable tyre inflator"),
+    "battery cable crimper":(
+        "battery cable crimping pliers","cable lug crimping tool"),
+    "engine support beam":(
+        "engine support bar","engine support bridge"),
+    "cooling pressure tester":(
+        "radiator cooling system pressure tester","coolant pressure testing kit"),
+    "paint thickness gauge":(
+        "automotive coating thickness meter","digital paint thickness tester"),
+    "fluid extractor":(
+        "fluid transfer pump","fluid extraction tool"),
+    "brake bleeder":(
+        "brake bleeding kit","brake fluid bleeder"),
+    "injector puller":(
+        "fuel injector extractor tool","injector removal kit"),
+}
+# Each group describes a requirement for product family similarity; at least
+# one term per group must be present on the ORIGINAL competitor listing.
+# Do not make up missing vehicle fits, capacities or complete kit contents.
+TYPE_MATCH_GROUPS={
+    "inspection camera":((r"borescope|boroscope|endoscope|videoscope|inspection.camera|snake.camera",),),
+    "wheel bearing":((r"bearing",),(r"wheel|hub",)),
+    "under bonnet light":((r"bonnet|hood|engine.bay",),
+                          (r"lamp|light|inspection",)),
+    "open end torque wrench":((r"torque",),(r"wrench|spanner|crowfoot|open.end|open.jaw",)),
+    "ratchet set":((r"ratchet",),(r"set|kit|piece|pc|pcs",)),
+    "split hub spreader":((r"hub|knuckle|strut|suspension",),
+                          (r"spreader|splitter|separator",)),
+    "hydraulic press":((r"hydraulic",),(r"press",)),
+    "injector return flow tester":((r"injector",),(r"return|leak.off|flow|tester",)),
+    "brake caliper windback":((r"brake|caliper",),(r"windback|wind.back|rewind|piston",)),
+    "tyre inflator":((r"tyre|tire",),(r"inflat|compressor",)),
+    "battery cable crimper":((r"cable|battery|lug",),(r"crimp",)),
+    "engine support beam":((r"engine|motor",),(r"support|beam|bridge|bar",)),
+    "cooling pressure tester":((r"coolant|cooling|radiator",),(r"pressure",)),
+    "paint thickness gauge":((r"paint|coating",),(r"thickness|depth|gauge|meter",)),
+    "fluid extractor":((r"fluid|oil|liquid",),(r"extract|pump|transfer",)),
+    "brake bleeder":((r"brake",),(r"bleed|bleeder|fluid",)),
+    "injector puller":((r"injector",),(r"puller|extract|removal",)),
+}
+
 CACHE = {}
 CACHE_LOCK = threading.Lock()
 
@@ -166,6 +286,72 @@ def safe_url(url, allow_google=False):
         )
     except (ValueError, TypeError):
         return False
+
+
+def safe_image_url(image_url, page_url):
+    """Only HTTPS product photos tied to a source-checked merchant listing.
+
+    Never fetch an arbitrary URL from user/AI input. Returned URLs are for
+    product pictures, not scraped logos, model-generated illustrations or
+    base64/data URIs. No redirects, internal hosts or non-HTTPS schemes.
+    """
+    if not safe_url(page_url):
+        return None
+    if not isinstance(image_url,str) or not image_url.strip():
+        return None
+    value=urljoin(page_url,image_url.strip())
+    try:
+        parsed=urlparse(value)
+        host=(parsed.hostname or "").lower().rstrip(".")
+        product_host=(urlparse(page_url).hostname or "").lower().rstrip(".")
+        safe_host=(host==product_host or
+                   host.endswith("."+product_host) or
+                   any(host==cdn or host.endswith("."+cdn)
+                       for cdn in IMAGE_CDN_HOSTS))
+        path=(parsed.path or "").lower()
+        return value if (
+            safe_host and parsed.scheme=="https" and
+            parsed.username is None and parsed.password is None and
+            (parsed.port is None or parsed.port==443) and
+            len(value)<=1400 and
+            not re.search(r"[\r\n\x00-\x1f]",value) and
+            not re.search(r"(?:^|[/_-])(?:logo|favicon)(?:[./_-]|$)",path) and
+            not path.endswith((".svg",".gif",".pdf"))
+        ) else None
+    except (ValueError,TypeError):
+        return None
+
+
+def _image_from_schema(raw):
+    """Extract a URL only from actual JSON-LD Product.image markup."""
+    if isinstance(raw,str):
+        return raw
+    if isinstance(raw,dict):
+        return raw.get("contentUrl") or raw.get("url") or ""
+    if isinstance(raw,list):
+        for item in raw[:8]:
+            found=_image_from_schema(item)
+            if found:return found
+    return ""
+
+
+def _page_main_image(soup,page_url,product_image=None):
+    """Prefer source Product schema, then page-designated hero metadata."""
+    paths=[(_image_from_schema(product_image),"Product JSON-LD photo")]
+    for selector in (
+        'meta[property="og:image:secure_url"]',
+        'meta[property="og:image"]',
+        'meta[name="twitter:image"]',
+        'meta[itemprop="image"]',
+    ):
+        tag=soup.select_one(selector)
+        if tag:
+            paths.append((tag.get("content") or "","Product page hero image"))
+    for candidate,origin in paths:
+        url=safe_image_url(candidate,page_url)
+        if url:
+            return url,origin
+    return None,None
 
 
 def detect_brand(title, explicit=None, domain=None):
@@ -321,7 +507,7 @@ def _dynamic_match(signature, candidate):
 
 
 def match_status(signature, candidate_title):
-    """Compare types conservatively; inspection camera synonyms are equivalent."""
+    """Compare broad tool families, never claim equivalent fitment/contents."""
     text = " " + re.sub(r"[^a-z0-9/ -]", " ",
                         clean_text(candidate_title, 260).lower()) + " "
     if signature["type"] == "inspection camera":
@@ -334,8 +520,24 @@ def match_status(signature, candidate_title):
                 "articulation, probe diameter, screen, imaging and accessories.")
     if signature.get("category_source")=="official-title-derived":
         return _dynamic_match(signature,candidate_title)
-    if not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
-               for word in signature["type_terms"]):
+    groups=TYPE_MATCH_GROUPS.get(signature["type"])
+    if groups:
+        if not all(any(re.search(pattern,text) for pattern in group)
+                   for group in groups):
+            return None
+    elif not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
+                 for word in signature["type_terms"]):
+        return None
+    if signature["type"]=="open end torque wrench" and not re.search(
+            r"open.end|open.jaw|crowfoot|spanner",text):
+        return ("Related torque tool — open-end function unverified",
+                "A torque wrench is a related tool class, but the open-spanner "
+                "head and working range require manufacturer confirmation.")
+    # Related products are NOT necessarily interchangeable even with the
+    # same generic English tool category. Vehicle fitments are checked below.
+    original_words=set(_tokens(signature["title"]))
+    accessory=set(_tokens(candidate_title)) & TOKEN_EXCLUSIONS
+    if accessory and not accessory.intersection(original_words):
         return None
     fitments = signature["fitments"]
     matched = [x for x in fitments if re.search(
@@ -395,9 +597,9 @@ def candidate_sku(title, brand, explicit=None):
 
 def _build_result(title, url, signature, *, brand=None, sku=None,
                   seller=None, price=None, price_origin=None, vat=None,
-                  listing_condition=None):
+                  listing_condition=None,image_url=None,image_origin=None):
     title = clean_text(title, 230)
-    if len(title) < 8 or not safe_url(url, allow_google=True):
+    if len(title) < 8 or not safe_url(url):
         return None
     brand = detect_brand(title, explicit=brand, domain=urlparse(url).hostname)
     if brand == "Laser Tools":
@@ -417,7 +619,10 @@ def _build_result(title, url, signature, *, brand=None, sku=None,
         "listing_condition":listing_condition if listing_condition in
             ("New","Used","Refurbished") else "Unconfirmed",
         "match_status":match[0],"match_evidence":match[1],
-        "url":url,"source_type":"shopping" if price_origin=="Google Shopping listing"
+        "url":url,"product_url":url,
+        "image_url":safe_image_url(image_url,url),
+        "image_source":image_origin if safe_image_url(image_url,url) else None,
+        "source_type":"shopping" if price_origin=="Google Shopping listing"
               else "retailer/manufacturer page",
     }
 
@@ -445,6 +650,8 @@ def _parse_shopping(data, signature):
             title,url,signature,brand=row.get("brand"),seller=row.get("source"),
             sku=row.get("model") or row.get("sku"),
             price=price,price_origin="Google Shopping listing",
+            image_url=row.get("thumbnail") or row.get("image"),
+            image_origin="Google Shopping product thumbnail",
             listing_condition=("Used" if str(row.get("condition","")).lower() in
                                ("used","second hand","pre-owned")
                                else "New" if str(row.get("condition","")).lower()=="new"
@@ -455,37 +662,53 @@ def _parse_shopping(data, signature):
 
 
 def search_queries(signature):
-    """Brand-neutral multi-angle searches for all official product families."""
-    if signature["type"]=="inspection camera":
+    """Five varied, bounded catalogue searches for all Laser product names.
+
+    In contrast to V51, an official title contributes the *search words*,
+    while synonyms cover other makers' marketing names. Neither constitutes
+    evidence of equivalence.
+    """
+    name=signature["type"]
+    fit=" ".join(signature["fitments"][:2])
+    synonyms=TYPE_SYNONYMS.get(name,())
+    # For unknown categories extract manufacturer title vocabulary, not a
+    # hallucinated taxonomy. No Laser SKU is used as a competitor model.
+    broad=clean_text(name,95)
+    product_title=clean_text(signature["title"],105)
+    if name=="inspection camera":
         return [
-            "Snap-on BK7000 BK5500 borescope inspection camera UK price",
-            "Sealey VS8118 video borescope 5 screen price UK",
-            "Draper 92578 endoscope borescope inspection camera UK price",
+            "Snap-on BK7000 video borescope UK retailer product",
+            "Sealey video borescope camera UK seller",
+            "Draper inspection endoscope UK product",
+            "automotive videoscope inspection camera UK price",
+            "workshop borescope inspection camera alternative",
         ]
-    base=(signature["type"]+" "+" ".join(signature["fitments"][:2])).strip()
-    # An unfamiliar part should still search meaningfully, not fail taxonomy.
-    if signature.get("category_source")=="official-title-derived":
-        return [
-            base+" trade workshop product UK seller",
-            base+" alternative manufacturer equivalent UK price",
-            base+" comparable tool distributor UK",
-        ]
-    return [
-        base+" Sealey Draper UK price",
-        base+" BGS Gedore Sykes-Pickavant UK price",
-        base+" competitor alternatives UK tool",
+    queries=[
+        (broad+" "+fit+" competitor alternative tools UK").strip(),
+        ((synonyms[0] if synonyms else broad)+" "+fit+
+         " Sealey Draper BGS UK").strip(),
+        ((synonyms[1] if len(synonyms)>1 else broad)+
+         " Gedore Sykes Pickavant UK product").strip(),
+        (product_title+" alternative equivalent manufacturer").strip(),
+        ((synonyms[2] if len(synonyms)>2 else broad)+
+         " tool UK price comparison").strip(),
     ]
+    # Avoid repeated identical requests on shorter unusual tool names.
+    return list(dict.fromkeys(q[:145] for q in queries))
+
+
 
 
 def shopping_search(signature, session=requests, api_key=None):
     api_key = api_key or os.environ.get("SERPAPI_KEY","").strip()
     if not api_key:
         return [], "Google Shopping API key not configured; using keyless product-page discovery."
+    aliases=TYPE_SYNONYMS.get(signature["type"],())
     query = ("borescope endoscope inspection camera Snap-on Sealey Draper"
              if signature["type"]=="inspection camera" else
-             (signature["type"]+" "+" ".join(signature["fitments"][:2])+
-              (" UK tools" if signature.get("category_source")=="official-title-derived"
-               else " Sealey Draper BGS Gedore")).strip())
+             (" ".join([signature["type"],aliases[0] if aliases else "",
+                       " ".join(signature["fitments"][:2]),
+                       "UK Sealey Draper BGS Gedore"]).strip()))
     # Query synonyms are researched, not manufacturer fitment assertions.
     response = session.get(SHOPPING_HOST,params={
         "engine":"google_shopping","q":query,
@@ -521,23 +744,67 @@ def _parse_rss(content):
 
 def rss_search(signature,session=requests):
     queries=search_queries(signature)
-    results = []
-    errors = []
-    for q in queries:
+    def fetch(query):
         try:
-            response = session.get(SEARCH_HOST,params={
-                "q":q,"format":"rss","mkt":"en-GB",
+            response=session.get(SEARCH_HOST,params={
+                "q":query,"format":"rss","mkt":"en-GB",
             },timeout=7,allow_redirects=False,headers={
                 "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
             response.raise_for_status()
             if response.status_code != 200:
                 raise ValueError("Search provider redirected")
-            results += _parse_rss(response.content)
+            return _parse_rss(response.content),None
         except (requests.RequestException,ValueError,ET.ParseError) as exc:
-            errors.append(type(exc).__name__)
-    if errors and not results:
+            return [],type(exc).__name__
+    # Independent public searches run concurrently to avoid multiple 7s
+    # serial timeouts on free hosting. Results preserve input query ordering.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        responses=list(pool.map(fetch,queries))
+    rows=[row for hits,_ in responses for row in hits]
+    errors=[error for _,error in responses if error]
+    if errors and not rows:
         raise RuntimeError("Public web search is temporarily unavailable.")
-    return results,errors
+    return rows,errors
+
+
+def _parse_search_html(content):
+    """Extract ordinary public Bing product-result links, not its own ads.
+
+    This keyless path supplements RSS when search feeds are sparse. No data
+    from search titles can establish a price, picture or SKU; each candidate
+    still requires real merchant-page verification.
+    """
+    if len(content)>850000:
+        raise ValueError("Search page exceeded size limit")
+    soup=BeautifulSoup(content,"html.parser")
+    rows=[]
+    for tag in soup.select("li.b_algo h2 a, #b_results h2 a")[:35]:
+        url=str(tag.get("href") or "")
+        title=clean_text(tag.get_text(" ",strip=True),225)
+        if not safe_url(url) or len(title)<8:
+            continue
+        block=tag.find_parent("li")
+        desc=clean_text(block.get_text(" ",strip=True),280) if block else ""
+        rows.append({"title":title,"url":url,"description":desc})
+    return rows
+
+
+def html_search(signature,session=requests):
+    """Second public discovery mechanism where Bing RSS has few listings."""
+    queries=search_queries(signature)[:2]
+    def fetch(query):
+        try:
+            response=session.get(SEARCH_HOST,params={"q":query,"mkt":"en-GB"},
+                timeout=7,allow_redirects=False,headers={
+                    "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
+            response.raise_for_status()
+            if response.status_code!=200:
+                return []
+            return _parse_search_html(response.content)
+        except (requests.RequestException,ValueError,OSError):
+            return []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        return [row for batch in pool.map(fetch,queries) for row in batch]
 
 
 def _jsonld_nodes(data):
@@ -654,15 +921,18 @@ def parse_product_page(content, url, signature):
             brand=_schema_brand(node)
             sku=node.get("sku") or node.get("mpn")
             price=_schema_price(node)
+            image,image_source=_page_main_image(soup,url,node.get("image"))
             result=_build_result(name,url,signature,
                 brand=brand,sku=sku,price=price,
                 price_origin="Retailer JSON-LD product offer",
                 seller=urlparse(url).hostname,
-                listing_condition=_listing_condition(soup,node))
+                listing_condition=_listing_condition(soup,node),
+                image_url=image,image_origin=image_source)
             if result:
                 rows.append(result)
     if rows:
-        return max(rows,key=lambda r:bool(r["price_gbp"]))
+        return max(rows,key=lambda r:(
+            bool(r["image_url"]),bool(r["price_gbp"]),bool(r["part_number"])))
     # Manufacturer pages with genuine product heading and UK merchant
     # listings may not publish JSON-LD. Only a known explicit current-price
     # label on a supported merchant is accepted, never a generic pound sign
@@ -672,8 +942,10 @@ def parse_product_page(content, url, signature):
     if not candidate:
         return None
     visible_price,vat,origin=_merchant_visible_price(soup,url)
+    hero,hero_origin=_page_main_image(soup,url)
     return _build_result(candidate,url,signature,price=visible_price,
                          vat=vat,price_origin=origin,
+                         image_url=hero,image_origin=hero_origin,
                          listing_condition=_listing_condition(soup))
 
 
@@ -701,6 +973,7 @@ def keyless_discovery(signature,session=requests):
     urls=[]
     if signature["type"]=="inspection camera":
         urls.extend(INSPECTION_CAMERA_SEEDS)
+    urls.extend(CATEGORY_SEEDS.get(signature["type"],()))
     try:
         hits,feed_errors=rss_search(signature,session)
         urls.extend(row["url"] for row in hits)
@@ -710,7 +983,18 @@ def keyless_discovery(signature,session=requests):
         # Do not throw out a verified source simply because a free RSS search
         # provider has blocked or changed its feed.
         hits=[]
-        warnings.append("Public search provider unavailable; checked approved catalogue leads.")
+        warnings.append("Public RSS feed unavailable; trying normal search results and approved catalogue leads.")
+    if len({r["url"] for r in hits if safe_url(r.get("url"))})<10:
+        extra=html_search(signature,session)
+        if extra:
+            hits.extend(extra)
+            warnings.append("Public search HTML also supplied competitor leads.")
+    # Prioritise hits that already describe the correct product class before
+    # spending the bounded page budget; preserve original search order.
+    indexed=sorted(hits,key=lambda r:(
+        0 if match_status(signature,r["title"]) else 1))
+    urls.extend(row["url"] for row in indexed)
+    candidates=[]
     for url in urls:
         if not safe_url(url) or urlparse(url).path in ("","/"):
             continue
@@ -718,31 +1002,37 @@ def keyless_discovery(signature,session=requests):
         if key in found_urls:
             continue
         found_urls.add(key)
-        if len(found_urls)>MAX_PAGES:
+        candidates.append(url)
+        if len(candidates)>=MAX_PAGES:
             break
+    # Querying 18 individual product pages sequentially could exhaust the
+    # hosting request timeout. Parallelise page fetches, never redirects.
+    # Keep product-relevant search order, not unordered set iteration.
+    indexed_titles={r["url"]:r for r in hits}
+    def inspect(url):
         try:
-            item=_get_product_page(url,signature,session)
-            if item:
-                found.append(item)
-            else:
-                # An RSS index title is a research LEAD, not verified
-                # manufacturer-page content. Never attach a price or
-                # assume manufacturer SKU if the page could not be read.
-                indexed=next((r for r in hits if r["url"]==url),None)
-                if indexed:
-                    lead=_build_result(indexed["title"],url,signature)
-                    if lead:
-                        lead["price_gbp"]=None
-                        lead["price_source"]=None
-                        lead["part_number"]=None
-                        lead["source_type"]="unverified search-index title"
-                        lead["match_status"]="Search lead — verify manufacturer page"
-                        lead["match_evidence"]=(
-                            "Search engine indexed a similarly named product; "
-                            "the original product page could not be verified.")
-                        found.append(lead)
+            verified=_get_product_page(url,signature,session)
+            if verified:return verified
+            row=indexed_titles.get(url)
+            if row:
+                lead=_build_result(row["title"],url,signature)
+                if lead:
+                    lead["price_gbp"]=None
+                    lead["price_source"]=None
+                    lead["part_number"]=None
+                    lead["image_url"]=None
+                    lead["image_source"]=None
+                    lead["source_type"]="unverified search-index title"
+                    lead["match_status"]="Search lead — verify manufacturer page"
+                    lead["match_evidence"]=(
+                        "Search engine indexed a similarly named product; "
+                        "the original product page could not be verified.")
+                    return lead
         except (requests.RequestException,ValueError,OSError):
-            continue
+            return None
+        return None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        found.extend(item for item in pool.map(inspect,candidates) if item)
     warning=(" ".join(warnings) if warnings else None)
     return found,warning
 
@@ -754,9 +1044,21 @@ def _distinct(results):
     for item in results:
         key=item["url"].lower().split("#",1)[0].rstrip("/")
         old=by_url.get(key)
-        if old is None or (bool(item["part_number"]),bool(item["price_gbp"])) > (
-                bool(old["part_number"]),bool(old["price_gbp"])):
+        if old is None or (
+                bool(item["part_number"]),bool(item["price_gbp"]),
+                bool(item.get("image_url"))) > (
+                bool(old["part_number"]),bool(old["price_gbp"]),
+                bool(old.get("image_url"))):
+            if old:
+                for field,related in (("image_url","image_source"),
+                                      ("price_gbp","price_source")):
+                    if not item.get(field) and old.get(field):
+                        item[field]=old[field]
+                        item[related]=old.get(related)
             by_url[key]=item
+        elif old and not old.get("image_url") and item.get("image_url"):
+            old["image_url"]=item["image_url"]
+            old["image_source"]=item.get("image_source")
     best={}
     for item in by_url.values():
         key=(item["brand"].lower(),
@@ -764,8 +1066,10 @@ def _distinct(results):
              re.sub(r"\W+","",item["title"].lower())[:85])
         previous=best.get(key)
         if (not previous
-                or (bool(item["price_gbp"]),bool(item["part_number"])) >
-                   (bool(previous["price_gbp"]),bool(previous["part_number"]))):
+                or (bool(item["price_gbp"]),bool(item["part_number"]),
+                    bool(item.get("image_url"))) >
+                   (bool(previous["price_gbp"]),bool(previous["part_number"]),
+                    bool(previous.get("image_url")))):
             best[key]=item
     return sorted(best.values(),key=lambda item:(
         0 if item["match_status"].startswith("Likely equivalent") else 1,
@@ -874,6 +1178,8 @@ def research_competitors(product, *, session=requests,
                  "price":product.get("price"),
                  "price_status":product.get("price_status")},
         "results":rows,"count":len(rows),"checked_at_utc":checked,
+        "images_found":sum(bool(r.get("image_url")) for r in rows),
+        "product_links_found":sum(bool(r.get("product_url")) for r in rows),
         "verified_product_pages":sum(
             r["source_type"]!="unverified search-index title" for r in rows),
         "search_only_leads":sum(
@@ -900,7 +1206,8 @@ def report_csv(result):
                      "Competitor product","Competitor part number",
                      "UK advertised price GBP","VAT basis","Listing condition","Retailer/seller",
                      "Match classification","Evidence note","Source URL",
-                     "Price source","Checked UTC","Evidence level"])
+                     "Price source","Checked UTC","Evidence level",
+                     "Product photo URL","Image provenance"])
     def guard(value):
         string=str(value or "").strip()
         return "'"+string if string.startswith(("=","+","-","@","\t","\r")) else string
@@ -911,6 +1218,7 @@ def report_csv(result):
             item["price_gbp"],item["vat_basis"],item.get("listing_condition"),
             item["seller"],item["match_status"],item["match_evidence"],item["url"],
             item["price_source"],result["checked_at_utc"],
-            item.get("source_type")
+            item.get("source_type"),item.get("image_url"),
+            item.get("image_source")
         ]])
     return output.getvalue().encode("utf-8-sig")
