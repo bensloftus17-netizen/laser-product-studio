@@ -417,6 +417,31 @@ def quality_check_format(blob,kind,tracked,source_report):
             "source_photo_verified":True}
 
 
+def quality_check_safe_native(blob,kind,source_report):
+    """Check a native recovered graphic; never accept a nonverified source."""
+    reasons=[]
+    if not isinstance(source_report,dict) or not source_report.get("passed"):
+        reasons.append("Official product photo not quality-approved")
+    try:
+        photo=Image.open(io.BytesIO(blob))
+        photo.load()
+        if photo.format!="PNG" or photo.size!=FORMATS[kind][:2]:
+            reasons.append("Recovered graphic has incorrect native PNG dimensions")
+        sample=photo.convert("RGB").resize((150,150),Image.Resampling.BILINEAR)
+        values=list(sample.getdata())
+        white=sum(min(rgb)>=243 and max(rgb)-min(rgb)<15 for rgb in values)/len(values)
+        contrast=sum(ImageStat.Stat(sample).stddev)/3
+        if white>.37:reasons.append("Recovered artwork has excessive white area")
+        if contrast<17:reasons.append("Recovered artwork is too low contrast")
+    except (OSError,ValueError,KeyError,TypeError):
+        reasons.append("Recovered graphic is unreadable")
+    return {"passed":not reasons,"issues":reasons,
+            "render_engine":"verified-native-recovery",
+            "source_photo_verified":bool(source_report and source_report.get("passed")),
+            "native_dimensions":list(FORMATS[kind][:2]),
+            "score":max(0,100-25*len(reasons))}
+
+
 def generate_format(kind,brief,product,photo,*,scenes=(),headlines=None,
                     facts=(),distributor=None,source_report=None):
     """Original artboard, with bounded actual text-fit and verified-copy recovery."""
