@@ -192,7 +192,7 @@ V7_HOME_PAGE = r'''
  <small class="share-app-targets">WhatsApp · Instagram · Facebook</small>
  <a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a>
  <button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button>
- <small>Nothing downloads automatically. Sharing is optional too.</small>
+ <small>Nothing downloads automatically. Sharing is optional too. Save the ZIP to keep it permanently; server copies are temporary.</small>
  </div></div>
 <section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
  <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
@@ -882,7 +882,7 @@ $('campaignAssets').addEventListener('error',event=>{
  if(!card)return;
  const state=card.querySelector('[data-load-state]');
  const retry=card.querySelector('[data-retry-asset]');
- if(state)state.textContent='Preview did not load. The full ZIP may still be available.';
+ if(state)state.textContent='Preview could not load. Temporary server links may expire after a restart. Reopen the campaign or try again.';
  if(retry)retry.hidden=false;
 },true);
 $('campaignAssets').addEventListener('click',event=>{
