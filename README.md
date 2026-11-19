@@ -1,3 +1,36 @@
+## V62 — Dutch source-language leak prevented (Laser 7845)
+
+A UK campaign for Laser 7845 showed untranslated Dutch:
+`Vierkante doorsnede van 16 mm, gebogen kop van 25°.`
+
+**Verified primary source:** The official English Tool Connection product listing
+at `https://www.toolconnection.co.uk/products/general-hand-tools/striking-tools/pry-bars/heavy-duty/7845-pry-bar-900mm`
+explicitly gives a `16mm square section 25° angled head`. V62 prioritises
+that official UK page by exact part number.
+
+For a cached PDF or a temporarily unavailable UK page, the same very
+specific, source-preserving Dutch **numeric measurement pattern** is
+translated to `16 mm square section; 25° angled head.` (the two source
+numbers and their units are not altered). Unsupported Dutch technical or
+promotional sentences are **rejected**, never creatively translated into
+new features or selling points. The high-confidence Dutch vocabulary
+detector now covers short descriptions such as `vierkante doorsnede` and
+`gebogen kop` even when statistical language identification fails.
+
+The last-line normalisation remains in initial campaign generation,
+copy previews, the five newer copy goals (including Check English & facts),
+PDF-source fallback, and server-side product-data parsing. No pricing,
+customer logos, product imagery or quality gates were changed.
+
+**Important:** Existing saved copy is not rewritten without the user's
+consent. After deploying V62, regenerate 7845 or press Check English &
+facts in the editor, inspect the source-backed suggestion and Apply.
+
+Regressions test the exact Dutch sentence, untranslatable Dutch claims,
+independent French/German translation, genuine English manufacturer URL,
+all three initial angles and every rewrite/channel combination, as well
+as absence of false positives on normal English workshop descriptions.
+
 ## V61 — British-English Marketing Copy Studio (part 7823)
 
 The copy editor no longer presents overlapping "more professional / more

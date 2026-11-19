@@ -32,6 +32,29 @@ INTERCHANGEABLE_HEADS_RE = re.compile(
     r"\s*mm\.?\s*$", re.I,
 )
 
+# V62: The exact Dutch technical format found on the official Laser 7845
+# source record. An independent English manufacturer page confirms the same
+# 16 mm square section and 25° angled head:
+# https://www.toolconnection.co.uk/products/general-hand-tools/striking-tools/pry-bars/heavy-duty/7845-pry-bar-900mm
+# Never translate a broader Dutch sales claim or guess what its jargon means.
+DUTCH_GEOMETRY_RE = re.compile(
+    r"^\s*vierkante\s+doorsnede\s+van\s+"
+    r"(?P<section>\d{1,3}(?:[.,]\d{1,2})?)\s*mm\s*[,;]\s*"
+    r"gebogen\s+kop\s+van\s+"
+    r"(?P<angle>\d{1,3}(?:[.,]\d{1,2})?)\s*[°º]\s*\.?\s*$",
+    re.I,
+)
+
+
+def _translate_dutch_verified_geometry(text):
+    match=DUTCH_GEOMETRY_RE.fullmatch(text)
+    if not match:
+        return None
+    # The manufacturer-supplied numbers are never modified by translation.
+    return (f'{match.group("section")} mm square section; '
+            f'{match.group("angle")}° angled head.')
+
+
 # V61: Strict English labels for verified *French numeric measurements*.
 # A mixed/unsupported statement is not partially translated; its original
 # foreign wording remains for the language gate to reject entirely.
@@ -118,6 +141,9 @@ def translate_known_numeric_labels(text):
     original=" ".join(str(text or "").split()).strip()
     if not original:
         return original
+    dutch=_translate_dutch_verified_geometry(original)
+    if dutch is not None:
+        return dutch
     french=_translate_french_numeric(original)
     if french is not None:
         return french

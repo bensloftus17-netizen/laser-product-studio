@@ -1831,6 +1831,7 @@ def normalize(s):return re.sub(r'\s+',' ',str(s or '')).strip()
 # Official English Tool Connection product pages verified for pilot demonstrations.
 # For other part numbers, a search discovery attempt locates the manufacturer page.
 OFFICIAL_UK_PRODUCTS = {
+    '7845':'https://www.toolconnection.co.uk/products/general-hand-tools/striking-tools/pry-bars/heavy-duty/7845-pry-bar-900mm',
     '8324':'https://www.toolconnection.co.uk/products/cars-vans/steering-suspension/shock-absorbers/kits/8324-suspension-split-hub-knuckle-spreader',
     '9395':'https://www.toolconnection.co.uk/products/cars-vans/transmission/wheel-bearings/gen2-wheel-bearing-kits/9395-front-wheel-bearing-kit-for-mercedes-benz-sprinter-vw-crafter',
     '9372':'https://www.toolconnection.co.uk/products/workshop/equipment/hydraulic-press/9372-air-hydraulic-workshop-press-50-tonne',
@@ -1983,7 +1984,10 @@ DUTCH_TECH=re.compile(
     r'losdraaimoment|luchtdruk|luchtverbruik|geluidsniveau|'
     r'magnesiumlegering|tweevoudige|schroefdraad|uitgerust|'
     r'verlengde|onderhoudswerkzaamheden|luchtgereedschap|'
-    r'voertuigreparatie|werklast|gebruiksvriendelijk)\b',re.I)
+    r'voertuigreparatie|werklast|gebruiksvriendelijk|'
+    r'vierkante|doorsnede|gebogen|schuine|geharde|vervaardigd|'
+    r'handgreep|sleutelmaat|vergrendeling|hoek|'
+    r'ge[ïi]soleerd|gebogen\s+kop)\b',re.I)
 DUTCH_WORDS=re.compile(
     r'\b(?:met|een|het|voor|van|deze|zijn|door|zoals|'
     r'wordt|kunnen|zonder|gebruik|gemonteerd|hierdoor|'
@@ -2021,7 +2025,9 @@ DUTCH_PRODUCTS = re.compile(
 DUTCH_PATTERNS = re.compile(
     r'\b(?:van\s+elk|geleverd\s+in|gemaakt\s+van|'
     r'voor\s+het|om\s+te|met\s+een|in\s+een|'
-    r'elk\s+en|en\s+snijbekken)\b', re.I
+    r'elk\s+en|en\s+snijbekken|'
+    r'vierkante\s+doorsnede|gebogen\s+kop|'
+    r'doorsnede\s+van|kop\s+van\s+\d+\s*[°º])\b', re.I
 )
 ENGLISH_SAFETY_WORDS = re.compile(
     r'\b(?:for|with|includes?|supplied|designed|suitable|'
