@@ -276,7 +276,10 @@ class CompetitorFinderTests(unittest.TestCase):
             self.assertIn("no-store",again.headers["Cache-Control"])
             sheet=self.client.get("/api/competitors/9395/export.csv")
             self.assertEqual(sheet.status_code,200)
-            self.assertIn(b"BGS-2345",sheet.data)
+            self.assertIn(b"187.99",sheet.data)
+            self.assertIn(PRODUCT_URL.encode(),sheet.data)
+            self.assertIn(b"Competitor part number",sheet.data)
+            # No SKU was provided by this mocked listing: leave it unknown.
             self.assertIn("attachment",sheet.headers["Content-Disposition"])
             refresh=self.client.get("/api/competitors/9395?refresh=1")
             self.assertEqual(refresh.status_code,200)
