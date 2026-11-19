@@ -1233,3 +1233,45 @@ body{background:#eef4fb;color:#102744;min-width:320px}
   grid-template-columns:minmax(0,1fr);
  }
 }
+
+
+/* V52 navigation and visual hierarchy polish */
+.studio-topbar{min-width:0;box-sizing:border-box}
+.studio-brand{min-width:0;flex:0 1 auto}
+.studio-top-links{
+ flex:1 1 auto;min-width:0;overflow-x:auto;overflow-y:hidden;
+ scrollbar-width:thin;scrollbar-color:#497caa transparent;
+}
+.studio-top-links a{min-width:0;flex:0 0 auto}
+.studio-pilot-tag{flex:0 0 auto;max-width:180px;text-align:right}
+.studio-main .searchpanel .campaign-feedback{
+ font-size:12px;line-height:1.55;overflow-wrap:anywhere;
+}
+.studio-main .searchpanel .campaign-settings>summary{
+ white-space:normal;overflow-wrap:anywhere;line-height:1.5;
+}
+.asset-workspace .campaign-results-heading .campaign-download-choice{
+ min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:7px;
+}
+.asset-workspace .campaign-results-heading .campaign-download-choice>*{
+ max-width:100%;overflow-wrap:anywhere;white-space:normal;
+}
+.asset-workspace .campaign-angle-cards{
+ grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+}
+.asset-workspace .campaign-angle{min-width:0}
+.asset-workspace .campaign-angle p,
+.asset-workspace .campaign-angle small,
+.asset-workspace .campaign-quality{
+ overflow-wrap:anywhere;white-space:normal;
+}
+.studio-main .studio-quickbar>*{min-width:0}
+.studio-main .quickbar-item small{overflow-wrap:anywhere}
+.studio-main a:focus-visible,.studio-main button:focus-visible,
+.studio-main input:focus-visible{
+ outline:3px solid #55aeec;outline-offset:2px;
+}
+@media(max-width:1100px){
+ .studio-main .quickbar-actions{flex-wrap:wrap}
+ .studio-top-links{justify-content:flex-start}
+}
