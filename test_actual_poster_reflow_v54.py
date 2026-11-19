@@ -1,4 +1,6 @@
 """V54: text-reflow repairs must alter pixels and keep independent art usable."""
+import base64
+import io
 import unittest
 from unittest.mock import patch
 
@@ -60,6 +62,12 @@ class ActualPosterTextRepairTests(unittest.TestCase):
         self.assertLessEqual(sizes[2],sizes[1])
         self.assertEqual(len(set(pictures)),3)
 
+    def test_visual_critic_gets_readable_preview_not_micro_thumbnail(self):
+        from creative_qa import _small_jpeg
+        original=image_bytes(1200,1500)
+        preview=Image.open(io.BytesIO(base64.b64decode(_small_jpeg(original))))
+        self.assertEqual(preview.size,(760,950))
+
     def test_glyph_extents_are_measured_before_any_drawing(self):
         canvas=Image.new("RGB",(300,130),"#113B53")
         draw=ImageDraw.Draw(canvas)
@@ -85,6 +93,8 @@ class ActualPosterTextRepairTests(unittest.TestCase):
                       pack["manifest"]["creative_plan"]["verified_safe_recoveries"])
         angles=pack["manifest"]["angles"]
         self.assertEqual(angles[2]["layout"],"Verified-safe recovery")
+        self.assertIn("independently approved safe-layout recovery",
+                      __import__("app").V7_HOME_PAGE)
         self.assertTrue(pack["archive"].startswith(b"PK"))
         self.assertEqual(
             sum(e[0]=="ready" and e[1]=="poster_smart" for e in harness.events),1)
