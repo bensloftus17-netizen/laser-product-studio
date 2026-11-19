@@ -124,6 +124,20 @@ class ReliableDemoCampaignTests(unittest.TestCase):
         self.assertTrue(any(
             e[0]=="failed" and e[1]=="social_story" for e in events))
 
+    def test_five_ai_chosen_composition_modes_change_actual_pixels(self):
+        import copy
+        from creative_director import COMPOSITION_MODES
+        blank=Image.new("RGBA",(1200,1500),"#0A2948")
+        results=[]
+        for mode in COMPOSITION_MODES:
+            proposed=copy.deepcopy(TECH)
+            proposed["composition_mode"]=mode
+            brief=validate_brief(proposed,"technical_application")
+            self.assertEqual(brief["composition_mode"],mode)
+            results.append(_role_art_direction(
+                blank,brief,"technical_application").tobytes())
+        self.assertEqual(len(set(results)),len(COMPOSITION_MODES))
+
     def test_ai_freeform_roles_have_distinct_real_rendered_visual_languages(self):
         blank=Image.new("RGBA",(1200,1500),"#0A2948")
         scenes=[]
