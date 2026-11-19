@@ -1,3 +1,22 @@
+## V49 — AI Competitor Finder: source-linked UK alternatives and prices
+
+The product search bar now has **Find Competitors & UK Prices**. Staff enter a Laser part number to open an independent comparison panel, preserving every existing poster and campaign feature.
+
+- Retrieves the genuine official UK Laser record first; only its product title, type and named vehicle applications inform matching.
+- Default keyless discovery searches Bing's public RSS results and checks actual external product pages on a strict HTTPS UK retailer/manufacturer allowlist. Competing product names, brand/part numbers and GBP offers come from retailer Product/Offer structured data, not generated text.
+- Optional SERPAPI_KEY in the Render server environment enables extra Google Shopping UK listings and advertised GBP prices. The key is never exposed to visitors. Price source is always displayed and is never mislabelled as the competitor manufacturer's RRP.
+- Common competitor manufacturers include Sealey, Draper, BGS, Gedore, Sykes-Pickavant, Schaeffler/FAG, KS Tools, etc. Laser-branded and unrelated tools are excluded.
+- Match statuses are explicitly qualified: likely equivalent (verify technical details), potential alternative (application coverage differs), similar tool (specifications or fitment unconfirmed). Never claims certified interchangeability.
+- Existing GEMINI_API_KEY can optionally run a **conservative downgrade-only match review** on the externally verified candidate titles. The AI cannot upgrade a match, invent a competitor, create a new price, invent technical advantages, or replace the photo.
+- Verified UK price, seller, source link, part number where available, check time and VAT basis are reported. VAT is marked unknown unless independently established. Unavailable prices are never guessed or converted from foreign currencies.
+- Refresh prices bypasses a 20-minute in-memory cache. Export comparison CSV makes an Excel-compatible list with source links, timestamps, qualifications and spreadsheet-formula injection protection.
+- No pricing provider or accessible sources? The page shows explicit no-verification warnings rather than fake competitor results. Bing RSS is an unversioned, keyless public feed and may be blocked or change without notice; structured shopping providers need valid accounts.
+- Only approved HTTPS destinations can be fetched; redirects and non-GBP prices are rejected. No scraping or AI modification of manufacturer photography. Human staff must compare vehicle generations, kit contents, capacities and VAT basis before any customer claim.
+
+Server routes: GET /api/competitors/<part>, GET /api/competitors/<part>?refresh=1 and GET /api/competitors/<part>/export.csv.
+
+Regression test: python -m unittest -v test_competitor_finder_v49.py. Full GitHub Actions suite also covers existing artwork QA, original product images, mobile progressive loading, English-only copy and exports.
+
 ## V48 — genuine progressive campaign generation (no quality shortcuts)
 
 Full campaigns now **appear one artwork at a time**, on both desktop and mobile.
