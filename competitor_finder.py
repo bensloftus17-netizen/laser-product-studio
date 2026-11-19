@@ -45,6 +45,16 @@ APPROVED_HOSTS = (
     "mymotorworld.com", "tooled-up.com", "cpc.farnell.com",
     "rapidonline.com", "whiterosetools.com", "arnoldclarkautoparts.com",
     "diy.com", "toolstoredirect.co.uk", "pricespy.co.uk",
+    "toolnation.nl", "sonic-equipment.com", "sonictools.co.uk",
+    "autotools.co.uk", "thetoolstoredirect.co.uk", "robertdyas.co.uk",
+    "ukplanettools.co.uk", "lincsonline.co.uk", "manomano.co.uk",
+    "frost.co.uk", "halfords.com", "halfords.co.uk", "toolmart.co.uk",
+    "faithfulltools.com", "kennedy-tools.co.uk", "tengtools.com",
+    "tengtools.co.uk", "bahco.com", "facom.com", "stanleytools.co.uk",
+    "britool.co.uk", "hazet.de", "wurth.co.uk", "gedore.co.uk",
+    "stahlwille.co.uk", "beta-tools.com", "neilsen-tools.com",
+    "clarkeinternational.com", "paddockspares.com", "snapon.co.uk",
+    "facom.co.uk", "draper.co.uk", "brilliant-tools.com",
 )
 BRANDS = (
     ("Snap-on", ("snap-on", "snap on", "snapon")),
@@ -59,6 +69,15 @@ BRANDS = (
     ("Facom", ("facom",)),
     ("Beta Tools", ("beta tools", "beta")),
     ("Knipex", ("knipex",)),
+    ("Teng Tools", ("teng tools", "tengtools")),
+    ("Sonic Tools", ("sonic tools", "sonic equipment", "sonictools")),
+    ("Wera", ("wera",)),
+    ("Bahco", ("bahco",)),
+    ("Clarke", ("clarke",)),
+    ("Neilsen", ("neilsen",)),
+    ("Faithfull", ("faithfull",)),
+    ("Stahlwille", ("stahlwille",)),
+    ("Würth", ("würth", "wurth",)),
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
@@ -66,6 +85,8 @@ TYPE_RULES = (
     # repeat the source title's exact synonym ("endoscope" vs "borescope").
     ("inspection camera", ("inspection", "camera")),
     ("wheel bearing", ("wheel", "bearing")),
+    ("under bonnet light", ("under", "bonnet", "light")),
+    ("ratchet set", ("ratchet", "set")),
     ("hydraulic press", ("hydraulic", "press")),
     ("timing kit", ("timing",)),
     ("ball joint separator", ("ball", "joint")),
@@ -154,6 +175,15 @@ def detect_brand(title, explicit=None, domain=None):
         if any(re.search(r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])",
                          text) for alias in aliases):
             return brand
+    # Broader manufacturer coverage: use explicit brand values from actual
+    # merchant Product schema or Shopping data even when absent from our
+    # small preconfigured list. Never guess manufacturer from product name.
+    named=clean_text(explicit,70)
+    if (named and 2<=len(named)<=55
+            and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 .&+/\-]*",named)
+            and named.lower() not in
+            ("laser","laser tools","unknown","n/a","generic","unbranded")):
+        return named
     return None
 
 
@@ -162,32 +192,132 @@ def _is_inspection_camera(text):
     return any(re.search(pattern, text) for pattern in INSPECTION_CAMERA_TERMS)
 
 
+# Fallback terms deliberately use ONLY the official product name. They are
+# SEARCH/COMPARISON HINTS, never a manufacturer-certified product category.
+GENERIC_WORDS=frozenset({
+    "laser","tools","tool","professional","universal","special","specialist",
+    "heavy","duty","quality","premium","advanced","new","improved",
+    "vehicle","automotive","workshop","suitable","for","and","with","without",
+    "the","from","of","to","a","an","in","on","pc","pcs","piece","pieces",
+    "mm","cm","inch","inches","drive","type","size","model","version",
+    "metric","imperial","set","kit","assortment","pack","packs","assorted",
+    "including","includes","complete","plus","extra","head","in",
+})
+TOKEN_EXCLUSIONS=frozenset({
+    "replacement","spare","cover","pouch","case","holder","accessory",
+    "adapter","adaptor","attachment","storage","refill","repair",
+    "bracket","mount","battery","clip","cable",
+})
+COMMON_MAKERS=frozenset({
+    "sealey","draper","bgs","gedore","snap-on","sykes-pickavant",
+    "teng","sonic","kennedy","bahco","facom","hazet","clarke",
+    "stahlwille","wera","faithfull",
+})
+
+
+def _tokens(raw):
+    text = clean_text(raw, 230).lower()
+    return re.findall(r"[a-z][a-z0-9-]{1,30}",text)
+
+
+def _derived_type(title):
+    """Extract an open-vocabulary phrase instead of rejecting unknown tools.
+
+    This deliberately produces a conservative search *hint*, not a claim
+    that the model has correctly mapped the part into a fixed catalogue.
+    """
+    name=clean_text(title,200)
+    name=re.split(r"\s+(?:for|suitable for|fits|compatible with)\s+",
+                  name,1,flags=re.I)[0]
+    # The material after a spaced dash is often a size/teeth/specification,
+    # not the tool family itself.
+    name=re.split(r"\s+[-–]\s+",name,1)[0]
+    name=re.sub(r"^\s*(?:laser\s+tools?\s*)?(?:[0-9]{3,6}\s*[-–:]\s*)?","",name,flags=re.I)
+    raw=_tokens(name)
+    words=[term for term in raw
+           if term not in GENERIC_WORDS and not term.isdigit()
+           and term not in VEHICLE_TERMS
+           and not re.fullmatch(r"\d+[a-z]*",term)]
+    # Last meaningful terms tend to identify the object: "multi-function
+    # calibrated grease pressure adaptor" => "grease pressure adaptor".
+    # Keep at most four, and do not use an empty query as a fake tool type.
+    if not words:
+        words=[t for t in _tokens(title) if t not in ("laser","tools")][:4]
+    return " ".join(words[-4:]) or "unclassified product"
+
+
 def tool_signature(product):
-    """Only official manufacturer data determines the category and fitment."""
-    title = clean_text(product.get("title"), 200).lower()
-    fallback = clean_text(product.get("description"), 250).lower()
-    text = re.sub(r"[^a-z0-9/ -]", " ", title)
-    # Prefer precise camera taxonomy over generic "diagnostic", "light",
-    # "lamp" or "wrench", preventing borescopes disappearing from research.
+    """Every official part gets a search, with uncertainty made explicit."""
+    title=clean_text(product.get("title"),200)
+    fallback=clean_text(product.get("description"),250)
+    text=re.sub(r"[^a-z0-9/ -]"," ",title.lower())
     if _is_inspection_camera(title) or _is_inspection_camera(fallback):
-        kind = "inspection camera"
+        kind="inspection camera"
+        source="verified-alias-rule"
     else:
-        kind = next((label for label, parts in TYPE_RULES
-                     if all(word in text for word in parts)), "")
-        if not kind:
-            extra = " " + re.sub(r"[^a-z0-9/ -]", " ", fallback)
-            kind = next((label for label, parts in TYPE_RULES
-                         if all(word in text + extra for word in parts)), "")
+        kind=next((label for label,parts in TYPE_RULES
+                   if all(word in text for word in parts)),"")
+        source="fixed-category-rule" if kind else "official-title-derived"
+        # "Light", "ratchet", "wrench", "charger" and similar one-word
+        # categories are too broad for a meaningful sales comparison.
+        # Prefer the specific official title when it names subtypes.
+        broad={"ratchet","bearing","puller","extractor","spreader",
+               "diagnostic","charger","lamp","light","wrench",
+               "pliers","screwdriver"}
+        derived=_derived_type(title)
+        if kind in broad and len(_tokens(derived))>=2:
+            kind=derived
+            source="official-title-derived"
+        elif not kind:
+            # A specific descriptive title outranks stray generic words
+            # ("light", "socket", etc.) in the long manufacturer description.
+            if len(_tokens(derived))>=2:
+                kind=derived
+            else:
+                extra=" "+re.sub(r"[^a-z0-9/ -]"," ",fallback.lower())
+                kind=next((label for label,parts in TYPE_RULES
+                           if all(word in text+extra for word in parts)),"")
+                source="fixed-category-rule" if kind else "official-title-derived"
     if not kind:
-        raise ValueError(
-            "The official product title does not identify a supported tool type. "
-            "Try a more descriptive official Laser Tools product page.")
-    fitments = [v for v in VEHICLE_TERMS if re.search(
-        r"(?<![a-z])" + re.escape(v) + r"(?![a-z])", title)]
-    return {"type":kind,
-            "type_terms":tuple(
-                next(parts for label, parts in TYPE_RULES if label == kind)),
-            "fitments":fitments,"title":clean_text(product.get("title"),170)}
+        kind=_derived_type(title)
+    if source=="official-title-derived":
+        terms=tuple(_tokens(kind))
+    else:
+        terms=tuple(next(parts for label,parts in TYPE_RULES if label==kind))
+    # Never leak vehicle names from unrelated product-description marketing
+    # copy. Titles are official; fitment still requires individual review.
+    fits=[v for v in VEHICLE_TERMS if re.search(
+        r"(?<![a-z])"+re.escape(v)+r"(?![a-z])",title.lower())]
+    return {"type":kind,"type_terms":terms,"fitments":fits,
+            "title":title,"category_source":source}
+
+
+def _dynamic_match(signature, candidate):
+    def stem(w):
+        # Safe plural-only normalisation for English tool title keywords.
+        return w[:-1] if w.endswith("s") and len(w)>4 and not w.endswith("ss") else w
+    original=_tokens(signature["type"])
+    candidate_words={stem(w) for w in _tokens(candidate)}
+    anchors=[stem(w) for w in original if w not in GENERIC_WORDS
+             and w not in VEHICLE_TERMS and len(w)>=3]
+    overlap=[w for w in anchors if w in candidate_words]
+    if not anchors or anchors[-1] not in candidate_words:
+        return None
+    if len(anchors)>=2 and len(overlap)<2:
+        return None
+    if len(anchors)==1 and (len(anchors[0])<5 or not overlap):
+        return None
+    # Accessory and replacement listings are not interchangeable with the
+    # complete primary tool unless that is what the official Laser item is.
+    original_words=set(_tokens(signature["title"]))
+    accessory=set(_tokens(candidate)) & TOKEN_EXCLUSIONS
+    if accessory and not accessory.intersection(original_words):
+        return None
+    # Brand and vehicle terms aren't enough: a shared generic adjective or
+    # package size should not qualify a candidate as a competing product.
+    return ("Related product — verify technical equivalence",
+            "Search terms from official Laser title overlap this listing; "
+            "function, application, capacity and kit contents are unverified.")
 
 
 def match_status(signature, candidate_title):
@@ -202,6 +332,8 @@ def match_status(signature, candidate_title):
         return ("Comparable inspection camera — verify specifications",
                 "Same broad endoscope/borescope category. Check camera-head "
                 "articulation, probe diameter, screen, imaging and accessories.")
+    if signature.get("category_source")=="official-title-derived":
+        return _dynamic_match(signature,candidate_title)
     if not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
                for word in signature["type_terms"]):
         return None
@@ -268,8 +400,10 @@ def _build_result(title, url, signature, *, brand=None, sku=None,
     if len(title) < 8 or not safe_url(url, allow_google=True):
         return None
     brand = detect_brand(title, explicit=brand, domain=urlparse(url).hostname)
-    if not brand or brand == "Laser Tools":
+    if brand == "Laser Tools":
         return None
+    if not brand:
+        brand="Manufacturer unverified"
     match = match_status(signature, title)
     if not match:
         return None
@@ -321,17 +455,25 @@ def _parse_shopping(data, signature):
 
 
 def search_queries(signature):
-    """Alternative brand/type synonyms, not literal source-title matching."""
+    """Brand-neutral multi-angle searches for all official product families."""
     if signature["type"]=="inspection camera":
         return [
             "Snap-on BK7000 BK5500 borescope inspection camera UK price",
             "Sealey VS8118 video borescope 5 screen price UK",
             "Draper 92578 endoscope borescope inspection camera UK price",
         ]
-    base=signature["type"]+" "+" ".join(signature["fitments"][:2])
+    base=(signature["type"]+" "+" ".join(signature["fitments"][:2])).strip()
+    # An unfamiliar part should still search meaningfully, not fail taxonomy.
+    if signature.get("category_source")=="official-title-derived":
+        return [
+            base+" trade workshop product UK seller",
+            base+" alternative manufacturer equivalent UK price",
+            base+" comparable tool distributor UK",
+        ]
     return [
         base+" Sealey Draper UK price",
         base+" BGS Gedore Sykes-Pickavant UK price",
+        base+" competitor alternatives UK tool",
     ]
 
 
@@ -341,8 +483,9 @@ def shopping_search(signature, session=requests, api_key=None):
         return [], "Google Shopping API key not configured; using keyless product-page discovery."
     query = ("borescope endoscope inspection camera Snap-on Sealey Draper"
              if signature["type"]=="inspection camera" else
-             signature["type"]+" "+" ".join(signature["fitments"][:2])+
-             " Sealey Draper BGS Gedore")
+             (signature["type"]+" "+" ".join(signature["fitments"][:2])+
+              (" UK tools" if signature.get("category_source")=="official-title-derived"
+               else " Sealey Draper BGS Gedore")).strip())
     # Query synonyms are researched, not manufacturer fitment assertions.
     response = session.get(SHOPPING_HOST,params={
         "engine":"google_shopping","q":query,
@@ -581,6 +724,23 @@ def keyless_discovery(signature,session=requests):
             item=_get_product_page(url,signature,session)
             if item:
                 found.append(item)
+            else:
+                # An RSS index title is a research LEAD, not verified
+                # manufacturer-page content. Never attach a price or
+                # assume manufacturer SKU if the page could not be read.
+                indexed=next((r for r in hits if r["url"]==url),None)
+                if indexed:
+                    lead=_build_result(indexed["title"],url,signature)
+                    if lead:
+                        lead["price_gbp"]=None
+                        lead["price_source"]=None
+                        lead["part_number"]=None
+                        lead["source_type"]="unverified search-index title"
+                        lead["match_status"]="Search lead — verify manufacturer page"
+                        lead["match_evidence"]=(
+                            "Search engine indexed a similarly named product; "
+                            "the original product page could not be verified.")
+                        found.append(lead)
         except (requests.RequestException,ValueError,OSError):
             continue
     warning=(" ".join(warnings) if warnings else None)
@@ -700,7 +860,8 @@ def research_competitors(product, *, session=requests,
     rows=_distinct(found)
     ai_status=_ai_review(product,signature,rows,session) if enable_ai else (
         "Conservative rules-based matching (AI review disabled).")
-    if not rows:
+    if not rows or not any(
+            r["source_type"]!="unverified search-index title" for r in rows):
         warnings.append(
             "No source-verified competitor matches were found. This does not "
             "prove that competing tools do not exist. Try again or connect "
@@ -709,10 +870,20 @@ def research_competitors(product, *, session=requests,
         "laser":{"part":str(product.get("part") or ""),
                  "title":signature["title"],"source":product.get("source"),
                  "tool_type":signature["type"],
+                 "category_source":signature["category_source"],
                  "price":product.get("price"),
                  "price_status":product.get("price_status")},
         "results":rows,"count":len(rows),"checked_at_utc":checked,
-        "providers":providers,"warnings":list(dict.fromkeys(warnings)),
+        "verified_product_pages":sum(
+            r["source_type"]!="unverified search-index title" for r in rows),
+        "search_only_leads":sum(
+            r["source_type"]=="unverified search-index title" for r in rows),
+        "providers":providers,"warnings":list(dict.fromkeys(
+            warnings+(
+                ["This product type was derived from the official title; "
+                 "compare functions and technical specifications manually."]
+                if signature["category_source"]=="official-title-derived"
+                else []))),
         "ai_matching":ai_status,
         "disclaimer":"Indicative competitor research, not an interchangeability or "
                      "price-parity certification. Retail advertised prices are "
@@ -729,7 +900,7 @@ def report_csv(result):
                      "Competitor product","Competitor part number",
                      "UK advertised price GBP","VAT basis","Listing condition","Retailer/seller",
                      "Match classification","Evidence note","Source URL",
-                     "Price source","Checked UTC"])
+                     "Price source","Checked UTC","Evidence level"])
     def guard(value):
         string=str(value or "").strip()
         return "'"+string if string.startswith(("=","+","-","@","\t","\r")) else string
@@ -739,6 +910,7 @@ def report_csv(result):
             item["brand"],item["title"],item["part_number"],
             item["price_gbp"],item["vat_basis"],item.get("listing_condition"),
             item["seller"],item["match_status"],item["match_evidence"],item["url"],
-            item["price_source"],result["checked_at_utc"]
+            item["price_source"],result["checked_at_utc"],
+            item.get("source_type")
         ]])
     return output.getvalue().encode("utf-8-sig")

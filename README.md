@@ -1,3 +1,57 @@
+## V51 — Universal competitor search for every official Laser part number
+
+The previous competitor finder recognised only a small hardcoded list of
+tool categories. An official Laser product outside that list failed before
+searching. The new flow **accepts any valid official Laser product record**:
+it first applies known high-confidence category/alias rules, otherwise
+derives a bounded product-type **search hint from the official UK product
+title**, and performs broad brand-neutral searches. No fabricated category,
+model or competitor is presented as manufacturer fact.
+
+- Every recognised part with a valid official product page now enters the
+  search pipeline; an unfamiliar category returns source-backed results,
+  explicitly unverified search leads, or an honest empty result with
+  warnings—not an unsupported-type HTTP 422 error.
+- Search terms are adapted to the individual product. For title-derived
+  categories, the search looks for generic UK workshop products,
+  alternatives and trade distributors instead of requiring a specific
+  predefined competitor brand. Existing specialist camera, bearing and
+  vehicle coverage is preserved.
+- Existing HTTPS source-host protections remain. Known-brand matching still
+  works; **additional manufacturers** can be reported from a verified
+  product's structured `brand` field or an authorised Shopping listing,
+  without adding them to the source-code brand list. An unverified brand is
+  explicitly labelled rather than invented.
+- Product titles are conservatively matched by distinctive, shared tool
+  nouns and exclude irrelevant replacement accessories. For previously
+  unknown categories, the result is labelled **Related product — verify
+  technical equivalence**; matching text is NEVER evidence of identical
+  fitment, capacities, drive sizes or kit contents.
+- Search engine indexed links on approved retailer/manufacturer HTTPS
+  hosts may appear when the actual page cannot be inspected; these are
+  labelled **Search lead — verify manufacturer page** and always have no
+  verified part number or price. The UI and CSV distinguish such leads from
+  source-checked product results, so quality standards remain intact.
+- Verified GBP prices, seller, VAT basis, listing condition and links remain
+  separate from Laser's genuine manufacturer RRP. Missing or unavailable
+  prices are never inferred, and no imaginary physical tool photos appear.
+- Tests span wheel-bearing kits, endoscopes, ratchet sets, under-bonnet
+  lamps, split-hub spreaders, test kits, extractors, compressors, crimpers,
+  specialist calibration targets and unknown product families. They
+  explicitly verify no unsupported-category errors, unrelated-tool
+  rejection, cross-brand product metadata and empty-result handling.
+
+**Important limitation:** This guarantees a *search attempt*, not a
+directly interchangeable alternative or a published UK price for every SKU.
+Free web search is inherently best-effort. Add optional `SERPAPI_KEY`
+for more reliable UK shopping price coverage; absent source evidence is
+reported honestly. Individual technical equivalence still needs human
+review before publication. No existing poster generation or visual QA
+checks have been changed.
+
+Regression tests: `python -m unittest -v test_competitor_finder_v51.py`
+plus all prior CI tests.
+
 ## V50 — Inspection camera competitor discovery and source-backed pricing
 
 Fixes the specific **Laser 9195 Portable Endoscope Camera** failure.
