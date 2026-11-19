@@ -26,6 +26,7 @@ from campaign_hub import FOLDERS,build_campaign
 from campaign_distinctness import check_distinctness
 from test_ai_creative_director_v45 import (
     PRICE,SMART,TECH,PRODUCT,image_bytes,fake_photo)
+from test_ai_formats_v46 import FOUR
 
 
 def native_png(kind):
@@ -142,7 +143,7 @@ class CreativeVariationV57Tests(unittest.TestCase):
 
     def test_full_pack_inherits_all_three_marketing_angles_and_meta(self):
         concepts=[
-            {"creative_canvas":PRICE,
+            {"creative_canvas":PRICE,"ai_format_canvases":FOUR,
              "creative_direction":{"creative_family":"commercial_burst"},
              "ai_verified_features":["Supplied with a carry case."]},
             {"creative_canvas":SMART,
@@ -188,6 +189,9 @@ class CreativeVariationV57Tests(unittest.TestCase):
                          "engineering_grid")
         self.assertEqual(pack["manifest"]["angles"][1]["headline_strategy"],"price")
         reports=pack["manifest"]["format_artwork_quality"]
+        self.assertEqual(len(seen),6)
+        self.assertEqual([role for _,role,_ in seen],
+                         [FORMAT_PARENTS[k] for k in FORMAT_ORDER])
         self.assertEqual(len({reports[k]["parent_role"] for k in FORMAT_ORDER}),3)
         self.assertEqual(len({reports[k]["creative_family"] for k in FORMAT_ORDER}),3)
         self.assertTrue(all("parent_role" in reports[k] for k in FORMAT_ORDER))
