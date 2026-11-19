@@ -85,6 +85,8 @@ TYPE_RULES = (
     # repeat the source title's exact synonym ("endoscope" vs "borescope").
     ("inspection camera", ("inspection", "camera")),
     ("wheel bearing", ("wheel", "bearing")),
+    ("under bonnet light", ("under", "bonnet", "light")),
+    ("ratchet set", ("ratchet", "set")),
     ("hydraulic press", ("hydraulic", "press")),
     ("timing kit", ("timing",)),
     ("ball joint separator", ("ball", "joint")),
@@ -227,6 +229,9 @@ def _derived_type(title):
     name=clean_text(title,200)
     name=re.split(r"\s+(?:for|suitable for|fits|compatible with)\s+",
                   name,1,flags=re.I)[0]
+    # The material after a spaced dash is often a size/teeth/specification,
+    # not the tool family itself.
+    name=re.split(r"\s+[-–]\s+",name,1)[0]
     name=re.sub(r"^\s*(?:laser\s+tools?\s*)?(?:[0-9]{3,6}\s*[-–:]\s*)?","",name,flags=re.I)
     raw=_tokens(name)
     words=[term for term in raw
