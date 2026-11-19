@@ -38,10 +38,10 @@ INTERCHANGEABLE_HEADS_RE = re.compile(
 # https://www.toolconnection.co.uk/products/general-hand-tools/striking-tools/pry-bars/heavy-duty/7845-pry-bar-900mm
 # Never translate a broader Dutch sales claim or guess what its jargon means.
 DUTCH_GEOMETRY_RE = re.compile(
-    r"^\\s*vierkante\\s+doorsnede\\s+van\\s+"
-    r"(?P<section>\\d{1,3}(?:[.,]\\d{1,2})?)\\s*mm\\s*[,;]\\s*"
-    r"gebogen\\s+kop\\s+van\\s+"
-    r"(?P<angle>\\d{1,3}(?:[.,]\\d{1,2})?)\\s*[°º]\\s*\\.?\\s*$",
+    r"^\s*vierkante\s+doorsnede\s+van\s+"
+    r"(?P<section>\d{1,3}(?:[.,]\d{1,2})?)\s*mm\s*[,;]\s*"
+    r"gebogen\s+kop\s+van\s+"
+    r"(?P<angle>\d{1,3}(?:[.,]\d{1,2})?)\s*[°º]\s*\.?\s*$",
     re.I,
 )
 
