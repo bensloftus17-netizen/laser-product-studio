@@ -1018,21 +1018,40 @@ function rememberFinishedCampaign(data){
  updateCampaignRecovery();
 }
 async function pollMobileCampaign(job_id){
- // A finished campaign is looked up by a short-lived job ID, not regenerated.
- // Normal tab suspension pauses JS polling but does not cancel server work.
+ // Job polling is read-only. Retry network interruptions, never re-run
+ // image generation or drop already quality-approved previews.
+ let transientFailures=0;
  for(let attempt=0;attempt<250;attempt++){
-  const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
-                             {cache:'no-store',headers:{Accept:'application/json'}});
-  const data=await readApiJson(response);
-  renderProgressGallery(job_id,data);
-  if(data.status==='ready'&&data.manifest&&data.token)return data;
-  if(data.status==='failed')throw Error(data.error||'The server could not finish the campaign.');
-  $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+(PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+
-   ' · '+Math.floor((Number(data.elapsed_seconds)||0)/60)+' minutes elapsed. Finished PNGs appear as soon as they pass quality checks.';
-  // Lower status traffic while the small Render instance is doing heavy artwork work.
+  try{
+   const response=await fetch('/api/campaign/jobs/'+encodeURIComponent(job_id),
+                              {cache:'no-store',headers:{Accept:'application/json'}});
+   const data=await readApiJson(response);
+   transientFailures=0;
+   renderProgressGallery(job_id,data);
+   if(data.status==='ready'&&data.manifest&&data.token)return data;
+   if(data.status==='failed'){
+     const fatal=new Error(data.error||'The server could not finish the campaign.');
+     fatal.retryable=false;throw fatal;
+   }
+   $('campaignStatus').textContent=(data.ready_count||0)+' of 9 graphics ready. '+
+      (PROGRESS_STAGE_LABELS[data.stage]||'Generating your campaign…')+
+      ' · '+Math.floor((Number(data.elapsed_seconds)||0)/60)+' minutes elapsed. '+
+      'Finished PNGs appear as soon as they pass quality checks.';
+  }catch(error){
+   const transient=error instanceof TypeError||error?.retryable===true||
+      /network|connection|failed to fetch|temporarily unavailable|timed out/i.test(String(error?.message||''));
+   if(!transient)throw error;
+   transientFailures++;
+   if(transientFailures>=12){
+     throw Error('Connection interrupted repeatedly. The campaign may still be running. Use Reopen Campaign to check its status without regenerating artwork.');
+   }
+   $('campaignStatus').textContent='Connection interrupted while checking progress ('+
+       transientFailures+'/12). Retrying automatically; the AI job continues on the server.';
+  }
+  // Reduce status traffic on free hosting, including during network recovery.
   await new Promise(resolve=>setTimeout(resolve,4500));
  }
- throw Error('Your campaign is still processing. Use Reopen Campaign to check it again.');
+ throw Error('Your campaign may still be processing. Use Reopen Campaign to check it again.');
 }
 async function resumeLastMobileCampaign(){
  const state=getRecoverableCampaign();
@@ -1055,7 +1074,7 @@ async function resumeLastMobileCampaign(){
   $('campaignStatus').textContent='Recovered your complete campaign. Scroll through the artwork and use Download complete ZIP for every format.';
  }catch(error){
   $('campaignStatus').textContent=error.message||'Could not reopen the last campaign.';
-  if(!String(error.message||'').toLowerCase().includes('still processing')){
+  if(!/still processing|may still be|connection interrupted|temporarily unavailable|retry/i.test(String(error.message||''))){
    try{sessionStorage.removeItem(CAMPAIGN_RESUME_KEY);}catch(e){}
   }
  }finally{
@@ -1433,6 +1452,13 @@ $('campaignBtn').addEventListener('click',async()=>{
  if(inflight)return;
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){$('campaignStatus').textContent='Enter a valid Laser Tools part number.';return;}
+ const recover=getRecoverableCampaign();
+ if(recover&&recover.part===part){
+   // Never start a duplicate expensive AI job for the same part when this
+   // tab can recover the existing one. Avoid needless HTTP 429s.
+   await resumeLastMobileCampaign();
+   return;
+ }
  const rawPrice=$('staffRrp').value.trim();
  // Capture staff review before lookup: load() resets inputs during first search.
  const reviewedPrice=$('staffReview').checked,reviewedBasis=$('staffRrpBasis').value;
