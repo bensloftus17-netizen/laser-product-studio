@@ -306,6 +306,18 @@ def draw_family_background(canvas,creative_family,*,zones=None):
             x=int(w*(.08+col*.19))
             d.line((x,int(h*.2),x,int(h*.9)),
                    fill=(92,226,207,53),width=2)
+    if zones and family in ("commercial_burst","workshop_motion",
+                           "toolkit_coverage"):
+        # Strong family colour is allowed, but never behind white copy without
+        # enough contrast. These are the model's actual text coordinates.
+        for key in ("headline","proof","price"):
+            if key in zones:
+                x0,y0,x1,y1=_rect(zones[key],(w,h))
+                margin=max(5,round(w*.008))
+                d.rounded_rectangle((x0-margin,y0-margin,x1+margin,y1+margin),
+                                    radius=max(8,h//95),
+                                    fill=(3,23,42,218),
+                                    outline=(143,224,238,95),width=2)
     return Image.alpha_composite(canvas.convert("RGBA"),layer)
 
 
