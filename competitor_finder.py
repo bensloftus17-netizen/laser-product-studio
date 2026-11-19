@@ -41,8 +41,13 @@ APPROVED_HOSTS = (
     "gsfcarparts.com", "autodoc.co.uk", "thetoolacademy.com",
     "toolstop.co.uk", "primetools.co.uk", "amazon.co.uk", "ebay.co.uk",
     "google.com", "google.co.uk",
+    "snapon.com", "snapon.co.uk", "lawson-his.co.uk",
+    "mymotorworld.com", "tooled-up.com", "cpc.farnell.com",
+    "rapidonline.com", "whiterosetools.com", "arnoldclarkautoparts.com",
+    "diy.com", "toolstoredirect.co.uk", "pricespy.co.uk",
 )
 BRANDS = (
+    ("Snap-on", ("snap-on", "snap on", "snapon")),
     ("Sykes-Pickavant", ("sykes-pickavant", "sykes pickavant")),
     ("BGS Technic", ("bgs-technic", "bgs technic", "bgs")),
     ("Gedore Automotive", ("gedore automotive", "gedore")),
@@ -57,6 +62,9 @@ BRANDS = (
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
+    # Endoscopes/borescopes are one product category. A candidate need not
+    # repeat the source title's exact synonym ("endoscope" vs "borescope").
+    ("inspection camera", ("inspection", "camera")),
     ("wheel bearing", ("wheel", "bearing")),
     ("hydraulic press", ("hydraulic", "press")),
     ("timing kit", ("timing",)),
@@ -87,6 +95,25 @@ VEHICLE_TERMS = (
     "discovery", "range rover", "jlr", "mercedes", "volkswagen",
     "vw", "bmw", "audi", "ford", "renault", "iveco",
     "porsche", "volvo", "peugeot", "citroen", "vauxhall", "opel",
+)
+# Model-neutral, manufacturer-based category aliases. A camera is not
+# directly interchangeable merely because the titles use the same alias.
+INSPECTION_CAMERA_TERMS = (
+    r"\bendoscope\b",r"\bborescope\b",r"\bboroscope\b",
+    r"\bvideoscope\b",r"\bvideo\s+scope\b",
+    r"\binspection\s+camera\b",r"\binspection\s+device\b",
+    r"\bvisual\s+inspection\s+(?:device|system|camera|scope)\b",
+    r"\bvideo\s+inspection\b",r"\bsnake\s+camera\b",
+)
+# Audited examples from real product catalogues. These are only discovery
+# pointers: never include them as a successful result without a live
+# page fetch or a clearly marked source-index-only fallback.
+INSPECTION_CAMERA_SEEDS = (
+    "https://shop.snapon.com/product/Video-Scopes/High-Definition-Borescope-with-5.5-mm-Dual-Imager/BK7000",
+    "https://www.snapon.co.uk/the-smallest-details-are-often-the-ones-that-matter-the-most/",
+    "https://www.sealey.co.uk/video-borescope-5-5mm-camera-dual-lens-5-screen-vs8118/",
+    "https://workshopping.co.uk/products/automotive-service-tools/sealey-vs8118-video-borescope-55mm-camera-dual-lens-5-screen",
+    "https://www.lawson-his.co.uk/draper-92578-bspg100-rechargeable-pistol-grip-boroscope",
 )
 CACHE = {}
 CACHE_LOCK = threading.Lock()
@@ -128,33 +155,51 @@ def detect_brand(title, explicit=None, domain=None):
     return None
 
 
+def _is_inspection_camera(text):
+    text = re.sub(r"[^a-z0-9 /-]", " ", str(text or "").lower())
+    return any(re.search(pattern, text) for pattern in INSPECTION_CAMERA_TERMS)
+
+
 def tool_signature(product):
-    """Only official manufacturer words determine tool type and fitment."""
+    """Only official manufacturer data determines the category and fitment."""
     title = clean_text(product.get("title"), 200).lower()
-    # Product titles carry the most reliable application context; long generic
-    # descriptions may mention brands that are NOT actual vehicle fitments.
     fallback = clean_text(product.get("description"), 250).lower()
     text = re.sub(r"[^a-z0-9/ -]", " ", title)
-    kind = next((label for label, parts in TYPE_RULES
-                 if all(word in text for word in parts)), "")
-    if not kind:
-        extra = " " + re.sub(r"[^a-z0-9/ -]", " ", fallback)
+    # Prefer precise camera taxonomy over generic "diagnostic", "light",
+    # "lamp" or "wrench", preventing borescopes disappearing from research.
+    if _is_inspection_camera(title) or _is_inspection_camera(fallback):
+        kind = "inspection camera"
+    else:
         kind = next((label for label, parts in TYPE_RULES
-                     if all(word in text + extra for word in parts)), "")
+                     if all(word in text for word in parts)), "")
+        if not kind:
+            extra = " " + re.sub(r"[^a-z0-9/ -]", " ", fallback)
+            kind = next((label for label, parts in TYPE_RULES
+                         if all(word in text + extra for word in parts)), "")
     if not kind:
-        # A name alone cannot safely locate commercially equivalent tools.
-        raise ValueError("The official product title does not identify a supported tool type.")
+        raise ValueError(
+            "The official product title does not identify a supported tool type. "
+            "Try a more descriptive official Laser Tools product page.")
     fitments = [v for v in VEHICLE_TERMS if re.search(
         r"(?<![a-z])" + re.escape(v) + r"(?![a-z])", title)]
-    return {"type":kind, "type_terms":tuple(
-        next(parts for label, parts in TYPE_RULES if label == kind)),
-            "fitments":fitments, "title":clean_text(product.get("title"), 170)}
+    return {"type":kind,
+            "type_terms":tuple(
+                next(parts for label, parts in TYPE_RULES if label == kind)),
+            "fitments":fitments,"title":clean_text(product.get("title"),170)}
 
 
 def match_status(signature, candidate_title):
-    """Conservative deterministic filter; no claims of proven interchangeability."""
+    """Compare types conservatively; inspection camera synonyms are equivalent."""
     text = " " + re.sub(r"[^a-z0-9/ -]", " ",
                         clean_text(candidate_title, 260).lower()) + " "
+    if signature["type"] == "inspection camera":
+        if not _is_inspection_camera(text):
+            return None
+        # Optical features must be checked for each model. A 5.5 mm dual
+        # imager is NOT proof of Laser 9195's 360-degree swivel function.
+        return ("Comparable inspection camera — verify specifications",
+                "Same broad endoscope/borescope category. Check camera-head "
+                "articulation, probe diameter, screen, imaging and accessories.")
     if not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
                for word in signature["type_terms"]):
         return None
