@@ -14,6 +14,7 @@ from poster_quality import record_text, record_area
 from campaign_role_posters import actual_scene, brand, co_brand, product_photo, _wrap, _size
 from promo_art_direction import draw_background_motif
 from creative_director import validate_brief
+from creative_expression import express_background
 from ai_promo_renderer import verified_price
 
 W,H=1200,1500
@@ -206,6 +207,13 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
         raise ValueError("Unknown text recovery level")
     image=_background(scene,brief,variant)
     image=_role_art_direction(image,brief,concept.get("campaign_role"))
+    # The former dark-navy underpainting made even completely different AI
+    # canvases look alike. Let Gemini's safe colour and compositional choice
+    # alter broad real pixels behind the protected official product photo.
+    image=express_background(
+        image,brief["creative_palette"],brief["visual_treatment"],
+        zones={k:_box(v) for k,v in brief["zones"].items() if k!="product"},
+        variant=variant,hero_treatment=brief["hero_treatment"])
     accent=brief["accent"]
     d=ImageDraw.Draw(image,"RGBA")
     # Fixed brand safe areas; the art direction controls all other geometry.
@@ -234,9 +242,20 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
     # Art-direction determines the typographic hierarchy, not a fixed family.
     size={"massive":86,"editorial":69,"compact":59}[brief["headline_style"]]
     # A non-text decorative rail introduces rhythm without smearing original tool.
-    if brief["headline_style"]=="massive":
-        d.rectangle((headline[0]-9,headline[1],
-                     headline[0]-3,min(headline[3],headline[1]+95)),fill=accent)
+    treatment=brief["text_treatment"]
+    if treatment=="rail" or (treatment=="minimal" and brief["headline_style"]=="massive"):
+        d.rectangle((headline[0]-11,headline[1],
+                     headline[0]-3,min(headline[3],headline[1]+125)),fill=accent)
+    elif treatment=="underline":
+        d.rectangle((headline[0],headline[3]-5,
+                     min(headline[2],headline[0]+round((headline[2]-headline[0])*.64)),
+                     headline[3]-1),fill=accent)
+    elif treatment in ("panel","banner"):
+        d.rounded_rectangle(
+            (headline[0]-12,headline[1]-8,headline[2]+12,headline[3]+9),
+            radius=10 if treatment=="banner" else 23,
+            fill=(3,23,43,238 if treatment=="banner" else 184),
+            outline=accent,width=3)
     # Text-repair levels genuinely change typography AND its painted zone;
     # the prior image/lighting-only retry had no effect on clipped copy.
     inset=(0,11,20)[text_safety]
