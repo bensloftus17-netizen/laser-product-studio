@@ -25,9 +25,9 @@ PRODUCT={
     "title":"Extra Deep Socket Set 3/8in 5pc",
     "features":[
         RAW_7823,
-        "Five-piece extra deep socket set.",
-        "A range of workshop socket sizes.",
-        "Profondeur interne avec un nouveau système garanti.", # unsupported claim
+        # These only appear in the untrusted supplier fragment; every
+        # campaign angle must use the single safely converted source fact.
+        "Profondeur interne avec un nouveau système garanti.",
     ],
     "description":"Extra deep socket set. "+RAW_7823,
     "specs":{
