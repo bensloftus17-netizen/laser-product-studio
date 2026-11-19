@@ -1521,6 +1521,8 @@ $('campaignCopyReset').addEventListener('click',()=>{
  renderCampaignCopyStudio();$('campaignCopyStatus').textContent='Original suggested wording restored.';
 });
 
+// V49 — source-linked competitor research. Never use model-suggested tool
+// illustrations or treat scraped list prices as Laser's manufacturer RRP.
 // V59: The large product hero previously remained locked to /api/photo/9395
 // while part 9197 (or any other part) was selected for competitor research.
 // Always display the exact selected official Laser product or no image at all.
@@ -1530,11 +1532,10 @@ function showOfficialHero(part){
  const clean=String(part||'').trim().toUpperCase();
  photo.hidden=true;
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(clean))return;
- photo.dataset.part=clean;
+ if(photo.dataset)photo.dataset.part=clean;
  photo.src='/api/photo/'+encodeURIComponent(clean);
 }
-// V49 — source-linked competitor research. Never use model-suggested tool
-// illustrations or treat scraped list prices as Laser's manufacturer RRP.
+
 let competitorShownPart=null, competitorBusy=false;
 const competitorPriceLabel = item => item.price_gbp
  ? '£'+Number(item.price_gbp).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})
