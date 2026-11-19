@@ -74,7 +74,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V59 competitor classification</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V60 creative freedom</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -855,12 +855,15 @@ function renderCampaignGallery(data){
      return 'Angle: '+posterRoles[asset.id].replaceAll('_',' ')+' · Creative family: '+
        String(a.creative_family||'source-verified layout').replaceAll('_',' ')+
        ' · Headline: '+String(a.headline_strategy||'product')+
-       ' · Proof: '+String(a.proof_strategy||'verified');
+       ' · Proof: '+String(a.proof_strategy||'verified')+
+       ' · Palette: '+String(a.creative_palette||'Laser blue').replaceAll('_',' ')+
+       ' · Design: '+String(a.visual_treatment||'source safe').replaceAll('_',' ');
    }
    const report=(m.format_artwork_quality||{})[asset.id];
    if(!report)return '';
    return 'Parent: '+String(report.parent_role||'source verified').replaceAll('_',' ')+
      ' · Style: '+String(report.creative_family||'source-verified').replaceAll('_',' ')+
+     ' · Palette: '+String(report.creative_palette||'Laser blue').replaceAll('_',' ')+
      ' · '+(report.render_engine==='ai-original-format-canvas'
        ?'AI native composition': 'Verified fallback layout');
  }
