@@ -1,3 +1,62 @@
+## V52 — Interface cleanup and more reliable completed campaigns
+
+This fixes two observed problems. The earlier hero image used absolute
+positioning and could cover the competitor panel and status text on desktop;
+a real campaign also generated successfully but its image requests later
+returned HTTP 404 after its short-lived in-memory files expired or a new
+Render instance replaced the old one.
+
+### Layout
+- On wide desktops the hero text, product search, competitor research,
+  progress, recovery and pricing settings stay **inside a dedicated 72%
+  content column**, separated from the real manufacturer photograph's
+  28% display column. The background photograph never sits over actual
+  controls or comparison results.
+- At narrower desktop/tablet/mobile widths the hero photograph is hidden
+  and all content gets the full available width.
+- Poster cards, marketing angle headlines, copy controls, navigation,
+  search buttons and table cells now wrap naturally. Artwork still uses
+  `object-fit: contain` and is never cropped to solve a UI issue.
+- Responsive layouts remain single-column on small phones, with accessible
+  focus outlines and working horizontal scroll inside genuine data tables.
+- CSS asset revision is bumped so Safari fetches new styles.
+
+### Campaign reliability without sacrificing quality
+- Real completed campaign pack tokens now stay valid up to **45 minutes**
+  instead of 15, subject to free hosting instance restarts; active job
+  progress records remain for up to 55 minutes. Storage remains strictly
+  bounded to four in-memory complete packs.
+- As quality-approved PNGs arrive, the current browser tab saves copies
+  using standard Blob URLs and substitutes them for expiring remote links
+  in preview, open, download and share actions. On successful completion,
+  all remaining PNGs (including the optional source QR) are also fetched
+  even if off-screen, avoiding failures on later lazy scroll.
+- The **complete ZIP** is fetched only after all artwork checks have passed.
+  Its actual ZIP signature is validated and a temporary browser-tab copy
+  is offered through the same Download ZIP button. No automatic download,
+  fabricated images, early ZIP, reduced-resolution render or QA bypass.
+- Intermittent GET progress-poll failures (network errors, retryable server
+  responses) now retry with visible feedback while the *existing* job
+  continues. Repeated failures preserve the Reopen Campaign option.
+- Repeated Build clicks for an already-running part recover that job
+  rather than launching a duplicate; a busy server responds with
+  transparent, bounded start retries instead of an unexplained failure.
+  Users can still deliberately generate a fresh campaign after the
+  previous job is complete.
+- Expired, unavailable server artwork now carries a clear explanatory
+  message instead of silently displaying broken image cards.
+
+**Limitations**: Render's free instance memory is not persistent across
+deployments, restarts or devices. Temporary local Blob copies last only
+while the current tab remains open. Always download the complete ZIP for
+permanent retention. A truly durable shared campaign library requires
+a persistent database/object store, which this update does not claim to
+provide.
+
+Regression tests: `python -m unittest -v
+test_interface_reliability_v52.py`, plus the entire existing campaign,
+quality, English, VAT, mobile, competitor and dashboard JS checks.
+
 ## V51 — Universal competitor search for every official Laser part number
 
 The previous competitor finder recognised only a small hardcoded list of
