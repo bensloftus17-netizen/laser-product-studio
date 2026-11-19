@@ -243,8 +243,21 @@ def candidate_sku(title, brand, explicit=None):
     explicit = clean_text(explicit, 65)
     if explicit and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._/-]{2,58}", explicit):
         return explicit
-    # An unknown code must never be reverse-inferred from a numeric price,
-    # size, socket drive or random token in a product title.
+    # Manufacturer model numbers can also be taken verbatim from the SOURCE
+    # listing title, using narrow known brand-specific part-number formats.
+    # This is not an inferred fitment, a serial number or a guessed SKU.
+    patterns={
+        "Snap-on":r"\b(BK[0-9]{4}[A-Z0-9]*)\b",
+        "Sealey":r"\b(VS[0-9]{4}[A-Z0-9]*)\b",
+        "Draper":r"\b(9[0-9]{4})\b",
+    }
+    pattern=patterns.get(brand)
+    if pattern:
+        match=re.search(pattern,clean_text(title,220).upper())
+        if match:
+            return match.group(1)
+    # No general numeric extraction: an unknown drive size, price or probe
+    # diameter must never masquerade as a competitor part number.
     return None
 
 
@@ -714,7 +727,7 @@ def report_csv(result):
     writer=csv.writer(output)
     writer.writerow(["Laser part","Laser product","Competitor brand",
                      "Competitor product","Competitor part number",
-                     "UK advertised price GBP","VAT basis","Retailer/seller",
+                     "UK advertised price GBP","VAT basis","Listing condition","Retailer/seller",
                      "Match classification","Evidence note","Source URL",
                      "Price source","Checked UTC"])
     def guard(value):
@@ -724,8 +737,8 @@ def report_csv(result):
         writer.writerow([guard(x) for x in [
             result["laser"]["part"],result["laser"]["title"],
             item["brand"],item["title"],item["part_number"],
-            item["price_gbp"],item["vat_basis"],item["seller"],
-            item["match_status"],item["match_evidence"],item["url"],
+            item["price_gbp"],item["vat_basis"],item.get("listing_condition"),
+            item["seller"],item["match_status"],item["match_evidence"],item["url"],
             item["price_source"],result["checked_at_utc"]
         ]])
     return output.getvalue().encode("utf-8-sig")
