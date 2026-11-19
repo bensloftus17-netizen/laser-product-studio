@@ -117,7 +117,10 @@ class CreativeVariationV57Tests(unittest.TestCase):
         self.assertEqual(parents["linkedin_graphic"],"technical_application")
         self.assertEqual(parents["social_story"],"price_promo")
         invalid={kind:"price_promo" for kind in FORMAT_ORDER}
-        self.assertEqual(choose_format_parents(invalid),FORMAT_PARENTS)
+        adapted=choose_format_parents(invalid)
+        self.assertEqual(set(adapted.values()),set(ROLES))
+        self.assertEqual(adapted["linkedin_graphic"],"technical_application")
+        self.assertEqual(adapted["landscape_ad"],"price_promo")
 
     def test_sameness_gate_rejects_repeated_family_and_cloned_art(self):
         concepts=[
