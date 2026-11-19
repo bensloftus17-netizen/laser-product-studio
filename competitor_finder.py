@@ -204,6 +204,7 @@ GENERIC_WORDS=frozenset({
 TOKEN_EXCLUSIONS=frozenset({
     "replacement","spare","cover","pouch","case","holder","accessory",
     "adapter","adaptor","attachment","storage","refill","repair",
+    "bracket","mount","battery","clip","cable",
 })
 COMMON_MAKERS=frozenset({
     "sealey","draper","bgs","gedore","snap-on","sykes-pickavant",
@@ -251,11 +252,27 @@ def tool_signature(product):
     else:
         kind=next((label for label,parts in TYPE_RULES
                    if all(word in text for word in parts)),"")
-        if not kind:
-            extra=" "+re.sub(r"[^a-z0-9/ -]"," ",fallback.lower())
-            kind=next((label for label,parts in TYPE_RULES
-                       if all(word in text+extra for word in parts)),"")
         source="fixed-category-rule" if kind else "official-title-derived"
+        # "Light", "ratchet", "wrench", "charger" and similar one-word
+        # categories are too broad for a meaningful sales comparison.
+        # Prefer the specific official title when it names subtypes.
+        broad={"ratchet","bearing","puller","extractor","spreader",
+               "diagnostic","charger","lamp","light","wrench",
+               "pliers","screwdriver"}
+        derived=_derived_type(title)
+        if kind in broad and len(_tokens(derived))>=2:
+            kind=derived
+            source="official-title-derived"
+        elif not kind:
+            # A specific descriptive title outranks stray generic words
+            # ("light", "socket", etc.) in the long manufacturer description.
+            if len(_tokens(derived))>=2:
+                kind=derived
+            else:
+                extra=" "+re.sub(r"[^a-z0-9/ -]"," ",fallback.lower())
+                kind=next((label for label,parts in TYPE_RULES
+                           if all(word in text+extra for word in parts)),"")
+                source="fixed-category-rule" if kind else "official-title-derived"
     if not kind:
         kind=_derived_type(title)
     if source=="official-title-derived":
@@ -271,21 +288,24 @@ def tool_signature(product):
 
 
 def _dynamic_match(signature, candidate):
+    def stem(w):
+        # Safe plural-only normalisation for English tool title keywords.
+        return w[:-1] if w.endswith("s") and len(w)>4 and not w.endswith("ss") else w
     original=_tokens(signature["type"])
-    candidate_words=set(_tokens(candidate))
-    anchors=[w for w in original if w not in GENERIC_WORDS
+    candidate_words={stem(w) for w in _tokens(candidate)}
+    anchors=[stem(w) for w in original if w not in GENERIC_WORDS
              and w not in VEHICLE_TERMS and len(w)>=3]
     overlap=[w for w in anchors if w in candidate_words]
+    if not anchors or anchors[-1] not in candidate_words:
+        return None
     if len(anchors)>=2 and len(overlap)<2:
         return None
     if len(anchors)==1 and (len(anchors[0])<5 or not overlap):
         return None
-    if not anchors:
-        return None
     # Accessory and replacement listings are not interchangeable with the
     # complete primary tool unless that is what the official Laser item is.
     original_words=set(_tokens(signature["title"]))
-    accessory=candidate_words & TOKEN_EXCLUSIONS
+    accessory=set(_tokens(candidate)) & TOKEN_EXCLUSIONS
     if accessory and not accessory.intersection(original_words):
         return None
     # Brand and vehicle terms aren't enough: a shared generic adjective or
