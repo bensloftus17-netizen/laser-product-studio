@@ -1948,7 +1948,7 @@ FRENCH_STRONG = re.compile(
     r'les\s+v[ée]hicules|outil\s+de)\b',
     re.I
 )
-FRENCH_TECH_TERMS = re.compile(r'\b(?:méthode|syphonage|siphonnage|unidirectionnelle|réservoir|système|purge|purger|pressurisation|pression|dépose|repose|moyeu|lorsque|pourra|destiné|vissage|suffisante|particulier|nécessitant|remplissage|permettant)\b',re.I)
+FRENCH_TECH_TERMS = re.compile(r'\b(?:méthode|syphonage|siphonnage|unidirectionnelle|réservoir|système|purge|purger|pressurisation|pression|dépose|repose|moyeu|lorsque|pourra|destiné|vissage|suffisante|particulier|nécessitant|remplissage|permettant|longueur|profondeur\s+interne|diam[èe]tre|[ée]paisseur|largeur|hauteur|poids)\b',re.I)
 
 FOREIGN_MARKERS = re.compile(r"\b(?:les|des|une|pour|avec|sans|afin|lors|sur|roulement|véhicules|comprend|comprennent|utilisation|également|assurer|remarque|utiliser|atelier|montage|pression|permettre|adapté|nécessaire|pièces|dépose|repose|cette|conçu|références|nettoyer|veiller|éviter|outil|lesquels|auxquels|cette|ceci|du|le|la|et)\b", re.I)
 
