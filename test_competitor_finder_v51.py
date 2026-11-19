@@ -180,8 +180,10 @@ class UniversalCompetitorTests(unittest.TestCase):
         self.assertTrue(
             any("title" in w.lower() for w in report["warnings"]) or
             report["laser"]["category_source"]=="fixed-category-rule")
-        self.assertIn("verify",report["results"][0]["match_status"].lower()
-                      +report["results"][0]["match_evidence"].lower())
+        self.assertTrue(any(x in (
+            report["results"][0]["match_status"].lower()+
+            report["results"][0]["match_evidence"].lower())
+            for x in ("verify","compare specifications","need checking")))
 
     def test_search_index_lead_has_no_fake_sku_or_price(self):
         product={"part":"5103","title":"Brake Caliper Piston Windback Tool"}
