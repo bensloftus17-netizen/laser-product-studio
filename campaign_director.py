@@ -264,7 +264,11 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
             "angle":role_label+" using verified manufacturer information",
             "features":([] if role=="price_promo" else facts),
             "selling_point":fact,
-            "copy_direction":{"tone":direction["copy_tone"],
+            "copy_direction":{"tone":{
+                                  "technical":"professional","commercial":"direct",
+                                  "premium":"professional","practical":"practical",
+                                  "professional":"professional"
+                              }[direction["copy_tone"]],
                               "hook":"application" if i==0 else "product" if i==1 else "feature",
                               "cta":"specifications" if i==0 else "enquire"},
             "part":str(product.get("part") or ""),"title":str(product.get("title") or ""),
