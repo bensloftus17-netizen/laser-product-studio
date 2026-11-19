@@ -1342,8 +1342,9 @@ function renderCompetitorReport(result){
   ' evidence-linked alternatives · checked '+new Date(result.checked_at_utc).toLocaleString('en-GB')+
   (result.cached?' · cached research':' · fresh research');
  stats.textContent='Source tool: '+String(result.laser.tool_type||'tool')+
-  ' · Laser '+String(result.laser.title||'')+' · '+
-  String(result.ai_matching||'Technical review required');
+  ' · Laser '+String(result.laser.title||'')+
+  ' · Official Laser UK RRP: '+String(result.laser.price||'Not verified')+
+  ' · '+String(result.ai_matching||'Technical review required');
  if(rows.length){
   container.innerHTML='<div class="competitor-table-scroll"><table class="competitor-table">'+
    '<thead><tr><th>Competitor</th><th>Verified listing / match</th>'+
