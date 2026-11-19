@@ -167,7 +167,10 @@ class IntelligentMarketingStrategyTests(unittest.TestCase):
         self.assertEqual(len(native.call_args_list),6)
         for call in native.call_args_list:
             kind=call.args[3]
-            expected=roles[parents[kind]]["selling_point"]
+            # A role without a verified feature falls back to the selected
+            # official campaign strategy proof; never an invented claim.
+            expected=(roles[parents[kind]]["selling_point"] or
+                      strategy["proof_point"])
             self.assertEqual(call.args[4],expected)
         with ZipFile(io.BytesIO(pack["archive"])) as z:
             note=z.read("05_Product_Info/Marketing_Strategy.txt").decode("utf-8")
