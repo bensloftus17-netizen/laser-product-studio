@@ -184,7 +184,7 @@ vm.createContext(ctx);vm.runInContext(SOURCE,ctx);
         script=self.html[start:end]
         node=r"""
 const vm=require('node:vm'),assert=require('node:assert/strict');
-let count=0,revoked=[];
+let count=0,revoked=[],created=0;
 const id='poster_price',job='j'.repeat(32);
 const progressImg={src:'',hidden:true,closest:()=>({})},open={href:'',hidden:true},
       save={href:'',hidden:true};
@@ -197,7 +197,9 @@ const card={querySelector:sel=>({
 })[sel]};
 const els={
  ['progress-img-'+id]:progressImg,['progress-open-'+id]:open,
- ['progress-save-'+id]:save,campaignShareSocial:{dataset:{}}
+ ['progress-save-'+id]:save,campaignShareSocial:{dataset:{}},
+ campaignDownload:{href:''},campaignShareZip:{dataset:{}},
+ campaignStatus:{textContent:'All 9 graphics are ready'}
 };
 const ctx={
  $:key=>els[key]||null,Map,Blob,Promise,console,
@@ -208,7 +210,7 @@ const ctx={
   return {ok:true,blob:async()=>new Blob(['valid-image-data-1234567890'],
                                   {type:'image/png'})};
  },
- URL:{createObjectURL:()=>'blob:verified-1',
+ URL:{createObjectURL:()=>'blob:verified-'+(++created),
       revokeObjectURL:url=>revoked.push(url)}
 };
 vm.createContext(ctx);vm.runInContext(SOURCE,ctx);
@@ -224,8 +226,15 @@ vm.createContext(ctx);vm.runInContext(SOURCE,ctx);
  assert.equal(share.dataset.shareUrl,'blob:verified-1');
  assert.equal(retry.hidden,true);
  assert.match(load.textContent,/safely loaded/);
+ ctx.fetch=async()=>({ok:true,blob:async()=>new Blob([
+  new Uint8Array([80,75,3,4]),new Uint8Array(50)],{type:'application/zip'})});
+ ctx.retainCompletedCampaignZIP(job,'t'.repeat(32),'8899');
+ await new Promise(resolve=>setTimeout(resolve,35));
+ assert.equal(els.campaignDownload.href,'blob:verified-2');
+ assert.equal(els.campaignShareZip.dataset.shareUrl,'blob:verified-2');
+ assert.match(els.campaignStatus.textContent,/retained in this tab/);
  ctx.useCampaignLocalJob('k'.repeat(32));
- assert.deepEqual(revoked,['blob:verified-1']);
+ assert.deepEqual(revoked,['blob:verified-1','blob:verified-2']);
 })().catch(error=>{console.error(error);process.exitCode=1});
 """.replace("SOURCE",repr(script))
         proc=subprocess.run(["node","-e",node],capture_output=True,
