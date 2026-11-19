@@ -1233,7 +1233,8 @@ function showCampaign(data){
  const socialButton=$('campaignShareSocial');
  preparedShareFiles.delete(socialButton);
  delete socialButton.dataset.shareLoading;
- socialButton.dataset.shareUrl=socialAsset?campaignAssetUrl('social_square'):'';
+ socialButton.dataset.shareUrl=socialAsset
+    ?(campaignLocalPNGs.get('social_square')||campaignAssetUrl('social_square')):'';
  socialButton.dataset.shareFilename='LASER_'+m.part+'_Social.png';
  socialButton.hidden=!socialAsset;
  if(socialAsset)prepareShareButtons($('campaignResults'));
@@ -1534,6 +1535,38 @@ $('part').addEventListener('input',()=>{
  }
 });
 
+// Free Render only runs one high-resolution job at a time. Do not turn a
+// temporary HTTP 429 into an apparent failed image generation: queue the
+// browser's start attempts with visible status, without rerunning AI.
+async function startFullQualityCampaign(part,body){
+ for(let attempt=0;attempt<7;attempt++){
+  let response;
+  try{
+   response=await fetch('/api/campaign/start/'+encodeURIComponent(part),{
+     method:'POST',headers:{'Content-Type':'application/json',
+                            'Accept':'application/json'},
+     body:JSON.stringify(body)
+   });
+  }catch(error){
+   if(!(error instanceof TypeError)||attempt===6)throw error;
+   $('campaignStatus').textContent='The server connection is interrupted. Retrying your campaign request…';
+   await new Promise(resolve=>setTimeout(resolve,7000));
+   continue;
+  }
+  if(response.status===429){
+   const seconds=Math.min(45,Math.max(8,parseInt(
+       response.headers.get('Retry-After')||'15',10)||15));
+   $('campaignStatus').textContent='Another full-quality campaign is being prepared. '+
+      'Your campaign has not started yet; the website will retry automatically ('+
+      (attempt+1)+'/7). No artwork quality settings are reduced.';
+   await new Promise(resolve=>setTimeout(resolve,seconds*1000));
+   continue;
+  }
+  return await readApiJson(response);
+ }
+ throw Error('The server is still preparing another campaign. Please retry later; no new AI generation was started.');
+}
+
 $('campaignBtn').addEventListener('click',async()=>{
  if(inflight)return;
  const part=$('part').value.trim().toUpperCase(),button=$('campaignBtn');
@@ -1566,11 +1599,10 @@ $('campaignBtn').addEventListener('click',async()=>{
    $('previews').hidden=true;
    $('previewCampaignCallout').hidden=true;
    $('assetWorkspaceStatus').textContent='Preparing 9 high-quality graphics. Each will appear once it passes QA.';
-   const started=await readApiJson(await fetch('/api/campaign/start/'+encodeURIComponent(part),{
-     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-     body:JSON.stringify(body)}));
+   const started=await startFullQualityCampaign(part,body);
    rememberMobileJob(started.job_id,part);
    renderProgressGallery(started.job_id,{status:'queued',stage:'queued'});
+   $('studioWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
    const data=await pollMobileCampaign(started.job_id);
    rememberFinishedCampaign(data);
    showCampaign(data);
