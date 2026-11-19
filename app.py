@@ -1231,12 +1231,16 @@ function showCampaign(data){
  renderCampaignGallery(data);
  const m=data.manifest;
  $('campaignTitle').textContent='LASER '+m.part+' · '+m.title;
- const freeform=m.creative_plan&&m.creative_plan.render_engine==='ai-authored-freeform-layout';
- $('campaignSummary').textContent=(freeform
-     ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
-     :(m.generation_method==='gemini-assisted'
-        ?'Gemini suggested concepts, but the safe legacy layout renderer was used. '
-        :'Verified-source fallback campaign using standard layouts (Gemini unavailable). '))
+ const engine=m.creative_plan&&m.creative_plan.render_engine;
+ const freeform=engine==='ai-authored-freeform-layout';
+ const mixed=engine==='mixed-ai-and-verified-safe-layout';
+ $('campaignSummary').textContent=(mixed
+     ?'Original AI compositions plus independently approved safe-layout recovery for a rejected poster. Genuine manufacturer photos and verified facts retained. '
+     :freeform
+       ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
+       :(m.generation_method==='gemini-assisted'
+          ?'Gemini suggested concepts, but the safe legacy layout renderer was used. '
+          :'Verified-source fallback campaign using standard layouts (Gemini unavailable). '))
      +m.files.length+' files in the ZIP. All materials still require approval.';
  const checked=Object.values(m.artwork_quality||{});
  const alerts=checked.flatMap(item=>item.warnings||[]);
@@ -1245,7 +1249,7 @@ function showCampaign(data){
     ' posters passed automated layout checks · '+checked.reduce((n,item)=>n+(item.candidates_checked||0),0)+
     ' candidate designs reviewed.'+(alerts.length?' Photo review: '+[...new Set(alerts)].join('; ')+'.':'')
    :'Automated poster checks unavailable — review every image before sharing.';
- if(freeform){
+ if(freeform||mixed){
    const vision=m.creative_critic||{};
    $('campaignQuality').textContent+=' · '+(vision.reviewed
       ?'Independent AI review of finished posters completed.'
