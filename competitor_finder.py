@@ -860,7 +860,8 @@ def research_competitors(product, *, session=requests,
     rows=_distinct(found)
     ai_status=_ai_review(product,signature,rows,session) if enable_ai else (
         "Conservative rules-based matching (AI review disabled).")
-    if not rows:
+    if not rows or not any(
+            r["source_type"]!="unverified search-index title" for r in rows):
         warnings.append(
             "No source-verified competitor matches were found. This does not "
             "prove that competing tools do not exist. Try again or connect "
@@ -873,6 +874,10 @@ def research_competitors(product, *, session=requests,
                  "price":product.get("price"),
                  "price_status":product.get("price_status")},
         "results":rows,"count":len(rows),"checked_at_utc":checked,
+        "verified_product_pages":sum(
+            r["source_type"]!="unverified search-index title" for r in rows),
+        "search_only_leads":sum(
+            r["source_type"]=="unverified search-index title" for r in rows),
         "providers":providers,"warnings":list(dict.fromkeys(
             warnings+(
                 ["This product type was derived from the official title; "
@@ -895,7 +900,7 @@ def report_csv(result):
                      "Competitor product","Competitor part number",
                      "UK advertised price GBP","VAT basis","Listing condition","Retailer/seller",
                      "Match classification","Evidence note","Source URL",
-                     "Price source","Checked UTC"])
+                     "Price source","Checked UTC","Evidence level"])
     def guard(value):
         string=str(value or "").strip()
         return "'"+string if string.startswith(("=","+","-","@","\t","\r")) else string
@@ -905,6 +910,7 @@ def report_csv(result):
             item["brand"],item["title"],item["part_number"],
             item["price_gbp"],item["vat_basis"],item.get("listing_condition"),
             item["seller"],item["match_status"],item["match_evidence"],item["url"],
-            item["price_source"],result["checked_at_utc"]
+            item["price_source"],result["checked_at_utc"],
+            item.get("source_type")
         ]])
     return output.getvalue().encode("utf-8-sig")
