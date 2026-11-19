@@ -735,6 +735,46 @@ def rss_search(signature,session=requests):
     return rows,errors
 
 
+def _parse_search_html(content):
+    """Extract ordinary public Bing product-result links, not its own ads.
+
+    This keyless path supplements RSS when search feeds are sparse. No data
+    from search titles can establish a price, picture or SKU; each candidate
+    still requires real merchant-page verification.
+    """
+    if len(content)>850000:
+        raise ValueError("Search page exceeded size limit")
+    soup=BeautifulSoup(content,"html.parser")
+    rows=[]
+    for tag in soup.select("li.b_algo h2 a, #b_results h2 a")[:35]:
+        url=str(tag.get("href") or "")
+        title=clean_text(tag.get_text(" ",strip=True),225)
+        if not safe_url(url) or len(title)<8:
+            continue
+        block=tag.find_parent("li")
+        desc=clean_text(block.get_text(" ",strip=True),280) if block else ""
+        rows.append({"title":title,"url":url,"description":desc})
+    return rows
+
+
+def html_search(signature,session=requests):
+    """Second public discovery mechanism where Bing RSS has few listings."""
+    queries=search_queries(signature)[:2]
+    def fetch(query):
+        try:
+            response=session.get(SEARCH_HOST,params={"q":query,"mkt":"en-GB"},
+                timeout=7,allow_redirects=False,headers={
+                    "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
+            response.raise_for_status()
+            if response.status_code!=200:
+                return []
+            return _parse_search_html(response.content)
+        except (requests.RequestException,ValueError,OSError):
+            return []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        return [row for batch in pool.map(fetch,queries) for row in batch]
+
+
 def _jsonld_nodes(data):
     if isinstance(data,list):
         for item in data:
@@ -910,7 +950,18 @@ def keyless_discovery(signature,session=requests):
         # Do not throw out a verified source simply because a free RSS search
         # provider has blocked or changed its feed.
         hits=[]
-        warnings.append("Public search provider unavailable; checked approved catalogue leads.")
+        warnings.append("Public RSS feed unavailable; trying normal search results and approved catalogue leads.")
+    if len({r["url"] for r in hits if safe_url(r.get("url"))})<10:
+        extra=html_search(signature,session)
+        if extra:
+            hits.extend(extra)
+            warnings.append("Public search HTML also supplied competitor leads.")
+    # Prioritise hits that already describe the correct product class before
+    # spending the bounded page budget; preserve original search order.
+    indexed=sorted(hits,key=lambda r:(
+        0 if match_status(signature,r["title"]) else 1))
+    urls.extend(row["url"] for row in indexed)
+    candidates=[]
     for url in urls:
         if not safe_url(url) or urlparse(url).path in ("","/"):
             continue
@@ -918,11 +969,12 @@ def keyless_discovery(signature,session=requests):
         if key in found_urls:
             continue
         found_urls.add(key)
-        if len(found_urls)>=MAX_PAGES:
+        candidates.append(url)
+        if len(candidates)>=MAX_PAGES:
             break
     # Querying 18 individual product pages sequentially could exhaust the
     # hosting request timeout. Parallelise page fetches, never redirects.
-    candidates=list(found_urls)
+    # Keep product-relevant search order, not unordered set iteration.
     indexed_titles={r["url"]:r for r in hits}
     def inspect(url):
         try:
