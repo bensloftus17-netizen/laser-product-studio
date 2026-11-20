@@ -434,7 +434,7 @@ def render_format_canvas(kind,brief,product,photo,*,scenes=(),headlines=None,
         canvas,brief["creative_palette"],brief["visual_treatment"],
         zones={name:_rect(rect,(w,h)) for name,rect in brief["zones"].items()
                if name!="product"},
-        variant=variant,hero_treatment=brief["hero_treatment"])
+        variant=variant,hero_treatment=brief["hero_treatment"],inplace=True)
     _label(canvas,product.get("part"),distributor)
     region=brief["zones"]
     _hero(canvas,photo,_rect(region["product"],(w,h)),variant)
