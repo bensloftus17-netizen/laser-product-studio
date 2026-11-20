@@ -166,7 +166,7 @@ class EnglishCopyStudioV61Tests(unittest.TestCase):
             self.assertEqual(page.count('id="'+key+'"'),1)
         self.assertIn("Other formats",page)
         self.assertIn("Writing for",page)
-        self.assertIn("V64 workshop poster",page)
+        self.assertIn("V65 memory stable",page)
         self.assertIn("audience:$('copyAudience').value",page)
         self.assertEqual(FOCUSES,("application","price","benefit"))
         self.assertEqual(len(AUDIENCES),3)
