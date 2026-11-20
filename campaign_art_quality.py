@@ -150,7 +150,19 @@ def choose_best(render,role,source_blob,variants=(0,1,2),
             if scene_relevance and scene_relevance.get("warning"):
                 audit["warnings"].append(scene_relevance["warning"])
         except Exception as exc:
-            audit={"passed":False,"score":0,"issues":["Render failed: "+type(exc).__name__],
+            # Never silently hide the precise reason every candidate failed.
+            # Log the full stack on Render; expose a bounded, useful error for
+            # validation failures so a staff member can act on it. This does
+            # not relax a single source/photo/text quality rule.
+            import logging
+            logging.getLogger(__name__).exception(
+                "Campaign art render failed: role=%s variation=%s",
+                role, variant)
+            detail=" ".join(str(exc).split())[:150]
+            reason="Render failed: "+type(exc).__name__
+            if isinstance(exc,(ValueError,RuntimeError)) and detail:
+                reason+=": "+detail
+            audit={"passed":False,"score":0,"issues":[reason],
                    "warnings":[]}
             payload=None
         audit["variation"]=variant
