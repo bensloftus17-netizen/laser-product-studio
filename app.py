@@ -2561,7 +2561,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
     photo_options,checked_urls=collect_official_photo_options(
         candidates,
         lambda url: official_get(url,session,timeout=6),
-        valid_image,manufacturer_image_rank,max_checks=12,workers=4)
+        valid_image,manufacturer_image_rank,max_checks=12,workers=2)
     # If none of the discovered official masters is good enough, look at the
     # ACTUAL official PDF image and a genuine source PDF rendering. This
     # matters for older tools (such as 4554) where /items/large serves an
