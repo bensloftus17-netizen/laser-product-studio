@@ -140,7 +140,8 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
             return self.rrp
         with patch("campaign_hub.find_scene",return_value=(self.workshop,self.scene)) as stock, \
              patch("campaign_hub.render_promo",side_effect=price_renderer):
-            pack=build_campaign(self.timing,self.photo,use_gemini=False)
+            pack=build_campaign(self.timing,self.photo,use_gemini=False,
+                                promo_template='ai_original')
         self.assertEqual(stock.call_count,3)
         manifest=pack["manifest"]
         self.assertEqual(tuple(x["role"] for x in manifest["angles"]),ROLES)
@@ -179,7 +180,7 @@ class UnifiedIntelligentCampaignTests(unittest.TestCase):
         with patch("campaign_hub.find_scene",return_value=(None,self.scene)), \
              patch("campaign_hub.render_promo",return_value=self.rrp):
             pack=build_campaign({**self.press,"price":None},self.photo,
-                                use_gemini=False)
+                                use_gemini=False,promo_template='ai_original')
         self.assertIn("ON REQUEST",pack["manifest"]["price"])
         self.assertEqual(pack["manifest"]["angles"][1]["role"],"price_promo")
         self.assertFalse(any("£" in str(v) for v in pack["manifest"]["angles"]))
