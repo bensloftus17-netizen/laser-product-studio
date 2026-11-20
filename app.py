@@ -74,7 +74,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V61 English copy studio</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V63 image-quality rescue</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -2496,7 +2496,16 @@ def lookup(part,session=requests,force=False,uk_url=None):
     elif product.get('price') and not product.get('price_source'):
         product['price_source']=product.get('source')
         product['price_status']='Live official UK product page'
-    # Product images: prefer genuine manufacturer studio gallery, not broken PDF xrefs.
+    # Genuine manufacturer image selection: always try more than the first
+    # three catalogue thumbnails, and consider the original manufacturer PIS
+    # PDF if no official JPEG/PNG passes the independent poster preflight.
+    # A small image may still be displayed as a catalogue preview but is
+    # NEVER silently upscaled or certified for printable marketing artwork.
+    from asset_quality import manufacturer_image_rank
+    from source_image_selection import (
+        collect_official_photo_options,best_manufacturer_photo,
+        source_photo_audit,
+    )
     pdf_image=image_bytes if image_bytes and valid_image(image_bytes) else None
     image_bytes=None
     gallery=manufacturer_gallery_urls(part,session)
@@ -2507,57 +2516,50 @@ def lookup(part,session=requests,force=False,uk_url=None):
         if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(url).path,re.I)
     ]
     product['photo_source']=None
-    # Source authenticity is checked by official_get; quality selection does
-    # not invent, upscale or redraw tools. Do not settle for a bad thumbnail
-    # merely because it was the first URL in the supplier gallery.
-    from asset_quality import manufacturer_image_rank
-    photo_options=[]
-    attempts=0
-    for photo_url in dict.fromkeys(candidates):
-        if attempts>=6:break
-        attempts+=1
-        try:
-            response=official_get(photo_url,session,timeout=6)
-            if not valid_image(response.content):continue
-            try:
-                score,report=manufacturer_image_rank(response.content)
-            except (ValueError,OSError,TypeError):
-                score,report=0,{"passed":False,"issues":["Cannot assess photo quality"],
-                                "size":[0,0],"edge_strength":0}
-            photo_options.append((score,response.content,response.url,report))
-            # A sharp, clean, sufficiently detailed official master is good
-            # enough; additional network calls would only delay campaigns.
-            if report.get("passed") and min(report.get("size",[0,0]))>=650 \
-                    and score>=135:
-                break
-            if len(photo_options)>=3:break
-        except Exception:pass
-    if photo_options:
-        best=max(photo_options,key=lambda item:item[0])
-        image_bytes=best[1]
-        product['photo_source']=best[2]
-        product['photo_quality_selection']={
-            "method":"ranked-official-image-sources",
-            "candidates_checked":len(photo_options),
-            "quality_passed":bool(best[3].get("passed")),
-            "dimensions":best[3].get("size"),
-        }
-    # PDFs may embed a black mask and a colour image as separate xrefs. Rendering
-    # the visible page rectangle merges them, unlike extracting the xref directly.
-    if image_bytes is None:
-        for pdf_url in (f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
-                        f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
+    photo_options,checked_urls=collect_official_photo_options(
+        candidates,
+        lambda url: official_get(url,session,timeout=6),
+        valid_image,manufacturer_image_rank,max_checks=12,workers=4)
+    # If none of the discovered official masters is good enough, look at the
+    # ACTUAL official PDF image and a genuine source PDF rendering. This
+    # matters for older tools (such as 4554) where /items/large serves an
+    # outdated thumbnail even though the official product sheet has a
+    # usable, more detailed source photograph.
+    if not any(x[3].get('passed') for x in photo_options):
+        if pdf_image:
+            score,report=manufacturer_image_rank(pdf_image)
+            photo_options.append((
+                score,pdf_image,
+                'https://www.lasertools.co.uk/pis/'+part+'_PIS.pdf#pdf-photo-embedded',
+                report))
+        for pdf_url in (
+                f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
+                f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
             try:
                 pdf_response=official_get(pdf_url,session,content_types=['pdf'],timeout=8)
-                composite=pdf_render_photo(pdf_response.content)
-                if composite:
-                    image_bytes=composite
-                    product['photo_source']=pdf_url+'#rendered'
+                # The PDF may contain a higher-quality original embedded image
+                # than any web-thumbnail; prefer native pixels where possible.
+                _,embedded=parse_pis_pdf(pdf_response.content,part,pdf_response.url)
+                sources=[('embedded',embedded)]
+                if embedded is None or not valid_image(embedded):
+                    sources.append(('rendered',pdf_render_photo(pdf_response.content)))
+                for label,data in sources:
+                    if data and valid_image(data):
+                        score,report=manufacturer_image_rank(data)
+                        photo_options.append((
+                            score,data,pdf_response.url+'#pdf-photo-'+label,report))
+                if any(x[3].get('passed') for x in photo_options):
                     break
-            except Exception:pass
-    if image_bytes is None and pdf_image:
-        image_bytes=pdf_image
-        product['photo_source']='Image extracted from official product information sheet'
+            except Exception:
+                continue
+    selected=best_manufacturer_photo(photo_options)
+    if selected:
+        image_bytes=selected[1]
+        product['photo_source']=selected[2]
+        report=source_photo_audit(photo_options,checked_urls,selected)
+        # Preserve the established public fields for existing clients.
+        report['candidates_checked']=len(photo_options)
+        product['photo_quality_selection']=report
     # A separate *real* in-use photo gives the promotional advert a unique look.
     APPLICATION_IMAGE_CACHE.pop(part,None)
     product['application_photo_source']=None
