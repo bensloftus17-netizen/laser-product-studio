@@ -75,7 +75,7 @@ def format_palette(kind,candidate,seen=()):
 
 
 def express_background(image,palette,treatment,*,zones=None,variant=0,
-                       hero_treatment="clean_cutout"):
+                       hero_treatment="clean_cutout",inplace=False):
     """Paint broad, high-contrast visual architecture BEHIND exact tool/copy.
 
     The optional real workshop photograph remains visible where possible.
@@ -162,4 +162,10 @@ def express_background(image,palette,treatment,*,zones=None,variant=0,
                     radius=max(8,w//130),
                     fill=(*base,222 if palette=="studio_silver" else 194),
                     outline=(*highlight,110),width=max(2,w//400))
+    # Rendering creates a fresh artboard for each candidate. In-place
+    # compositing avoids holding three full-size RGBA copies simultaneously;
+    # public default stays non-mutating for callers reusing input art.
+    if inplace and image.mode=="RGBA":
+        image.alpha_composite(overlay)
+        return image
     return Image.alpha_composite(image.convert("RGBA"),overlay)
