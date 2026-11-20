@@ -235,7 +235,8 @@ class CreativeDirectorV45Tests(unittest.TestCase):
                  "method":"test-critic","reviewed":True,"issues":{},"warning":None}), \
              patch("campaign_hub.check_distinctness",return_value={
                  "passed":True,"issues":[],"pairs":[]}):
-            pack=build_campaign(PRODUCT,raw,use_gemini=True)
+            pack=build_campaign(PRODUCT,raw,use_gemini=True,
+                                promo_template='ai_original')
         self.assertEqual(records,
             ["technical_application","price_promo","product_selected"])
         self.assertEqual(draw.call_count,3)

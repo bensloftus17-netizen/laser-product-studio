@@ -40,6 +40,9 @@ from creative_expression import (
     express_background, format_palette, DEFAULT_FORMAT_PALETTE,
 )
 from flexible_canvas import render_creative_canvas
+from workshop_promo_template import (
+    render_workshop_showcase,validate_promo_template,
+)
 from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
 from creative_qa import review_finished_artworks, reconcile_with_measured_geometry
@@ -462,7 +465,8 @@ def _source_qr(product):
 
 
 def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
-                   application_photo=None, progress=None):
+                   application_photo=None, progress=None,
+                   promo_template="workshop_showcase"):
     """Return a complete archive plus previewable images and a public manifest.
 
     Never accept unverified images, pricing or technical claims from the browser.
@@ -477,6 +481,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
 
     if not genuine_photo:
         raise ValueError("A genuine manufacturer product image is required.")
+    promo_template=validate_promo_template(promo_template)
     _emit("planning")
     if distributor and distributor not in BRAND_LABELS:
         raise ValueError("Unsupported distributor brand.")
@@ -513,6 +518,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     asset_report=require_good_asset(genuine_photo) if creative_enabled else None
     creative_plan["render_engine"]=(
         "ai-authored-freeform-layout" if creative_enabled else "verified-legacy-layout")
+    creative_plan["promo_template"]=promo_template
+    creative_plan["promo_reference"]="user-supplied workshop showcase" if promo_template=="workshop_showcase" else "AI original composition"
     creative_plan["model_authored_canvases"]=(
         [concept.get("creative_canvas") for concept in concepts]
         if creative_enabled else [])
@@ -637,17 +644,25 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         # The AI authored arbitrary composition coordinates, not template IDs.
         for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
             _emit("rendering",key)
-            def _creative_candidate(variant,index=index):
+            def _creative_candidate(variant,index=index,key=key):
                 with capture() as tracked:
-                    poster=render_creative_canvas(
-                        product,genuine_photo,concepts[index],scenes[index],
-                        distributor,variant=variant)
+                    if key=="poster_price" and promo_template=="workshop_showcase":
+                        poster=render_workshop_showcase(
+                            product,genuine_photo,concepts[index],scenes[index],
+                            distributor,variant=variant)
+                    else:
+                        poster=render_creative_canvas(
+                            product,genuine_photo,concepts[index],scenes[index],
+                            distributor,variant=variant)
                 return poster,_geometry(tracked,measured_text=True)
             image_assets[key],quality_reports[key]=choose_best(
                 _creative_candidate,ROLES[index],genuine_photo,
                 preferred_variant=1,
                 scene_relevance={"warning":scene_references[index]["relevance_warning"]})
-            quality_reports[key]["render_engine"]="ai-freeform-canvas"
+            quality_reports[key]["render_engine"]=(
+                "workshop-showcase-ai-variation"
+                if key=="poster_price" and promo_template=="workshop_showcase"
+                else "ai-freeform-canvas")
             _emit("quality_checking",key)
     else:
         _emit("rendering","poster_technical")
@@ -662,6 +677,12 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         visual=retail["visual_plan"]
     
         def _price_candidate(variant):
+            if promo_template=="workshop_showcase":
+                with capture() as tracked:
+                    output=render_workshop_showcase(
+                        product,genuine_photo,retail,scenes[1],
+                        distributor,variant=variant)
+                return output,_geometry(tracked,measured_text=True)
             candidate=dict(retail)
             candidate["variant"]=variant
             preferred_style=visual.get("price_style")
@@ -692,6 +713,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             _price_candidate,"price_promo",genuine_photo,
             preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[1]["relevance_warning"]})
+        if promo_template=="workshop_showcase":
+            quality_reports["poster_price"]["render_engine"]="workshop-showcase-verified-variation"
         _emit("quality_checking","poster_price")
         _emit("rendering","poster_smart")
         image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
@@ -1016,6 +1039,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "category": product["marketing_direction"].get("category_label", ""),
         "marketing_strategy": marketing_strategy,
         "creative_plan": creative_plan,
+        "promo_template":promo_template,
         "artwork_quality": quality_reports,
         "format_artwork_quality": format_reports,
         "ai_format_canvases": format_canvases,
@@ -1043,10 +1067,13 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             {"name": concept.get("name") or FAMILIES_LABELS[index],
              "role":ROLES[index], "focus": concept["focus"],
              "third_angle":concept.get("third_angle"),
-             "layout":("Verified-safe recovery" if quality_reports[
-                    ("poster_technical","poster_price","poster_smart")[index]
-                 ].get("render_engine")=="verified-safe-layout" else
-                 "AI original composition" if creative_enabled else concept["family"]),
+             "layout":("Workshop Showcase · AI creative variations"
+                       if index==1 and promo_template=="workshop_showcase" else
+                       "Verified-safe recovery" if quality_reports[
+                          ("poster_technical","poster_price","poster_smart")[index]
+                       ].get("render_engine")=="verified-safe-layout" else
+                       "AI original composition" if creative_enabled
+                       else concept["family"]),
              "headline": str(concept.get("headline") or ""),
              "selling_point": str(concept.get("selling_point") or ""),
              "creative_family":concept["creative_direction"]["creative_family"],

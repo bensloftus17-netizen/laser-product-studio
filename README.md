@@ -1,3 +1,44 @@
+## V64 — Workshop Showcase promo poster (user-provided reference)
+
+The **Price Promotion** poster now has a selectable, reusable on-site design
+based on the supplied portrait Laser Tools workshop poster. Unlike displaying
+a placeholder image, this is an actual dynamic Pillow renderer that inserts
+each official Laser part's genuine manufacturer photograph, product name,
+validated UK RRP/VAT status and source-backed selling facts into a recognisable
+professional automotive-workshop composition.
+
+**Reference-inspired layout**: Laser header/part-number lockup, dark workshop
+context, generous hero-tool space on a metallic bench, three modular
+technical/feature panels, a kit-contents panel **only when the product source
+explicitly lists contents** (otherwise 'Product details'), a bold blue
+UK-price enquiry graphic, and a Laser footer with a draft-review notice.
+
+**AI still directs designs**: the existing generative creative direction
+determines the secondary colour treatment, workshop photographic focus,
+graphic accents, product scale and one of three candidate variants. The
+composition follows the reference but isn't an uneditable repeated JPEG.
+The other two posters retain their separate technical/application and
+third-angle AI composition choices; all six native marketing formats still
+have independent AI direction and quality checks.
+
+In Dashboard > **Distributor branding, product lookup and pricing settings**
+choose:
+- `Workshop Showcase — your reference, with AI variations` (default).
+- `AI Original — unrestricted brand-safe composition`.
+
+This selection affects **only poster 02 (Price Promotion)** in one-click
+campaigns, with the exact choice recorded under `manifest.promo_template`.
+The selected renderer works when Gemini succeeds and when the source-safe
+fallback is necessary. It is visible on the price-poster asset card and
+included in the normal nine-PNG ZIP.
+
+**Safety**: the reference is a *layout*, never a source for product facts.
+No invented kit contents, vehicle applications, pricing, VAT or AI-redrawn
+product. Missing RRP displays 'Price on request'. Unsupported product
+photos, cutout failures and clipping still fail the original source/visual
+QA rather than slipping into a completed public campaign. All artwork
+remains a draft requiring staff review.
+
 ## V63 — Source-photo selection rescue (Laser 4554)
 
 The 4554 screenshot showed the exact genuine Laser tap-and-die set but

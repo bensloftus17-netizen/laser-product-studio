@@ -1337,3 +1337,18 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .copy-extra-formats{flex:1 1 100%}
  .copy-audience-row select{max-width:none}
 }
+
+/* V64 — the user reference is a selectable, working price-poster layout. */
+.promo-layout-setting{display:grid;grid-template-columns:minmax(155px,225px) minmax(0,1fr);
+ gap:8px 16px;align-items:center;border:1px solid #bcdcef;border-radius:10px;
+ background:#edf7ff;padding:13px 16px;margin:12px 0 17px}
+.promo-layout-setting label{color:#073d68;font-size:12px;font-weight:800}
+.promo-layout-setting select{min-height:43px;max-width:100%;border:1px solid #9cc9e6;
+ border-radius:8px;background:white;color:#064777;padding:8px 12px;
+ font-size:12px;font-weight:700}
+.promo-layout-setting small{grid-column:1/-1;color:#48687d;line-height:1.6;
+ font-size:11px}
+@media(max-width:700px){
+ .promo-layout-setting{grid-template-columns:1fr}
+ .promo-layout-setting small{grid-column:auto}
+}
