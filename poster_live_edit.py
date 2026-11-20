@@ -164,5 +164,9 @@ def edit_campaign_poster(bundle,asset_id,body):
     bundle["manifest"]=manifest
     bundle["archive"]=archive.getvalue()
     source["concepts"]=source_concepts
+    if hasattr(bundle,"save_editor"):
+        # Source-backed variations must persist when the pack lives on disk.
+        # Subsequent edits use the current verified concepts, not old defaults.
+        bundle.save_editor(source)
     return {"manifest":manifest,"asset_id":asset_id,
             "revision":manifest["poster_revision"],"quality":quality}

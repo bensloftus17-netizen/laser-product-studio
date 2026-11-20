@@ -10,10 +10,12 @@ from __future__ import annotations
 import io
 import json
 import os
+import tempfile
+from pathlib import Path
 from datetime import datetime, timezone
 from html import escape
 from urllib.parse import urlparse
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 from PIL import Image, ImageDraw, ImageOps
 from reportlab.lib import colors
@@ -253,7 +255,7 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None,
         else:
             safe={"headline":(45,160,int(width*.54),height-74)}
         canvas=express_background(
-            canvas,creative_palette,visual_treatment,zones=safe)
+            canvas,creative_palette,visual_treatment,zones=safe,inplace=True)
     d = ImageDraw.Draw(canvas)
     title = _clean(product.get("title"), 150) or "Laser Tools product"
     # Verified source-title excerpt prevents tiny ellipsised fallback copy.
@@ -466,7 +468,7 @@ def _source_qr(product):
 
 def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                    application_photo=None, progress=None,
-                   promo_template="workshop_showcase"):
+                   promo_template="workshop_showcase",spill_archive=False):
     """Return a complete archive plus previewable images and a public manifest.
 
     Never accept unverified images, pricing or technical claims from the browser.
@@ -1111,10 +1113,17 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         + "\n".join(manifest["warnings"]) + "\n"
         "The ZIP does not publish or schedule any content.\n"
     )
-    archive = io.BytesIO()
-    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as z:
+    # Live server uses a private on-disk ZIP sink. Nine already-compressed
+    # PNGs must not be duplicated into a second giant BytesIO buffer while
+    # all originals are in RAM; tests/direct consumers retain the old bytes
+    # contract by omitting spill_archive.
+    archive=(tempfile.NamedTemporaryFile(
+        mode="w+b",suffix=".zip",prefix="laser-campaign-staging-",
+        delete=False) if spill_archive else io.BytesIO())
+    try:
+      with ZipFile(archive, "w", compression=ZIP_DEFLATED) as z:
         for key, payload in image_assets.items():
-            z.writestr(files[key], payload)
+            z.writestr(files[key], payload, compress_type=ZIP_STORED)
         z.writestr("04_Copy/All_Channels.txt", _copy_text(copies))
         z.writestr("04_Copy/All_Channels.json", json.dumps(copies, indent=2, ensure_ascii=False))
         z.writestr("04_Copy/Instagram_Story_Suggestions.txt", "\n\n".join(
@@ -1145,7 +1154,19 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         z.writestr("05_Product_Info/Campaign_Summary.pdf",
                    _summary_pdf(product, concepts, manifest))
         z.writestr("Campaign_Manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-    return {"archive": archive.getvalue(), "images": image_assets,
+      if spill_archive:
+          archive.flush()
+          archive.close()
+          archive_payload={"archive_path":Path(archive.name)}
+      else:
+          archive_payload={"archive":archive.getvalue()}
+    except Exception:
+      archive.close()
+      if spill_archive:
+          try: os.unlink(archive.name)
+          except FileNotFoundError: pass
+      raise
+    return {**archive_payload,"images": image_assets,
             "manifest": manifest,
             # Server-only context; NEVER sent in response/ZIP. Needed for
             # changing a single poster without re-fetching/regenerating AI.

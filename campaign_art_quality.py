@@ -19,7 +19,7 @@ EXPECTED=(1200,1500)
 _ROLES={"technical_application","price_promo","product_selected"}
 
 
-@lru_cache(maxsize=12)
+@lru_cache(maxsize=2)
 def inspected_product(blob:bytes):
     """Use the existing manufacturer extraction, *never* redraw the tool.
 

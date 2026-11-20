@@ -1,3 +1,47 @@
+## V65 — Memory-stable full-quality campaigns on a 512 MiB Render worker
+
+Render confirmed `oomKilled: 512Mi` at **10:19 and 10:49 UTC on 20 November
+2026**, after image-generation work. This is server RAM exhaustion, not
+a browser cache issue. Clearing the build cache/restarting is temporary.
+
+V65 reduces peak and retained memory while preserving the genuine
+manufacturer photo, native 1200×1500 posters, native Story/banner pixels,
+three original promotional approaches, verified RRP/VAT labels, and all
+deterministic + independent artwork QA gates.
+
+- **Private disk-backed completed packs:** approved ZIPs, nine PNGs and
+  source-backed poster-editor photos are written to private container-local
+  temporary storage. Only small manifest/metadata objects stay in RAM.
+  Download endpoints stream files by path; resume, editable posters and
+  individual assets keep their bearer-token permissions. Expired/evicted
+  packs remove their private files. Storage is ephemeral on deploy/restart,
+  just like earlier in-process packs; not a permanent saved-promotion system.
+- **One expensive rendering operation at a time** across desktop requests,
+  progressive mobile jobs and individual poster edits. A simultaneous
+  second request receives HTTP 429 / Retry-After rather than doubling peak
+  1200×1500 RGBA canvas memory and causing another OOM.
+- **Bounded authentic source caches:** two heavy decoded/PNG cutouts (rather
+  than 10–12), and three recent official manufacturer/photo lookups. Clear
+  decoded image caches and collect garbage after each success or failure.
+- **In-place compositing on fresh artboards:** avoid repeat multi-megabyte
+  RGBA overlays for all three posters, six campaign formats and the
+  Workshop Showcase reference template. This must have pixel-identical
+  output to the original renderer, not reduced-resolution output.
+- **No huge QA pixel arrays:** white-halo analysis streams pixels rather
+  than building a list of hundreds of thousands of tuples. It no longer
+  modifies the cached genuine manufacturer image by thumbnailing it for
+  inspection; photo detail is preserved.
+- **Bounded source-image checks:** two high-quality manufacturer-image
+  inspections in parallel, rather than four simultaneous large cutouts.
+
+The complete existing art review, source constraints and nine-asset
+download format remain in force. V65 automated regressions cover
+private-pack roundtrip/expiry, PNG and ZIP downloads, editor state,
+concurrency blocking, pixel-identical overlays, unmodified source
+photo quality, and cache limits. On a 512 MiB host even isolated very
+large image sources may exceed memory; Render usage should be monitored
+with real campaign attempts before claiming a universal guarantee.
+
 ## V64 — Workshop Showcase promo poster (user-provided reference)
 
 The **Price Promotion** poster now has a selectable, reusable on-site design

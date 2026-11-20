@@ -2,7 +2,7 @@
 Public-site pilot. Not affiliated with the official Laser Tools website.
 """
 from __future__ import annotations
-import io, re, json, time, zipfile, hashlib, logging, html, base64, secrets, threading
+import io, re, json, time, zipfile, hashlib, logging, html, base64, secrets, threading, gc
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
@@ -31,6 +31,7 @@ from promo_art_direction import normalise_art_direction, editor_preferences, sce
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
+from disk_campaign_store import store_campaign, StoredCampaign
 from copy_rewriter import rewrite_copy, SUPPORTED_MODES, AUDIENCES
 from competitor_finder import research_competitors, report_csv
 
@@ -74,7 +75,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V64 workshop poster</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V65 memory stable</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -2560,7 +2561,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
     photo_options,checked_urls=collect_official_photo_options(
         candidates,
         lambda url: official_get(url,session,timeout=6),
-        valid_image,manufacturer_image_rank,max_checks=12,workers=4)
+        valid_image,manufacturer_image_rank,max_checks=12,workers=2)
     # If none of the discovered official masters is good enough, look at the
     # ACTUAL official PDF image and a genuine source PDF rendering. This
     # matters for older tools (such as 4554) where /items/large serves an
@@ -2637,6 +2638,16 @@ def lookup(part,session=requests,force=False,uk_url=None):
     if not product['features']:
         product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
     CACHE[part]=(now,product,image_bytes)
+    # Manufacturer photos are encoded but can still be multi-megabyte PNGs;
+    # retain at most three recent source records on 512 MiB Render workers.
+    # Other SKUs are refetched from the official source on demand.
+    while len(CACHE)>3:
+        oldest=next(iter(CACHE))
+        CACHE.pop(oldest,None)
+        APPLICATION_IMAGE_CACHE.pop(oldest,None)
+    for older in list(APPLICATION_IMAGE_CACHE):
+        if older not in CACHE:
+            APPLICATION_IMAGE_CACHE.pop(older,None)
     return product,image_bytes
 
 def with_reviewed_price(product,raw,approved=False,basis='ex'):
@@ -3123,6 +3134,25 @@ def edit_ai_promo(part):
 CAMPAIGN_PACKS = {}
 CAMPAIGN_PACK_LOCK = threading.Lock()
 CAMPAIGN_PACK_TTL = 45 * 60
+# One expensive Pillow render at a time across mobile, desktop and poster
+# revision; the existing mobile-only active-job check missed desktop POSTs.
+CAMPAIGN_RENDER_SLOT=threading.BoundedSemaphore(1)
+
+
+def _release_campaign_image_caches():
+    """Free old decoded RGBA cutouts after a completed/failed campaign."""
+    from campaign_art_quality import inspected_product
+    from ai_photo_effects import _cutout_png
+    inspected_product.cache_clear()
+    _cutout_png.cache_clear()
+    gc.collect()
+
+
+def _evict_pack(entry):
+    bundle=entry.get("bundle")
+    if isinstance(bundle,StoredCampaign):
+        bundle.delete()
+
 
 
 def _get_campaign_pack(token):
@@ -3132,7 +3162,7 @@ def _get_campaign_pack(token):
         now = time.time()
         for key in list(CAMPAIGN_PACKS):
             if CAMPAIGN_PACKS[key]['expires'] < now:
-                CAMPAIGN_PACKS.pop(key, None)
+                _evict_pack(CAMPAIGN_PACKS.pop(key))
         entry = CAMPAIGN_PACKS.get(token)
         return entry['bundle'] if entry and entry['expires'] >= now else None
 
@@ -3158,22 +3188,27 @@ def _assemble_campaign_bundle(part, body, progress=None):
     if progress is not None:
         return build_campaign(product, image, distributor,
                               application_photo=official_context, progress=progress,
-                              promo_template=promo_template)
+                              promo_template=promo_template,
+                              spill_archive=True)
     return build_campaign(product, image, distributor,
                           application_photo=official_context,
-                          promo_template=promo_template)
+                          promo_template=promo_template,
+                          spill_archive=True)
 
 
 def _save_campaign_bundle(bundle):
+    # No heavy PNG, ZIP or editor photo arrays are retained across requests.
+    # A private temporary directory is deleted on token eviction/expiry.
+    stored=store_campaign(bundle)
     token=secrets.token_urlsafe(24)
     with CAMPAIGN_PACK_LOCK:
         now=time.time()
         for key in list(CAMPAIGN_PACKS):
             if CAMPAIGN_PACKS[key]['expires'] < now:
-                CAMPAIGN_PACKS.pop(key, None)
+                _evict_pack(CAMPAIGN_PACKS.pop(key))
         while len(CAMPAIGN_PACKS)>=4:
-            CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
-        CAMPAIGN_PACKS[token]={'expires':now+CAMPAIGN_PACK_TTL,'bundle':bundle}
+            _evict_pack(CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS))))
+        CAMPAIGN_PACKS[token]={'expires':now+CAMPAIGN_PACK_TTL,'bundle':stored}
     return token
 
 
@@ -3189,11 +3224,21 @@ def one_click_campaign(part):
         body = request.get_json(silent=True) or {}
         if not isinstance(body, dict):
             return jsonify(error='Invalid campaign settings.'), 400
-        bundle = _assemble_campaign_bundle(part,body)
-        token = _save_campaign_bundle(bundle)
-        response = jsonify(token=token, manifest=bundle['manifest'])
-        response.headers['Cache-Control'] = 'no-store, private'
-        return response
+        if not CAMPAIGN_RENDER_SLOT.acquire(blocking=False):
+            response=jsonify(error="A full-quality artwork job is already running. Please retry when it finishes.")
+            response.status_code=429
+            response.headers['Retry-After']='30'
+            return response
+        try:
+            bundle = _assemble_campaign_bundle(part,body)
+            token = _save_campaign_bundle(bundle)
+            response = jsonify(token=token, manifest=bundle['manifest'])
+            response.headers['Cache-Control'] = 'no-store, private'
+            del bundle
+            return response
+        finally:
+            _release_campaign_image_caches()
+            CAMPAIGN_RENDER_SLOT.release()
     except LookupErrorPublic as exc:
         return jsonify(error=str(exc)), 400
     except ValueError as exc:
@@ -3287,6 +3332,7 @@ def _run_campaign_job(job_id,part,body):
                 job['preview_images'].clear()  # Avoid duplicate PNG bytes in RAM
                 job.update(status='ready',stage='complete',token=token,error=None,
                            expires=time.time()+CAMPAIGN_PACK_TTL)
+        del bundle
     except (LookupErrorPublic,ValueError,RuntimeError) as exc:
         with CAMPAIGN_JOBS_LOCK:
             if job_id in CAMPAIGN_JOBS:
@@ -3299,6 +3345,9 @@ def _run_campaign_job(job_id,part,body):
                 CAMPAIGN_JOBS[job_id].update(
                     status='failed',stage='failed',
                     error='Campaign could not be completed. Please retry or check the application logs.')
+    finally:
+        _release_campaign_image_caches()
+        CAMPAIGN_RENDER_SLOT.release()
 
 
 @app.post('/api/campaign/start/<part>')
@@ -3318,7 +3367,7 @@ def start_mobile_campaign(part):
             # Free Render has ~0.15 CPU and 512 MB RAM. Concurrent high-resolution
             # campaigns saturate it and prevent even the first image from arriving.
             # Run a single full-quality job instead of sacrificing artwork QA.
-            if active>=1:
+            if active>=1 or not CAMPAIGN_RENDER_SLOT.acquire(blocking=False):
                 response=jsonify(error='Another full-quality campaign is already generating. The server can handle one at a time; please retry once it finishes.')
                 response.status_code=429
                 response.headers['Retry-After']='45'
@@ -3336,6 +3385,7 @@ def start_mobile_campaign(part):
                 name='laser-campaign-'+part).start()
         except Exception:
             with CAMPAIGN_JOBS_LOCK:CAMPAIGN_JOBS.pop(job_id,None)
+            CAMPAIGN_RENDER_SLOT.release()
             raise
         response=jsonify(job_id=job_id,status='queued',part=part)
         response.status_code=202
@@ -3393,11 +3443,15 @@ def progressive_campaign_asset(job_id, asset_id):
         part=job['part']
     if payload is None and token:
         bundle=_get_campaign_pack(token)
-        payload=bundle['images'].get(asset_id) if bundle else None
+        if isinstance(bundle,StoredCampaign) and asset_id in bundle['images']:
+            payload=bundle['images'].path_for(asset_id)
+        else:
+            payload=bundle['images'].get(asset_id) if bundle else None
     if payload is None:
         return jsonify(error='Artwork is no longer available.'),404
     response=send_file(
-        io.BytesIO(payload), mimetype='image/png',
+        io.BytesIO(payload) if isinstance(payload,bytes) else payload,
+        mimetype='image/png',
         as_attachment=request.args.get('download')=='1',
         download_name='LASER_'+part+'_'+asset_id+'.png')
     response.headers['Cache-Control']='no-store, private'
@@ -3418,7 +3472,17 @@ def edit_campaign_asset(token, asset_id):
             entry=CAMPAIGN_PACKS.get(token)
             if not entry or entry['expires'] < time.time():
                 return jsonify(error='Campaign expired. Please build a new campaign.'),404
-            result=edit_campaign_poster(entry['bundle'],asset_id,body)
+            bundle=entry['bundle']
+            if not CAMPAIGN_RENDER_SLOT.acquire(blocking=False):
+                response=jsonify(error='Another full-quality artwork job is running. Retry your edit when it finishes.')
+                response.status_code=429
+                response.headers['Retry-After']='30'
+                return response
+            try:
+                result=edit_campaign_poster(bundle,asset_id,body)
+            finally:
+                _release_campaign_image_caches()
+                CAMPAIGN_RENDER_SLOT.release()
         response=jsonify(result)
         response.headers['Cache-Control']='no-store, private'
         return response
@@ -3455,7 +3519,8 @@ def download_campaign(token):
     if bundle is None:
         return jsonify(error='Campaign link expired. Generate the campaign again.'), 404
     part = re.sub(r'[^A-Za-z0-9_-]', '', str(bundle['manifest'].get('part') or 'Product'))
-    response = send_file(io.BytesIO(bundle['archive']), mimetype='application/zip',
+    source = bundle.archive_path if isinstance(bundle,StoredCampaign) else io.BytesIO(bundle['archive'])
+    response = send_file(source, mimetype='application/zip',
                          as_attachment=True,
                          download_name='LASER_' + part + '_Complete_Campaign.zip')
     response.headers['Cache-Control'] = 'no-store, private'
@@ -3467,12 +3532,15 @@ def preview_campaign_asset(token, asset_id):
     bundle = _get_campaign_pack(token)
     if bundle is None:
         return jsonify(error='Campaign preview expired. Generate it again.'), 404
-    asset = bundle['images'].get(asset_id)
+    asset = (bundle['images'].path_for(asset_id)
+             if isinstance(bundle,StoredCampaign) and asset_id in bundle['images']
+             else bundle['images'].get(asset_id))
     if asset is None:
         return jsonify(error='Campaign asset not found.'), 404
     download_requested = request.args.get('download') == '1'
     response = send_file(
-        io.BytesIO(asset), mimetype='image/png',
+        io.BytesIO(asset) if isinstance(asset,bytes) else asset,
+        mimetype='image/png',
         as_attachment=download_requested,
         download_name='LASER_' + re.sub(r'[^A-Za-z0-9_-]', '',
             str(bundle['manifest'].get('part') or 'Product')) + '_' + asset_id + '.png'

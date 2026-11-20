@@ -213,7 +213,7 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
     image=express_background(
         image,brief["creative_palette"],brief["visual_treatment"],
         zones={k:_box(v) for k,v in brief["zones"].items() if k!="product"},
-        variant=variant,hero_treatment=brief["hero_treatment"])
+        variant=variant,hero_treatment=brief["hero_treatment"],inplace=True)
     accent=brief["accent"]
     d=ImageDraw.Draw(image,"RGBA")
     # Fixed brand safe areas; the art direction controls all other geometry.

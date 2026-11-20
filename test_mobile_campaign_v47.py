@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 import subprocess
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -46,6 +47,11 @@ def _bundle(part="6330"):
 
 class MobileCampaignRecoveryTests(unittest.TestCase):
     def setUp(self):
+        # Test mocks Thread.start(), so release any reservation left by a
+        # fake worker in the previous test case. Production uses the worker
+        # finally block for ownership and release.
+        self._prior_render_slot=studio.CAMPAIGN_RENDER_SLOT
+        studio.CAMPAIGN_RENDER_SLOT=threading.BoundedSemaphore(1)
         self.client=studio.app.test_client()
         with studio.CAMPAIGN_JOBS_LOCK:
             studio.CAMPAIGN_JOBS.clear()
@@ -53,6 +59,7 @@ class MobileCampaignRecoveryTests(unittest.TestCase):
             studio.CAMPAIGN_PACKS.clear()
 
     def tearDown(self):
+        studio.CAMPAIGN_RENDER_SLOT=self._prior_render_slot
         with studio.CAMPAIGN_JOBS_LOCK:
             studio.CAMPAIGN_JOBS.clear()
         with studio.CAMPAIGN_PACK_LOCK:
