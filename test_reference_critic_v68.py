@@ -95,9 +95,9 @@ class ReferenceDuplicateCriticV68Tests(unittest.TestCase):
         raw=io.BytesIO()
         Image.new("RGB",(1200,1500),"#072C4A").save(raw,"PNG")
         imgs={key:raw.getvalue() for key in REFERENCE_QUALITY}
-        concepts=[{"creative_direction":{"creative_family":name}}
-                  for name in ("engineering_grid","commercial_burst",
-                               "premium_spotlight")]
+        # The pixel gate must reject identical images independently of model
+        # marketing briefs and creative-family labels.
+        concepts=[{}, {}, {}]
         actual=check_distinctness(imgs,concepts)
         self.assertFalse(actual["passed"])
         opinion=_visual("poster_price","duplicate_layout")
