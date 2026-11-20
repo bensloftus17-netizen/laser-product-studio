@@ -162,10 +162,19 @@ def store_campaign(bundle,*,root=None):
         stored=StoredCampaign(directory,bundle["manifest"],[])
         for key in images:
             stored["images"][key]=images[key]
-        archive=bundle["archive"]
-        if not isinstance(archive,bytes) or not archive.startswith(b"PK"):
-            raise ValueError("Approved campaign ZIP is missing or invalid")
-        _atomic_file(stored.archive_path,archive)
+        if "archive_path" in bundle:
+            source=Path(bundle["archive_path"])
+            # The only producer is the internal ZIP builder. Move the source
+            # atomically within private /tmp; no second ZIP bytes allocation.
+            with source.open("rb") as stream:
+                if stream.read(2)!=b"PK":
+                    raise ValueError("Approved campaign ZIP is invalid")
+            os.replace(source,stored.archive_path)
+        else:
+            archive=bundle["archive"]
+            if not isinstance(archive,bytes) or not archive.startswith(b"PK"):
+                raise ValueError("Approved campaign ZIP is missing or invalid")
+            _atomic_file(stored.archive_path,archive)
         stored.save_editor(bundle.get("editor_context"))
         return stored
     except Exception:
