@@ -80,7 +80,7 @@ V7_HOME_PAGE = r'''
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
 <div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
-<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Build a Unique Product Campaign</h2><p>Enter a part number. AI plans three different, product-specific posters, real workshop imagery, story suggestions and editable copy.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
+<section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Build a Unique Product Campaign</h2><p>Enter a part number to build a detailed technical sheet, workshop price promotion and AI-led product poster, plus social artwork and editable copy.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
 <div class="competitor-launch">
  <button type="button" id="competitorBtn" class="competitor-launch-button">
@@ -113,10 +113,10 @@ V7_HOME_PAGE = r'''
 <div class="promo-layout-setting">
  <label for="promoTemplate"><strong>Promotional poster template</strong></label>
  <select id="promoTemplate" name="promo_template" aria-label="Promotional poster layout">
-  <option value="workshop_showcase" selected>Workshop Showcase — your reference, with AI variations</option>
+  <option value="workshop_showcase" selected>Workshop Showcase — your reference layout (default)</option>
   <option value="ai_original">AI Original — unrestricted brand-safe composition</option>
  </select>
- <small>Applies to poster 02 (Price Promotion) only. The workshop layout uses the real Laser tool, verified UK price and source-backed feature panels. AI still chooses accents, photography treatment and product emphasis. The technical and product posters stay different.</small>
+ <small>Poster 01 always uses the structured technical product sheet. Poster 02 uses the workshop reference with the genuine Laser tool, approved source facts and verified UK price; quality-checked variants adjust staging without changing its structure. Poster 03 stays AI-led.</small>
 </div>
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
@@ -878,8 +878,8 @@ function renderCampaignGallery(data){
  function creativeAssetDetails(asset){
    if(posterRoles[asset.id]){
      const a=angleByRole[posterRoles[asset.id]]||{};
-     return (asset.id==='poster_price'&&m.promo_template==='workshop_showcase'?
-       'Template: Workshop Showcase · AI variations · ':'')+
+     return (asset.id==='poster_technical'?'Template: Technical reference sheet · ':asset.id==='poster_price'&&m.promo_template==='workshop_showcase'?
+       'Template: Workshop Showcase · verified reference layout · ':'')+
        'Angle: '+posterRoles[asset.id].replaceAll('_',' ')+' · Creative family: '+
        String(a.creative_family||'source-verified layout').replaceAll('_',' ')+
        ' · Headline: '+String(a.headline_strategy||'product')+
