@@ -105,7 +105,8 @@ def _scene_base(scene,focus,variant):
     for index in range(5):
         x=140+index*185
         draw.line((x,198,x+170,198),fill=(64,169,227,65),width=4)
-    return Image.alpha_composite(canvas,layer)
+    canvas.alpha_composite(layer)
+    return canvas
 
 
 def _workbench(canvas,accent,variant,style):
@@ -135,7 +136,8 @@ def _workbench(canvas,accent,variant,style):
     elif style=="split_canvas":
         d.polygon(((0,455),(245,390),(260,820),(0,870)),
                   fill=(2,51,86,120))
-    return Image.alpha_composite(canvas,layer)
+    canvas.alpha_composite(layer)
+    return canvas
 
 
 def _panel(draw,box,title,accent):
