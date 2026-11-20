@@ -3188,10 +3188,12 @@ def _assemble_campaign_bundle(part, body, progress=None):
     if progress is not None:
         return build_campaign(product, image, distributor,
                               application_photo=official_context, progress=progress,
-                              promo_template=promo_template)
+                              promo_template=promo_template,
+                              spill_archive=True)
     return build_campaign(product, image, distributor,
                           application_photo=official_context,
-                          promo_template=promo_template)
+                          promo_template=promo_template,
+                          spill_archive=True)
 
 
 def _save_campaign_bundle(bundle):
