@@ -57,7 +57,12 @@ def review_finished_artworks(images):
         "white edge halos around tools, blurry/pixelated tools, cut-off text, "
         "unreadable text, tiny hero products, extremely weak contrast, "
         "cluttered hierarchy, repetitive visual arrangement or totally unrelated "
-        "real photographic context. A product may genuinely contain white or "
+        "real photographic context. A shared LASER header, the same genuine "
+        "product photo, and consistent brand colours do not by themselves make "
+        "two deliberately different technical and promotional layouts duplicates. "
+        "Only flag duplicate_layout when two actual whole-poster compositions "
+        "have almost identical placements and visual hierarchy. "
+        "A product may genuinely contain white or "
         "silver parts; do not reject legitimate light-coloured components. "
         "Do not verify technical facts or try to redraw any tool. "
         "Return JSON object with 'issues' mapping each of those exact poster "
@@ -96,18 +101,53 @@ def review_finished_artworks(images):
                                      ". Image geometry and source QA were still checked."}
 
 
-def reconcile_with_measured_geometry(visual, quality_reports):
-    """Do not let a fallible image model overrule objective font/hero metrics.
+def _independent_reference_distinctness(role, quality_reports, distinctness):
+    """Check objective evidence before disputing a *fixed template* duplicate.
 
-    Text clipping is checked at render time against the actual glyph bbox,
-    safe areas and collisions. Product prominence is checked with the
-    placed, genuine cutout's actual bounds. A model sometimes confuses a
-    narrow tool with a tiny one, or misreads dense legal/footer text as
-    clipping. Resolve ONLY those two measurable claims, and ONLY when the
-    corresponding deterministic inspection is present and passing.
+    Only two approved reference layouts qualify. This must not hide duplicates
+    in flexible AI artwork. All of the role's pairwise comparisons must have
+    independently strong colour/structure differences, not merely a coloured
+    line or a changed LASER logo. The standard campaign duplicate gate remains.
+    """
+    references={
+        "poster_technical":"laser-technical-reference",
+        "poster_price":"laser-workshop-promo-reference",
+    }
+    required=references.get(role)
+    report=(quality_reports or {}).get(role) or {}
+    if not required or report.get("render_engine")!=required:
+        return False
+    if report.get("passed") is not True:
+        return False
+    if not isinstance(distinctness,dict) or distinctness.get("passed") is not True:
+        return False
+    comparisons=distinctness.get("pairs")
+    if not isinstance(comparisons,list):
+        return False
+    relevant=[p for p in comparisons if isinstance(p,dict) and
+              role in (p.get("left"),p.get("right"))]
+    if len(relevant)!=2:
+        return False
+    for pair in relevant:
+        diff=pair.get("difference")
+        hamming=pair.get("perceptual_hash_distance")
+        if not isinstance(diff,(float,int)) or not isinstance(hamming,int):
+            return False
+        # A slight palette/accent change is not sufficient evidence. Require
+        # a substantial pixel difference AND independent perceptual contrast,
+        # or very large pixel differences across the whole composition.
+        if not (diff>=.09 and (hamming>=8 or diff>=.18)):
+            return False
+    return True
 
-    White-box, white-halo, blur, clutter, unrelated backgrounds, duplicate
-    compositions and other visual observations are NEVER silently cleared.
+
+def reconcile_with_measured_geometry(visual, quality_reports, distinctness=None):
+    """Reconcile subjective model defects with independently measured output.
+
+    Existing measured glyph and product bounds remain authoritative. V68 also
+    checks the *finished pixels* of a fixed technical/workshop template before
+    accepting a model's duplicate_layout finding. Other visual issues always
+    remain blocking. Weak/absent pairwise evidence never clears duplication.
     """
     if not visual.get("reviewed"):
         return visual
@@ -132,6 +172,10 @@ def reconcile_with_measured_geometry(visual, quality_reports):
                   and isinstance(report.get("product_visible_fraction"),(float,int))
                   and report["product_visible_fraction"] >= .08):
                 contradicted.append(issue)
+            elif (issue=="duplicate_layout"
+                  and _independent_reference_distinctness(
+                      role,quality_reports,distinctness)):
+                contradicted.append(issue)
             else:
                 remaining.append(issue)
         preserved[role]=remaining
@@ -141,9 +185,10 @@ def reconcile_with_measured_geometry(visual, quality_reports):
     outcome["issues"]=preserved
     outcome["geometry_disagreements"]=disputed
     if disputed:
-        message=("Visual model disagreed with measurable font/product placement "
-                 "checks; those two issue types were resolved by independently "
-                 "recorded geometry. All other quality gates remain active. "
-                 "Review final artwork before publishing.")
+        message=("Visual model findings disagreed with independently checked "
+                 "text, product bounds or strong pairwise pixel differences "
+                 "of locked reference templates. Disagreements are recorded "
+                 "for human review; source, layout, image and duplication "
+                 "quality gates remain active. Review before publishing.")
         outcome["warning"]="; ".join(filter(None,(visual.get("warning"),message)))
     return outcome
