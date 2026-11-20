@@ -166,7 +166,7 @@ class EnglishCopyStudioV61Tests(unittest.TestCase):
             self.assertEqual(page.count('id="'+key+'"'),1)
         self.assertIn("Other formats",page)
         self.assertIn("Writing for",page)
-        self.assertIn("V61 English copy studio",page)
+        self.assertIn("V63 image-quality rescue",page)
         self.assertIn("audience:$('copyAudience').value",page)
         self.assertEqual(FOCUSES,("application","price","benefit"))
         self.assertEqual(len(AUDIENCES),3)

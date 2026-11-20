@@ -74,7 +74,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V61 English copy studio</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V63 image-quality rescue</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -1831,6 +1831,7 @@ def normalize(s):return re.sub(r'\s+',' ',str(s or '')).strip()
 # Official English Tool Connection product pages verified for pilot demonstrations.
 # For other part numbers, a search discovery attempt locates the manufacturer page.
 OFFICIAL_UK_PRODUCTS = {
+    '4554':'https://www.toolconnection.co.uk/products/general-hand-tools/cutting-drilling/thread-repair/taps-dies/4554-metric-tap-die-set-110pc',
     '7845':'https://www.toolconnection.co.uk/products/general-hand-tools/striking-tools/pry-bars/heavy-duty/7845-pry-bar-900mm',
     '8324':'https://www.toolconnection.co.uk/products/cars-vans/steering-suspension/shock-absorbers/kits/8324-suspension-split-hub-knuckle-spreader',
     '9395':'https://www.toolconnection.co.uk/products/cars-vans/transmission/wheel-bearings/gen2-wheel-bearing-kits/9395-front-wheel-bearing-kit-for-mercedes-benz-sprinter-vw-crafter',
@@ -2339,25 +2340,54 @@ def preferred_manufacturer_photos(part):
     ]
 
 def manufacturer_gallery_urls(part,session=requests):
-    """Discover product photographs from the manufacturer's real gallery."""
-    urls=[]
+    """Discover exact-SKU photographs and FULL-SIZE gallery image variants.
+
+    srcset often lists a tiny 200w image first and a 1200w master last.
+    Never take only the first URL from srcset. The product identifier must
+    occur in the filename and every source domain/redirect must be approved.
+    """
+    matches=[]
+    exact=re.compile(
+        re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp)$',re.I)
     for page in [f'https://www.lasertools.co.uk/Product/{part}',
                  f'https://lasertools.toolconnection.co.uk/Product/{part}']:
         try:
             response=official_get(page,session,timeout=6)
             soup=BeautifulSoup(response.content,'html.parser')
             for node in soup.find_all(['a','img','source']):
-                for key in ('href','src','data-src','data-large','data-original','data-zoom-image','srcset'):
-                    raw=(node.get(key) or '').split(',')[0].strip().split(' ')[0]
-                    if not raw:continue
+                sources=[]
+                for key in ('data-original','data-zoom-image','data-full',
+                            'data-large','data-src','href','src'):
+                    raw=(node.get(key) or '').strip()
+                    if raw:
+                        sources.append((raw,0))
+                for key in ('srcset','data-srcset'):
+                    raw=node.get(key) or ''
+                    for option in raw.split(','):
+                        fields=option.strip().split()
+                        if not fields:continue
+                        resolution=0
+                        if len(fields)>1:
+                            try:
+                                tag=fields[-1].lower()
+                                if tag.endswith('w'):resolution=int(tag[:-1])
+                                elif tag.endswith('x'):resolution=int(float(tag[:-1])*1000)
+                            except ValueError:pass
+                        sources.append((fields[0],resolution))
+                for raw,resolution in sources:
                     url=urljoin(response.url,html.unescape(raw))
-                    if not authorized_url(url):continue
+                    if not authorized_url(url):
+                        continue
                     basename=urlparse(url).path.rsplit('/',1)[-1]
-                    regex=re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp)$'
-                    if re.match(regex,basename,re.I):urls.append(url)
-            if urls:break
+                    if exact.fullmatch(basename):
+                        matches.append((url,resolution))
+            if matches:break
         except Exception:pass
-    return list(dict.fromkeys(urls))
+    # Deterministically check full-resolution srcset options ahead of tiny
+    # thumbnails. Still quality-check every official image's actual pixels.
+    sorted_matches=sorted(matches,key=lambda pair:-pair[1])
+    return list(dict.fromkeys(url for url,_ in sorted_matches))
+
 
 def pdf_render_photo(pdfbytes):
     """Render composite product photo from PIS PDF to avoid broken stencil/mask xrefs."""
@@ -2496,7 +2526,16 @@ def lookup(part,session=requests,force=False,uk_url=None):
     elif product.get('price') and not product.get('price_source'):
         product['price_source']=product.get('source')
         product['price_status']='Live official UK product page'
-    # Product images: prefer genuine manufacturer studio gallery, not broken PDF xrefs.
+    # Genuine manufacturer image selection: always try more than the first
+    # three catalogue thumbnails, and consider the original manufacturer PIS
+    # PDF if no official JPEG/PNG passes the independent poster preflight.
+    # A small image may still be displayed as a catalogue preview but is
+    # NEVER silently upscaled or certified for printable marketing artwork.
+    from asset_quality import manufacturer_image_rank
+    from source_image_selection import (
+        collect_official_photo_options,best_manufacturer_photo,
+        source_photo_audit,
+    )
     pdf_image=image_bytes if image_bytes and valid_image(image_bytes) else None
     image_bytes=None
     gallery=manufacturer_gallery_urls(part,session)
@@ -2507,57 +2546,50 @@ def lookup(part,session=requests,force=False,uk_url=None):
         if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(url).path,re.I)
     ]
     product['photo_source']=None
-    # Source authenticity is checked by official_get; quality selection does
-    # not invent, upscale or redraw tools. Do not settle for a bad thumbnail
-    # merely because it was the first URL in the supplier gallery.
-    from asset_quality import manufacturer_image_rank
-    photo_options=[]
-    attempts=0
-    for photo_url in dict.fromkeys(candidates):
-        if attempts>=6:break
-        attempts+=1
-        try:
-            response=official_get(photo_url,session,timeout=6)
-            if not valid_image(response.content):continue
-            try:
-                score,report=manufacturer_image_rank(response.content)
-            except (ValueError,OSError,TypeError):
-                score,report=0,{"passed":False,"issues":["Cannot assess photo quality"],
-                                "size":[0,0],"edge_strength":0}
-            photo_options.append((score,response.content,response.url,report))
-            # A sharp, clean, sufficiently detailed official master is good
-            # enough; additional network calls would only delay campaigns.
-            if report.get("passed") and min(report.get("size",[0,0]))>=650 \
-                    and score>=135:
-                break
-            if len(photo_options)>=3:break
-        except Exception:pass
-    if photo_options:
-        best=max(photo_options,key=lambda item:item[0])
-        image_bytes=best[1]
-        product['photo_source']=best[2]
-        product['photo_quality_selection']={
-            "method":"ranked-official-image-sources",
-            "candidates_checked":len(photo_options),
-            "quality_passed":bool(best[3].get("passed")),
-            "dimensions":best[3].get("size"),
-        }
-    # PDFs may embed a black mask and a colour image as separate xrefs. Rendering
-    # the visible page rectangle merges them, unlike extracting the xref directly.
-    if image_bytes is None:
-        for pdf_url in (f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
-                        f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
+    photo_options,checked_urls=collect_official_photo_options(
+        candidates,
+        lambda url: official_get(url,session,timeout=6),
+        valid_image,manufacturer_image_rank,max_checks=12,workers=4)
+    # If none of the discovered official masters is good enough, look at the
+    # ACTUAL official PDF image and a genuine source PDF rendering. This
+    # matters for older tools (such as 4554) where /items/large serves an
+    # outdated thumbnail even though the official product sheet has a
+    # usable, more detailed source photograph.
+    if not any(x[3].get('passed') for x in photo_options):
+        if pdf_image:
+            score,report=manufacturer_image_rank(pdf_image)
+            photo_options.append((
+                score,pdf_image,
+                'https://www.lasertools.co.uk/pis/'+part+'_PIS.pdf#pdf-photo-embedded',
+                report))
+        for pdf_url in (
+                f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
+                f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
             try:
                 pdf_response=official_get(pdf_url,session,content_types=['pdf'],timeout=8)
-                composite=pdf_render_photo(pdf_response.content)
-                if composite:
-                    image_bytes=composite
-                    product['photo_source']=pdf_url+'#rendered'
+                # The PDF may contain a higher-quality original embedded image
+                # than any web-thumbnail; prefer native pixels where possible.
+                _,embedded=parse_pis_pdf(pdf_response.content,part,pdf_response.url)
+                sources=[('embedded',embedded)]
+                if embedded is None or not valid_image(embedded):
+                    sources.append(('rendered',pdf_render_photo(pdf_response.content)))
+                for label,data in sources:
+                    if data and valid_image(data):
+                        score,report=manufacturer_image_rank(data)
+                        photo_options.append((
+                            score,data,pdf_response.url+'#pdf-photo-'+label,report))
+                if any(x[3].get('passed') for x in photo_options):
                     break
-            except Exception:pass
-    if image_bytes is None and pdf_image:
-        image_bytes=pdf_image
-        product['photo_source']='Image extracted from official product information sheet'
+            except Exception:
+                continue
+    selected=best_manufacturer_photo(photo_options)
+    if selected:
+        image_bytes=selected[1]
+        product['photo_source']=selected[2]
+        report=source_photo_audit(photo_options,checked_urls,selected)
+        # Preserve the established public fields for existing clients.
+        report['candidates_checked']=len(photo_options)
+        product['photo_quality_selection']=report
     # A separate *real* in-use photo gives the promotional advert a unique look.
     APPLICATION_IMAGE_CACHE.pop(part,None)
     product['application_photo_source']=None

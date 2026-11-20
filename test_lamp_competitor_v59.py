@@ -141,7 +141,7 @@ class GenuineLamp9197Tests(unittest.TestCase):
         self.assertIn("onload=\"this.hidden=false\"",page)
         # Page now advances version while retaining V59 competitor/photo
         # behaviour; the sidebar label is not an API contract.
-        self.assertIn("Internal pilot · V61 English copy studio",page)
+        self.assertIn("Internal pilot · V63 image-quality rescue",page)
 
 
 if __name__=="__main__":
