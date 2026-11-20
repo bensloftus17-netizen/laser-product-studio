@@ -948,7 +948,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "issues":{},"warning":None}
     if creative_enabled:
         critic=reconcile_with_measured_geometry(
-            review_finished_artworks(image_assets),quality_reports)
+            review_finished_artworks(image_assets),quality_reports,
+            distinctness)
         blocking={key:codes for key,codes in critic["issues"].items() if codes}
         if blocking:
             # Keep the actual AI artboards and genuine manufacturer pixels.
@@ -967,16 +968,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     if key not in blocking:
                         continue
                     codes=blocking[key]
-                    # Alternate scale/exposure cannot repair a genuinely bad
-                    # photo cutout, blurred manufacturer source or duplicate
-                    # layout. Never approve these by disabling the critic.
+                    # Damaged genuine imagery cannot be repaired by changing
+                    # typography. A duplicate-layout warning is different:
+                    # first recheck objective pairwise artwork distinctness,
+                    # then try the still-flexible creative role. A fresh
+                    # product photo is NOT a remedy for duplicate layouts.
                     if any(code in codes for code in (
-                            "white_box","white_halo","blurry_product",
-                            "duplicate_layout")):
+                            "white_box","white_halo","blurry_product")):
                         raise ValueError("AI visual review rejected "+key+
                                          ": "+", ".join(codes)+
-                                         ". A better genuine source photo or "
-                                         "fresh creative plan is required.")
+                                         ". A better genuine source photo is required.")
                     alternative=(original_variants[key]+attempt)%3
                     def _repair_candidate(variant,index=index):
                         if index==0 or (index==1 and promo_template=="workshop_showcase"):
@@ -1006,7 +1007,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         if index==1 and promo_template=="workshop_showcase"
                         else "ai-freeform-canvas")
                 next_review=reconcile_with_measured_geometry(
-                    review_finished_artworks(image_assets),quality_reports)
+                    review_finished_artworks(image_assets),quality_reports,
+                    check_distinctness(image_assets,concepts))
                 if not next_review["reviewed"]:
                     raise ValueError(
                         "AI visual re-review became unavailable after a "
@@ -1053,7 +1055,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     recovery[key]=True
                 if recovery:
                     safe_review=reconcile_with_measured_geometry(
-                        review_finished_artworks(image_assets),quality_reports)
+                        review_finished_artworks(image_assets),quality_reports,
+                        check_distinctness(image_assets,concepts))
                     if not safe_review["reviewed"]:
                         raise ValueError(
                             "Independent visual review became unavailable for "
