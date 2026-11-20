@@ -643,28 +643,74 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                        "overlaps":bool(detail.get("issues"))}
 
     if creative_enabled:
-        # The AI authored arbitrary composition coordinates, not template IDs.
+        # A model-authored text zone (or a source-backed reference poster
+        # panel) can be too small for an exact manufacturer claim. Previous
+        # code aborted all nine assets after just the initial three variants.
+        # Try progressively safer complete-text layouts, then a separately
+        # labelled legacy renderer. Every attempt still passes choose_best's
+        # genuine-photo, text, contrast and bounds gates. No approval bypass.
         for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
             _emit("rendering",key)
-            def _creative_candidate(variant,index=index,key=key):
+            scene_warning={"warning":scene_references[index]["relevance_warning"]}
+            def _creative_candidate(variant,index=index,key=key,text_safety=0):
                 with capture() as tracked:
-                    if key=="poster_price" and promo_template=="workshop_showcase":
+                    if (key=="poster_price" and
+                            promo_template=="workshop_showcase" and text_safety==0):
                         poster=render_workshop_showcase(
                             product,genuine_photo,concepts[index],scenes[index],
                             distributor,variant=variant)
                     else:
                         poster=render_creative_canvas(
                             product,genuine_photo,concepts[index],scenes[index],
-                            distributor,variant=variant)
+                            distributor,variant=variant,text_safety=text_safety)
                 return poster,_geometry(tracked,measured_text=True)
-            image_assets[key],quality_reports[key]=choose_best(
-                _creative_candidate,ROLES[index],genuine_photo,
-                preferred_variant=1,
-                scene_relevance={"warning":scene_references[index]["relevance_warning"]})
-            quality_reports[key]["render_engine"]=(
-                "workshop-showcase-ai-variation"
-                if key=="poster_price" and promo_template=="workshop_showcase"
-                else "ai-freeform-canvas")
+            failures=[]
+            selected=None
+            engine=("workshop-showcase-ai-variation"
+                    if key=="poster_price" and promo_template=="workshop_showcase"
+                    else "ai-freeform-canvas")
+            for safety in (0,1,2):
+                # When the reference workshop template is too cramped, the
+                # fallback is explicitly an AI-original layout, not a secretly
+                # altered Workshop Showcase graphic.
+                try:
+                    selected=choose_best(
+                        lambda variant,safety=safety:_creative_candidate(
+                            variant,text_safety=safety),
+                        ROLES[index],genuine_photo,preferred_variant=1,
+                        scene_relevance=scene_warning)
+                    if safety:
+                        engine="ai-freeform-text-recovery"
+                        warnings.append(
+                            key+" used an independently checked AI-original "
+                            "layout with full-size-safe verified copy.")
+                    break
+                except ValueError as exc:
+                    failures.append(str(exc)[:240])
+            if selected is None:
+                try:
+                    selected=choose_best(
+                        lambda variant:_verified_safe_candidate(index,variant),
+                        ROLES[index],genuine_photo,
+                        scene_relevance=scene_warning)
+                    engine="verified-safe-layout"
+                    warnings.append(
+                        key+" used a separately labelled, validated safe "
+                        "layout because the original art could not fit "
+                        "verified source text.")
+                except ValueError as exc:
+                    failures.append(str(exc)[:240])
+            if selected is None:
+                _emit("failed",key,report={"issues":[
+                    failures[-1] if failures else "No valid poster layout"]})
+                raise ValueError(
+                    "No verified layout could render "+key+
+                    "; last failure: "+(failures[-1] if failures
+                                        else "unknown quality issue"))
+            image_assets[key],quality_reports[key]=selected
+            quality_reports[key]["render_engine"]=engine
+            if failures:
+                quality_reports[key]["recovered_after_failed_variants"]=len(failures)
             _emit("quality_checking",key)
     else:
         _emit("rendering","poster_technical")
