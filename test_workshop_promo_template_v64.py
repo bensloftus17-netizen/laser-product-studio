@@ -157,7 +157,7 @@ class WorkshopPromoTemplateV64Tests(unittest.TestCase):
         self.assertIn('value="ai_original"',page)
         self.assertIn("promo_template:$('promoTemplate').value",page)
         self.assertIn("Template: Workshop Showcase",page)
-        self.assertIn("V64 workshop poster",page)
+        self.assertIn("V65 memory stable",page)
 
     def test_bad_api_template_rejected_before_retrieving_product(self):
         with patch.object(app,"lookup") as lookup:
