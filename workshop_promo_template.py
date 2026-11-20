@@ -165,114 +165,15 @@ def _draw_brand_footer(canvas,product,accent):
           role="footer",colour="#DCEEF7")
 
 
-def render_workshop_showcase(product,official_photo,concept,scene=None,
-                             distributor=None,variant=0):
-    """Generate the reference-inspired price poster from genuine product data.
+def render_workshop_showcase(product, official_photo, concept, scene=None,
+                             distributor=None, variant=0):
+    """V67 Workshop Showcase: reference three's filled, source-safe sales art.
 
-    Three variants are evaluated by the existing independent art QA. Model
-    choices affect palette, workshop lighting, hierarchy and styling, not
-    text provenance, exact price, manufacturer pixels or branding.
+    Delegates to the shared reference renderers; product/photo/price/source QA
+    and all old entry points retain the same signatures. The other poster
+    roles are now deliberately different from this fixed campaign layout.
     """
-    if variant not in (0,1,2):
-        raise ValueError("Unknown workshop showcase variant")
-    if concept.get("campaign_role")!="price_promo":
-        raise ValueError("Workshop showcase is a price-led poster only")
-    if not official_photo:
-        raise ValueError("Manufacturer photograph required")
-    palette,accent=_palette(concept)
-    direction=concept.get("creative_direction") or {}
-    style=direction.get("visual_treatment","photo_editorial")
-    focus={"workshop_motion":"right","editorial_split":"left"}.get(
-        direction.get("creative_family"),"centre")
-    canvas=_scene_base(scene,focus,variant)
-    canvas=_workbench(canvas,accent,variant,style)
-    d=ImageDraw.Draw(canvas,"RGBA")
-    d.rectangle((0,0,W,192),fill=(2,17,34,252))
-    d.rectangle((0,187,W,194),fill=(*accent,255))
-    d.polygon(((900,0),(W-120,0),(W-264,192),(840,192)),
-              fill=(5,75,132,190))
-    brand(d,str(product.get("part") or ""))
-    co_brand(canvas,distributor)
-    d=ImageDraw.Draw(canvas,"RGBA")
-
-    title=str(product.get("title") or "").strip()
-    if not title:
-        raise ValueError("Manufacturer product title is required")
-    d.polygon(((46,215),(1123,215),(1081,358),(46,358)),
-              fill=(2,21,37,231))
-    d.line((46,356,1090,356),fill=(*accent,235),width=5)
-    _text(d,title.upper(),(66,224,1092,312),
-          base=(65,60,70)[variant],minsize=28,maxlines=2,role="headline")
-    # The price/marketing role is clear even when no RRP is available.
-    _text(d,"WORKSHOP PRODUCT PROMOTION",(70,317,963,351),
-          base=24,minsize=18,maxlines=1,role="subline",
-          colour=BLUEGREY)
-
-    # Main product/photo hero dominates the workbench, not a small thumbnail.
-    emphasis=direction.get("hero_emphasis","balanced")
-    hero={
-        "dominant":(109,401,1102,1028),
-        "balanced":(137,414,1086,1028),
-        "supporting":(185,415,1059,1009),
-    }.get(emphasis,(137,414,1086,1028))
-    # Genuine manufacturer pixels remain completely untouched.
-    product_photo(canvas,official_photo,hero,
-                  scale=(1.0,.96,1.045)[variant])
-
-    facts=_verified(product,concept)
-    primary=facts[0] if facts else None
-    secondary=next((item for item in facts[1:]
-                    if item!=primary),None)
-    # Only source-backed kit contents get the 'KIT CONTENTS' label.
-    kit_fact=next((item for item in facts if re.search(
-        r"\b(?:includes|contains|comprises|supplied with|consists of|kit contents)\b",
-        item,re.I)),None)
-    other=next((item for item in facts
-                if item not in (primary,secondary,kit_fact)),None)
-    right_head="KIT CONTENTS" if kit_fact else "PRODUCT DETAILS"
-    right_fact=kit_fact or other or secondary or primary
-
-    d=ImageDraw.Draw(canvas,"RGBA")
-    d.rectangle((0,1110,W,1382),fill=(2,22,42,250))
-    d.line((0,1110,W,1110),fill=(*accent,255),width=6)
-    _panel(d,(32,1130,390,1245),"KEY FEATURES",accent)
-    _panel(d,(407,1130,763,1245),"WORKSHOP USE" if secondary else
-           "TOOL DETAILS",accent)
-    _panel(d,(780,1130,1168,1245),right_head,accent)
-    # Each claim is painted in a measured, bounded text region.
-    _text(d,primary or "View official product specifications.",
-          (65,1178,373,1239),base=22,minsize=14,bold=False,
-          maxlines=3,role="proof")
-    _text(d,secondary or "Confirm suitability before ordering.",
-          (440,1178,747,1239),base=22,minsize=14,bold=False,
-          maxlines=3,role="detail")
-    _text(d,right_fact or "See the manufacturer product listing.",
-          (811,1178,1154,1239),base=22,minsize=14,bold=False,
-          maxlines=3,role="kit_details")
-
-    price=verified_price(product)
-    d.polygon(((42,1260),(700,1260),(666,1368),(18,1368)),
-              fill=(4,34,61,255))
-    d.line((42,1260,699,1260),fill=(*accent,255),width=5)
-    d.line((18,1368,668,1368),fill=(*accent,255),width=5)
-    record_area("price",(44,1265,687,1367))
-    amount=price.get("amount") or "PRICE ON REQUEST"
-    label=price.get("label") or "PRICE ON REQUEST"
-    if price.get("amount"):
-        caption=label+"  ·  "+(price.get("vat") or "VAT STATUS TO CONFIRM")
-    else:
-        caption="ENQUIRE FOR CURRENT UK PRICE"
-    _text(d,amount,(68,1277,652,1337),
-          base=55 if price.get("amount") else 43,
-          minsize=22,maxlines=1,role="price")
-    _text(d,caption,(68,1334,653,1365),base=19,minsize=15,
-          bold=False,maxlines=1,role="price_caption",colour="#C5E6F6")
-    d.polygon(((745,1261),(1143,1261),(1174,1368),(725,1368)),
-              fill=(0,89,153,190))
-    _text(d,"LASER TOOLS",(768,1292,1144,1346),
-          base=45,minsize=25,maxlines=1,role="brand")
-    _draw_brand_footer(canvas,product,accent)
-
-    output=io.BytesIO()
-    canvas.convert("RGB").save(output,"PNG",compress_level=3)
-    return output.getvalue()
+    from reference_poster_templates import render_promo_reference
+    return render_promo_reference(
+        product, official_photo, concept, scene,
+        distributor, variant=variant)
