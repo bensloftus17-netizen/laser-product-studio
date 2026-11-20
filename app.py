@@ -2638,6 +2638,16 @@ def lookup(part,session=requests,force=False,uk_url=None):
     if not product['features']:
         product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
     CACHE[part]=(now,product,image_bytes)
+    # Manufacturer photos are encoded but can still be multi-megabyte PNGs;
+    # retain at most three recent source records on 512 MiB Render workers.
+    # Other SKUs are refetched from the official source on demand.
+    while len(CACHE)>3:
+        oldest=next(iter(CACHE))
+        CACHE.pop(oldest,None)
+        APPLICATION_IMAGE_CACHE.pop(oldest,None)
+    for older in list(APPLICATION_IMAGE_CACHE):
+        if older not in CACHE:
+            APPLICATION_IMAGE_CACHE.pop(older,None)
     return product,image_bytes
 
 def with_reviewed_price(product,raw,approved=False,basis='ex'):
