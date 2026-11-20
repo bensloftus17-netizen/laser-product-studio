@@ -113,7 +113,8 @@ class CampaignHubTests(unittest.TestCase):
              patch("campaign_hub.render_promo", side_effect=self.sample_poster), \
              patch("campaign_hub.find_scene",return_value=(None,{})):
             res = studio.app.test_client().post("/api/campaign/9364",
-                json={"distributor_brand": "none"})
+                json={"distributor_brand": "none",
+                      "promo_template":"ai_original"})
         self.assertEqual(res.status_code, 200, res.get_json())
         body = res.get_json()
         token = body["token"]
