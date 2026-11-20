@@ -2339,25 +2339,54 @@ def preferred_manufacturer_photos(part):
     ]
 
 def manufacturer_gallery_urls(part,session=requests):
-    """Discover product photographs from the manufacturer's real gallery."""
-    urls=[]
+    """Discover exact-SKU photographs and FULL-SIZE gallery image variants.
+
+    srcset often lists a tiny 200w image first and a 1200w master last.
+    Never take only the first URL from srcset. The product identifier must
+    occur in the filename and every source domain/redirect must be approved.
+    """
+    matches=[]
+    exact=re.compile(
+        re.escape(part)+r'(?:[_-][^/]*)?\\.(?:jpe?g|png|webp)$',re.I)
     for page in [f'https://www.lasertools.co.uk/Product/{part}',
                  f'https://lasertools.toolconnection.co.uk/Product/{part}']:
         try:
             response=official_get(page,session,timeout=6)
             soup=BeautifulSoup(response.content,'html.parser')
             for node in soup.find_all(['a','img','source']):
-                for key in ('href','src','data-src','data-large','data-original','data-zoom-image','srcset'):
-                    raw=(node.get(key) or '').split(',')[0].strip().split(' ')[0]
-                    if not raw:continue
+                sources=[]
+                for key in ('data-original','data-zoom-image','data-full',
+                            'data-large','data-src','href','src'):
+                    raw=(node.get(key) or '').strip()
+                    if raw:
+                        sources.append((raw,0))
+                for key in ('srcset','data-srcset'):
+                    raw=node.get(key) or ''
+                    for option in raw.split(','):
+                        fields=option.strip().split()
+                        if not fields:continue
+                        resolution=0
+                        if len(fields)>1:
+                            try:
+                                tag=fields[-1].lower()
+                                if tag.endswith('w'):resolution=int(tag[:-1])
+                                elif tag.endswith('x'):resolution=int(float(tag[:-1])*1000)
+                            except ValueError:pass
+                        sources.append((fields[0],resolution))
+                for raw,resolution in sources:
                     url=urljoin(response.url,html.unescape(raw))
-                    if not authorized_url(url):continue
+                    if not authorized_url(url):
+                        continue
                     basename=urlparse(url).path.rsplit('/',1)[-1]
-                    regex=re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp)$'
-                    if re.match(regex,basename,re.I):urls.append(url)
-            if urls:break
+                    if exact.fullmatch(basename):
+                        matches.append((url,resolution))
+            if matches:break
         except Exception:pass
-    return list(dict.fromkeys(urls))
+    # Deterministically check full-resolution srcset options ahead of tiny
+    # thumbnails. Still quality-check every official image's actual pixels.
+    sorted_matches=sorted(matches,key=lambda pair:-pair[1])
+    return list(dict.fromkeys(url for url,_ in sorted_matches))
+
 
 def pdf_render_photo(pdfbytes):
     """Render composite product photo from PIS PDF to avoid broken stencil/mask xrefs."""
