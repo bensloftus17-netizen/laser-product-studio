@@ -56,6 +56,10 @@ class DiskImages(MutableMapping):
         self._path(key).unlink()
         self.keys_order.remove(key)
 
+    def path_for(self,key):
+        """Only accept identifiers from the approved campaign's image index."""
+        return self._path(key)
+
     def __iter__(self):
         return iter(tuple(self.keys_order))
 
