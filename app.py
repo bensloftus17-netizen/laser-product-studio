@@ -3139,6 +3139,8 @@ def _get_campaign_pack(token):
 
 def _assemble_campaign_bundle(part, body, progress=None):
     """Source-safe generator for both synchronous and progressive campaigns."""
+    from workshop_promo_template import validate_promo_template
+    promo_template=validate_promo_template(body.get('promo_template'))
     if progress:
         progress("verifying_product")
     product, image = lookup(part, uk_url=body.get('official_url') or None)
@@ -3147,8 +3149,6 @@ def _assemble_campaign_bundle(part, body, progress=None):
     product = with_reviewed_price(
         product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
         body.get('staff_rrp_basis', 'ex'))
-    from workshop_promo_template import validate_promo_template
-    promo_template=validate_promo_template(body.get('promo_template'))
     distributor = selected_distributor(body.get('distributor_brand', 'none'))
     official_context = (
         APPLICATION_IMAGE_CACHE.get(part)
