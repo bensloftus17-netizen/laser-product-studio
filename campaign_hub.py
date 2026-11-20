@@ -42,6 +42,7 @@ from creative_expression import (
     express_background, format_palette, DEFAULT_FORMAT_PALETTE,
 )
 from flexible_canvas import render_creative_canvas
+from reference_poster_templates import render_technical_reference
 from workshop_promo_template import (
     render_workshop_showcase,validate_promo_template,
 )
@@ -519,7 +520,13 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "used validated legacy layouts instead. Regenerate for AI creative direction.")
     asset_report=require_good_asset(genuine_photo) if creative_enabled else None
     creative_plan["render_engine"]=(
-        "ai-authored-freeform-layout" if creative_enabled else "verified-legacy-layout")
+        "technical-and-workshop-references-with-ai-third"
+        if creative_enabled and promo_template=="workshop_showcase" else
+        "technical-reference-with-ai-other-posters"
+        if creative_enabled else
+        "technical-and-workshop-references-with-verified-third"
+        if promo_template=="workshop_showcase" else
+        "technical-reference-with-verified-other-posters")
     creative_plan["promo_template"]=promo_template
     creative_plan["promo_reference"]="user-supplied workshop showcase" if promo_template=="workshop_showcase" else "AI original composition"
     creative_plan["model_authored_canvases"]=(
@@ -607,6 +614,21 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                               scenes[index],distributor)
         return output,_geometry(tracked)
 
+    def _reference_candidate(index, variant):
+        """Immutable reference-led role composition with checked text geometry."""
+        with capture() as tracked:
+            if index==0:
+                payload=render_technical_reference(
+                    product,genuine_photo,concepts[index],scenes[index],
+                    distributor,variant=variant)
+            elif index==1 and promo_template=="workshop_showcase":
+                payload=render_workshop_showcase(
+                    product,genuine_photo,concepts[index],scenes[index],
+                    distributor,variant=variant)
+            else:
+                raise ValueError("No fixed reference for this campaign role")
+        return payload,_geometry(tracked,measured_text=True)
+
     def _verified_safe_candidate(index, variant):
         """Last-resort distinct legacy composition; still subject to full QA.
 
@@ -614,8 +636,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         price and actual scene are unchanged. No template is advertised as
         an AI-authored artboard.
         """
-        if index==0:
-            return _role_candidate(index,technical_poster,variant)
+        if index==0 or (index==1 and promo_template=="workshop_showcase"):
+            return _reference_candidate(index,variant)
         if index==2:
             return _role_candidate(index,smart_poster,variant)
         candidate=dict(concepts[1])
@@ -652,6 +674,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         for index,key in enumerate(("poster_technical","poster_price","poster_smart")):
             _emit("rendering",key)
             scene_warning={"warning":scene_references[index]["relevance_warning"]}
+            if index==0 or (index==1 and promo_template=="workshop_showcase"):
+                image_assets[key],quality_reports[key]=choose_best(
+                    lambda variant,index=index:_reference_candidate(index,variant),
+                    ROLES[index],genuine_photo,
+                    preferred_variant=1,scene_relevance=scene_warning)
+                quality_reports[key]["render_engine"]=(
+                    "laser-technical-reference" if index==0
+                    else "laser-workshop-promo-reference")
+                _emit("quality_checking",key)
+                continue
             def _creative_candidate(variant,index=index,key=key,text_safety=0):
                 with capture() as tracked:
                     if (key=="poster_price" and
@@ -715,10 +747,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     else:
         _emit("rendering","poster_technical")
         image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
-            lambda variant:_role_candidate(0,technical_poster,variant),
+            lambda variant:_reference_candidate(0,variant),
             "technical_application",genuine_photo,
             preferred_variant=concepts[0]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[0]["relevance_warning"]})
+        quality_reports["poster_technical"]["render_engine"]="laser-technical-reference"
         _emit("quality_checking","poster_technical")
         _emit("rendering","poster_price")
         retail=concepts[1]
@@ -762,7 +795,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[1]["relevance_warning"]})
         if promo_template=="workshop_showcase":
-            quality_reports["poster_price"]["render_engine"]="workshop-showcase-verified-variation"
+            quality_reports["poster_price"]["render_engine"]="laser-workshop-promo-reference"
         _emit("quality_checking","poster_price")
         _emit("rendering","poster_smart")
         image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
@@ -946,6 +979,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                                          "fresh creative plan is required.")
                     alternative=(original_variants[key]+attempt)%3
                     def _repair_candidate(variant,index=index):
+                        if index==0 or (index==1 and promo_template=="workshop_showcase"):
+                            return _reference_candidate(index,variant)
                         with capture() as tracked:
                             payload=render_creative_canvas(
                                 product,genuine_photo,concepts[index],
@@ -965,7 +1000,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     quality_reports[key]=report
                     quality_reports[key]["auto_repaired"]=True
                     quality_reports[key]["visual_repair_attempt"]=attempt
-                    quality_reports[key]["render_engine"]="ai-freeform-canvas"
+                    quality_reports[key]["render_engine"]=(
+                        "laser-technical-reference" if index==0 else
+                        "laser-workshop-promo-reference"
+                        if index==1 and promo_template=="workshop_showcase"
+                        else "ai-freeform-canvas")
                 next_review=reconcile_with_measured_geometry(
                     review_finished_artworks(image_assets),quality_reports)
                 if not next_review["reviewed"]:
@@ -1005,7 +1044,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         continue
                     image_assets[key]=revised
                     quality_reports[key]=report
-                    quality_reports[key]["render_engine"]="verified-safe-layout"
+                    quality_reports[key]["render_engine"]=(
+                        "laser-technical-reference" if index==0 else
+                        "laser-workshop-promo-reference"
+                        if index==1 and promo_template=="workshop_showcase"
+                        else "verified-safe-layout")
                     quality_reports[key]["recovered_from_ai_visual_issue"]=list(blocking[key])
                     recovery[key]=True
                 if recovery:
