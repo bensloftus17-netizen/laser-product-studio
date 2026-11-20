@@ -3441,11 +3441,15 @@ def progressive_campaign_asset(job_id, asset_id):
         part=job['part']
     if payload is None and token:
         bundle=_get_campaign_pack(token)
-        payload=bundle['images'].get(asset_id) if bundle else None
+        if isinstance(bundle,StoredCampaign) and asset_id in bundle['images']:
+            payload=bundle['images'].path_for(asset_id)
+        else:
+            payload=bundle['images'].get(asset_id) if bundle else None
     if payload is None:
         return jsonify(error='Artwork is no longer available.'),404
     response=send_file(
-        io.BytesIO(payload), mimetype='image/png',
+        io.BytesIO(payload) if isinstance(payload,bytes) else payload,
+        mimetype='image/png',
         as_attachment=request.args.get('download')=='1',
         download_name='LASER_'+part+'_'+asset_id+'.png')
     response.headers['Cache-Control']='no-store, private'
@@ -3474,16 +3478,6 @@ def edit_campaign_asset(token, asset_id):
                 return response
             try:
                 result=edit_campaign_poster(bundle,asset_id,body)
-                if isinstance(bundle,StoredCampaign):
-                    # The editor only commits to its bundle after valid PNG,
-                    # verified copy, updated ZIP and PDF have all passed.
-                    ctx=bundle.get("editor_context")
-                    if ctx:
-                        idx={"poster_technical":0,"poster_price":1,"poster_smart":2}.get(asset_id)
-                        if idx is not None:
-                            ctx["concepts"][idx]["headline"]=result["manifest"]["angles"][idx]["headline"]
-                            ctx["concepts"][idx]["selling_point"]=result["manifest"]["angles"][idx]["selling_point"]
-                        bundle.save_editor(ctx)
             finally:
                 _release_campaign_image_caches()
                 CAMPAIGN_RENDER_SLOT.release()
@@ -3536,12 +3530,15 @@ def preview_campaign_asset(token, asset_id):
     bundle = _get_campaign_pack(token)
     if bundle is None:
         return jsonify(error='Campaign preview expired. Generate it again.'), 404
-    asset = bundle['images'].get(asset_id)
+    asset = (bundle['images'].path_for(asset_id)
+             if isinstance(bundle,StoredCampaign) and asset_id in bundle['images']
+             else bundle['images'].get(asset_id))
     if asset is None:
         return jsonify(error='Campaign asset not found.'), 404
     download_requested = request.args.get('download') == '1'
     response = send_file(
-        io.BytesIO(asset), mimetype='image/png',
+        io.BytesIO(asset) if isinstance(asset,bytes) else asset,
+        mimetype='image/png',
         as_attachment=download_requested,
         download_name='LASER_' + re.sub(r'[^A-Za-z0-9_-]', '',
             str(bundle['manifest'].get('part') or 'Product')) + '_' + asset_id + '.png'
