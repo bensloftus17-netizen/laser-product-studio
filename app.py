@@ -2347,7 +2347,1181 @@ def manufacturer_gallery_urls(part,session=requests):
     """
     matches=[]
     exact=re.compile(
-        re.escape(part)+r'(?:[_-][^/]*)?\\.(?:jpe?g|png|webp)$',re.I)
+        re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp),re.I)
+    for page in [f'https://www.lasertools.co.uk/Product/{part}',
+                 f'https://lasertools.toolconnection.co.uk/Product/{part}']:
+        try:
+            response=official_get(page,session,timeout=6)
+            soup=BeautifulSoup(response.content,'html.parser')
+            for node in soup.find_all(['a','img','source']):
+                sources=[]
+                for key in ('data-original','data-zoom-image','data-full',
+                            'data-large','data-src','href','src'):
+                    raw=(node.get(key) or '').strip()
+                    if raw:
+                        sources.append((raw,0))
+                for key in ('srcset','data-srcset'):
+                    raw=node.get(key) or ''
+                    for option in raw.split(','):
+                        fields=option.strip().split()
+                        if not fields:continue
+                        resolution=0
+                        if len(fields)>1:
+                            try:
+                                tag=fields[-1].lower()
+                                if tag.endswith('w'):resolution=int(tag[:-1])
+                                elif tag.endswith('x'):resolution=int(float(tag[:-1])*1000)
+                            except ValueError:pass
+                        sources.append((fields[0],resolution))
+                for raw,resolution in sources:
+                    url=urljoin(response.url,html.unescape(raw))
+                    if not authorized_url(url):
+                        continue
+                    basename=urlparse(url).path.rsplit('/',1)[-1]
+                    if exact.fullmatch(basename):
+                        matches.append((url,resolution))
+            if matches:break
+        except Exception:pass
+    # Deterministically check full-resolution srcset options ahead of tiny
+    # thumbnails. Still quality-check every official image's actual pixels.
+    sorted_matches=sorted(matches,key=lambda pair:-pair[1])
+    return list(dict.fromkeys(url for url,_ in sorted_matches))
+
+
+def pdf_render_photo(pdfbytes):
+    """Render composite product photo from PIS PDF to avoid broken stencil/mask xrefs."""
+    doc=fitz.open(stream=pdfbytes,filetype='pdf')
+    try:
+        if doc.page_count<1:return None
+        page=doc[0]
+        areas=[]
+        for block in page.get_text('dict').get('blocks',[]):
+            if block.get('type')!=1:continue
+            rect=fitz.Rect(block['bbox'])
+            if rect.width>=65 and rect.height>=65 and rect.y0<page.rect.height*.77:
+                areas.append(rect)
+        for item in page.get_images(full=True):
+            try:
+                for rect in page.get_image_rects(item[0]):
+                    if rect.width>=65 and rect.height>=65 and rect.y0<page.rect.height*.77:
+                        areas.append(rect)
+            except Exception:pass
+        areas.sort(key=lambda r:r.width*r.height,reverse=True)
+        checked=set()
+        for rect in areas[:12]:
+            key=(round(rect.x0/10),round(rect.y0/10),round(rect.width/10),round(rect.height/10))
+            if key in checked:continue
+            checked.add(key)
+            clip=fitz.Rect(max(0,rect.x0-12),max(0,rect.y0-12),
+                           min(page.rect.width,rect.x1+12),min(page.rect.height,rect.y1+12))
+            data=page.get_pixmap(matrix=fitz.Matrix(2.3,2.3),clip=clip,alpha=False).tobytes('png')
+            if valid_image(data):return data
+        return None
+    finally:doc.close()
+
+
+def lookup(part,session=requests,force=False,uk_url=None):
+    part=sku_clean(part)
+    if uk_url:
+        uk_url=uk_url.strip()
+        if not (authorized_url(uk_url) and urlparse(uk_url).hostname in ('www.toolconnection.co.uk','toolconnection.co.uk')
+                and re.search(r'/products/.*/'+re.escape(part)+r'(?:-|$)',urlparse(uk_url).path,re.I)):
+            raise LookupErrorPublic('Please paste the official UK Tool Connection product page URL for this exact part number.')
+    now=time.time()
+    if not force and not uk_url and part in CACHE:
+        age_limit=3600 if CACHE[part][2] else 60
+        if now-CACHE[part][0]<age_limit:return CACHE[part][1],CACHE[part][2]
+    errors=[]; product=None; image_bytes=None
+    # Official UK pages are best for English product wording and genuine GBP RRP.
+    uk_candidates=[]
+    if uk_url:uk_candidates.append(uk_url)
+    indexed_url = OFFICIAL_UK_PRODUCTS.get(part) or catalogue_url_for_part(part)
+    if indexed_url:
+        uk_candidates.append(indexed_url)
+    else:
+        discovered=search_official_uk_product(part,session)
+        if discovered:uk_candidates.append(discovered)
+    for url in dict.fromkeys(uk_candidates):
+        try:
+            r=official_get(url,session)
+            candidate=parse_html(r.content,part,r.url)
+            # Prefer English UK descriptions; never display a foreign-language product record.
+            if is_french(candidate['title']+' '+candidate['description']):
+                errors.append('UK page returned translated copy');continue
+            product=candidate
+            break
+        except Exception as e:errors.append(str(e)[:180])
+    # If no UK listing was found, use Laser's official page, filtering non-English text.
+    if product is None:
+        for url in [f'https://www.lasertools.co.uk/product/{part}',f'https://lasertools.toolconnection.co.uk/product/{part}']:
+            try:
+                r=official_get(url,session)
+                if 'pdf' in r.headers.get('Content-Type','').lower() or r.content.startswith(b'%PDF'):
+                    candidate,image_bytes=parse_pis_pdf(r.content,part,r.url)
+                else:candidate=parse_html(r.content,part,r.url)
+                # Product information sheets may mix English headings with
+                # short German specification lines. Normalise those verified
+                # numeric labels before checking/choosing the source, rather
+                # than rejecting the entire official product record.
+                candidate=normalise_product_language(candidate)
+                if is_french(candidate['title']+' '+candidate['description']):
+                    errors.append('Manufacturer page not in English');continue
+                if not candidate.get('features') and not candidate.get('specs'):
+                    errors.append('Manufacturer page has no verified English facts');continue
+                product=candidate
+                break
+            except Exception as e:errors.append(str(e)[:180])
+    # English product sheets are a safe fallback when the browser receives French text.
+    # If the UK page is present, keep it as the authoritative RRP source.
+    if product is None or not product.get('features'):
+        for url in [f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',f'https://lasertools.co.uk/pis/{part}_PIS.pdf']:
+            try:
+                r=official_get(url,session,content_types=['pdf'])
+                sheet,photo=parse_pis_pdf(r.content,part,r.url)
+                sheet=normalise_product_language(sheet)
+                if is_french(sheet['title']+' '+sheet['description']):continue
+                if not sheet.get('features') and not sheet.get('specs'):continue
+                if not product:product=sheet
+                else:
+                    product['features']=product['features'] or sheet['features']
+                    product['specs']={**sheet.get('specs',{}),**product.get('specs',{})}
+                if image_bytes is None:image_bytes=photo
+                break
+            except Exception as e:errors.append(str(e)[:180])
+    if not product:
+        raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
+    product=normalise_product_language(product)
+    # Restore manufacturer-confirmed UK facts if the available product sheet was
+    # non-English or returned incomplete technical text.
+    if part in VERIFIED_UK_FACTS:
+        reference=VERIFIED_UK_FACTS[part]
+        if not product['features']:
+            product['features']=reference['features'][:]
+            product['features_status']='Official UK facts checked '+reference['verified_on']
+        if not product['specs']:
+            product['specs']=dict(reference['specs'])
+            product['specs_status']='Official UK facts checked '+reference['verified_on']
+    # Recheck the record after verified English fallbacks.
+    product=normalise_product_language(product)
+    # A product sheet often has no commercial data. Check the official UK listing
+    # separately, even if the primary English product record came from a PDF.
+    if not product.get('price'):
+        for candidate_url in dict.fromkeys(uk_candidates):
+            try:
+                response=official_get(candidate_url,session)
+                verified=manufacturer_price_from_html(response.content)
+                if verified:
+                    product['price']=verified
+                    product['price_source']=response.url
+                    product['price_status']='Live UK manufacturer RRP'
+                    break
+            except Exception:
+                pass
+    # Exact-SKU manufacturer RRPs checked against official UK product pages.
+    # These are labelled cached and MUST be reviewed before external publication.
+    if not product.get('price') and part in VERIFIED_UK_RRP:
+        product['price'], product['price_source']=VERIFIED_UK_RRP[part]
+        product['price_status']='Official UK RRP independently checked on 13 Nov 2026; recheck before publication'
+    elif product.get('price') and not product.get('price_source'):
+        product['price_source']=product.get('source')
+        product['price_status']='Live official UK product page'
+    # Genuine manufacturer image selection: always try more than the first
+    # three catalogue thumbnails, and consider the original manufacturer PIS
+    # PDF if no official JPEG/PNG passes the independent poster preflight.
+    # A small image may still be displayed as a catalogue preview but is
+    # NEVER silently upscaled or certified for printable marketing artwork.
+    from asset_quality import manufacturer_image_rank
+    from source_image_selection import (
+        collect_official_photo_options,best_manufacturer_photo,
+        source_photo_audit,
+    )
+    pdf_image=image_bytes if image_bytes and valid_image(image_bytes) else None
+    image_bytes=None
+    gallery=manufacturer_gallery_urls(part,session)
+    studio=[url for url in gallery if not re.search(r'in.?situ',url,re.I)]
+    candidates=preferred_manufacturer_photos(part)+studio
+    candidates += [
+        url for url in product.get('image_candidates',[])
+        if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(url).path,re.I)
+    ]
+    product['photo_source']=None
+    photo_options,checked_urls=collect_official_photo_options(
+        candidates,
+        lambda url: official_get(url,session,timeout=6),
+        valid_image,manufacturer_image_rank,max_checks=12,workers=4)
+    # If none of the discovered official masters is good enough, look at the
+    # ACTUAL official PDF image and a genuine source PDF rendering. This
+    # matters for older tools (such as 4554) where /items/large serves an
+    # outdated thumbnail even though the official product sheet has a
+    # usable, more detailed source photograph.
+    if not any(x[3].get('passed') for x in photo_options):
+        if pdf_image:
+            score,report=manufacturer_image_rank(pdf_image)
+            photo_options.append((
+                score,pdf_image,
+                'https://www.lasertools.co.uk/pis/'+part+'_PIS.pdf#pdf-photo-embedded',
+                report))
+        for pdf_url in (
+                f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
+                f'https://lasertools.toolconnection.co.uk/pis/{part}_PIS.pdf'):
+            try:
+                pdf_response=official_get(pdf_url,session,content_types=['pdf'],timeout=8)
+                # The PDF may contain a higher-quality original embedded image
+                # than any web-thumbnail; prefer native pixels where possible.
+                _,embedded=parse_pis_pdf(pdf_response.content,part,pdf_response.url)
+                sources=[('embedded',embedded)]
+                if embedded is None or not valid_image(embedded):
+                    sources.append(('rendered',pdf_render_photo(pdf_response.content)))
+                for label,data in sources:
+                    if data and valid_image(data):
+                        score,report=manufacturer_image_rank(data)
+                        photo_options.append((
+                            score,data,pdf_response.url+'#pdf-photo-'+label,report))
+                if any(x[3].get('passed') for x in photo_options):
+                    break
+            except Exception:
+                continue
+    selected=best_manufacturer_photo(photo_options)
+    if selected:
+        image_bytes=selected[1]
+        product['photo_source']=selected[2]
+        report=source_photo_audit(photo_options,checked_urls,selected)
+        # Preserve the established public fields for existing clients.
+        report['candidates_checked']=len(photo_options)
+        product['photo_quality_selection']=report
+    # A separate *real* in-use photo gives the promotional advert a unique look.
+    APPLICATION_IMAGE_CACHE.pop(part,None)
+    product['application_photo_source']=None
+    in_use=[url for url in gallery if re.search(r'in.?situ',url,re.I)]
+    if not in_use:
+        in_use=[
+            f'https://www.lasertools.co.uk/items/large/{part}_InSitu.jpg',
+            f'https://www.lasertools.co.uk/items/large/{part}_Insitu_1.jpg',
+            f'https://www.lasertools.co.uk/items/large/{part}_InSitu_A.jpg',
+        ]
+    for photo_url in in_use[:3]:
+        try:
+            response=official_get(photo_url,session,timeout=6)
+            if valid_image(response.content):
+                APPLICATION_IMAGE_CACHE[part]=response.content
+                product['application_photo_source']=response.url
+                break
+        except Exception:pass
+    # Some products offer only an application photo. It is still a real,
+    # part-specific manufacturer photograph, and preferable to no poster at all.
+    if image_bytes is None and part in APPLICATION_IMAGE_CACHE:
+        image_bytes=APPLICATION_IMAGE_CACHE[part]
+        product['photo_source']=product['application_photo_source']
+    product=apply_official_taxonomy(product)
+    product['photo_verified']=bool(image_bytes)
+    product['source_checked']=datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')
+    product['lookup_status']='Live official UK/English manufacturer source'
+    product['warnings']=[]
+    if not image_bytes:product['warnings'].append('No verified manufacturer photo available.')
+    if product.get('price_status','').startswith('Official UK RRP independently checked'):
+        product['warnings'].append('RRP was checked on 13 Nov 2026; confirm it is still current before publishing.')
+    if not product.get('price'):
+        product['warnings'].append('UK RRP not verified. Paste the exact official Tool Connection URL, or have staff confirm the price before publication.')
+    if not product['features']:
+        product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
+    CACHE[part]=(now,product,image_bytes)
+    return product,image_bytes
+
+def with_reviewed_price(product,raw,approved=False,basis='ex'):
+    """Accept a staff-reviewed UK RRP (ex- or inc-VAT) with honest provenance."""
+    if raw is None or str(raw).strip()=='':return product
+    if not approved:
+        raise LookupErrorPublic('Tick the staff price review box before using an entered RRP.')
+    if basis not in ('ex','inc'):
+        raise LookupErrorPublic('Select whether the entered RRP includes or excludes VAT.')
+    try:
+        amount=Decimal(str(raw).strip()).quantize(Decimal('0.01'),rounding=ROUND_HALF_UP)
+    except (InvalidOperation,ValueError):
+        raise LookupErrorPublic('Enter a valid UK RRP amount.')
+    if not amount.is_finite() or amount<=0 or amount>Decimal('500000'):
+        raise LookupErrorPublic('Enter a positive UK RRP (maximum £500,000).')
+    result={**product}
+    description='including VAT' if basis=='inc' else 'excluding VAT'
+    result['price']=f'£{amount:,.2f} {description}'
+    result['price_status']='Staff-entered draft RRP — independently approve before publication'
+    result['price_source']='Staff entry, not an automatically confirmed manufacturer RRP'
+    result['warnings']=[v for v in product.get('warnings',[]) if 'rrp' not in v.lower() and 'price' not in v.lower()]
+    result['warnings'].append('Price was entered by staff. Company approval is required before publishing.')
+    return result
+
+
+def selected_distributor(value):
+    """Accept only the three user-supplied demo marks."""
+    code=str(value or 'none').strip().lower()
+    if code not in BRAND_LABELS:
+        raise ValueError('Unknown customer branding. Select a listed distributor or None.')
+    return None if code=='none' else code
+
+
+def safe_override(original,updates):
+    out={**original}
+    for key in ('title','description'):
+        if isinstance(updates.get(key),str):out[key]=updates[key].strip()[:1300]
+    for key in ('features',):
+        if isinstance(updates.get(key),list):out[key]=[str(x).strip()[:350] for x in updates[key] if str(x).strip()][:9]
+    if isinstance(updates.get('specs'),dict):out['specs']={str(k)[:55]:str(v)[:110] for k,v in list(updates['specs'].items())[:15]}
+    return out
+
+@app.get('/')
+def home():
+    return render_template_string(V7_HOME_PAGE)
+
+@app.after_request
+def no_cache_for_drafts(response):
+    if request.path=='/' or request.path.startswith('/api/poster/') or request.path.startswith('/api/photo/') or request.path.startswith('/api/distributor-logo/'):
+        response.headers['Cache-Control']='no-store, max-age=0'
+    return response
+
+@app.get('/api/health')
+def health():return jsonify(ok=True,service='Laser Product Studio',design='v19-product-aware-marketing-direction',lookup='official page + PDF fallback')
+
+@app.get('/api/catalogue/taxonomy')
+def catalogue_taxonomy():
+    """Complete published category tree, NOT a claim to have imported every SKU."""
+    response=jsonify(taxonomy_snapshot())
+    response.headers['Cache-Control']='public, max-age=3600'
+    return response
+
+
+@app.get('/api/distributor-logo/<brand>')
+def distributor_logo(brand):
+    try:
+        code=selected_distributor(brand)
+        if code is None:return jsonify(error='No distributor logo selected'),404
+        image=get_brand_image(code)
+        if image is None:return jsonify(error='Distributor logo unavailable'),404
+        output=io.BytesIO()
+        image.save(output,format='PNG')
+        output.seek(0)
+        return send_file(output,mimetype='image/png',download_name=code+'_logo.png')
+    except ValueError:
+        return jsonify(error='Unknown distributor'),404
+
+
+# Per-part short-lived competitor research results. This deliberately does
+# not store arbitrary external pages or replace the approved Laser product.
+COMPETITOR_REPORT_CACHE={}
+COMPETITOR_REPORT_LOCK=threading.Lock()
+COMPETITOR_REPORT_BUSY=threading.BoundedSemaphore(value=1)
+COMPETITOR_REPORT_TTL=20*60
+
+
+@app.get('/api/competitors/<part>')
+def find_competitor_products(part):
+    """Source-linked UK alternatives, not a promise of interchangeability."""
+    try:
+        part=sku_clean(part)
+        bypass=request.args.get('refresh')=='1'
+        with COMPETITOR_REPORT_LOCK:
+            cached=COMPETITOR_REPORT_CACHE.get(part)
+            if not bypass and cached and cached['expires']>time.time():
+                result=dict(cached['report'])
+                result['cached']=True
+                reply=jsonify(result)
+                reply.headers['Cache-Control']='private, no-store'
+                return reply
+        if not COMPETITOR_REPORT_BUSY.acquire(blocking=False):
+            return jsonify(error='A competitor research request is already running. Please retry shortly.'),429
+        try:
+            # lookup() independently verifies official UK source facts and
+            # manufacturer authenticity. No price or feature can be invented
+            # from a scraped competitor search result.
+            product,_=lookup(part,uk_url=request.args.get('uk_url') or None)
+            report=research_competitors(product)
+            with COMPETITOR_REPORT_LOCK:
+                now=time.time()
+                COMPETITOR_REPORT_CACHE[part]={
+                    'expires':now+COMPETITOR_REPORT_TTL,'report':report}
+                while len(COMPETITOR_REPORT_CACHE)>24:
+                    COMPETITOR_REPORT_CACHE.pop(next(iter(COMPETITOR_REPORT_CACHE)))
+            reply=jsonify(report)
+            reply.headers['Cache-Control']='private, no-store'
+            return reply
+        finally:
+            COMPETITOR_REPORT_BUSY.release()
+    except LookupErrorPublic as error:
+        return jsonify(error=str(error)),404
+    except ValueError as error:
+        return jsonify(error=str(error)),422
+    except requests.RequestException:
+        app.logger.exception('Competitor lookup source retrieval failed')
+        return jsonify(error='Manufacturer or competitor search service temporarily unavailable.'),503
+    except Exception:
+        app.logger.exception('Competitor lookup error')
+        return jsonify(error='Could not complete verified competitor research. Please retry.'),503
+
+
+@app.get('/api/competitors/<part>/export.csv')
+def download_competitor_report(part):
+    """Export exactly the previously sourced results; never regenerate claims."""
+    try:
+        part=sku_clean(part)
+        with COMPETITOR_REPORT_LOCK:
+            entry=COMPETITOR_REPORT_CACHE.get(part)
+            if not entry or entry['expires']<=time.time():
+                return jsonify(error='Search competitors before downloading a comparison.'),404
+            result=entry['report']
+        output=report_csv(result)
+        response=send_file(io.BytesIO(output),
+            mimetype='text/csv; charset=utf-8',as_attachment=True,
+            download_name='LASER_'+part+'_Competitor_Comparison.csv')
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except LookupErrorPublic as error:
+        return jsonify(error=str(error)),400
+
+
+@app.get('/api/lookup/<part>')
+def product_lookup(part):
+    try:
+        product,image=lookup(part,uk_url=request.args.get('uk_url') or None)
+        # Raw foreign supplier phrases are retained only for internal audit;
+        # never expose them to the website or downloadable campaign record.
+        public_record={**{key:value for key,value in product.items()
+                          if key!="source_raw_features"},
+                       'technical_layout':technical_layout_mode(product),
+                       'marketing_direction':strategy_for(product)}
+        return jsonify(product=public_record,photo_url=f'/api/photo/{part}?design=v19' if image else None)
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+    except requests.RequestException:return jsonify(error='Official Laser website could not be reached. Please retry.'),502
+    except Exception:
+        app.logger.exception('Unexpected lookup error')
+        return jsonify(error='Product lookup failed unexpectedly.'),500
+
+@app.post('/api/ai/concepts/<part>')
+def ai_recommendations(part):
+    """Genuine model generation only; never label deterministic fallback as AI."""
+    try:
+        product,image=lookup(part)
+        if not image:
+            return jsonify(error='A verified product photograph is required for AI poster recommendations.'),422
+        ai_body=request.get_json(silent=True) or {}
+        distributor=selected_distributor(ai_body.get('distributor_brand','none'))
+        product=with_reviewed_price(product,ai_body.get('staff_rrp_ex'),ai_body.get('staff_rrp_reviewed') is True,ai_body.get('staff_rrp_basis','ex'))
+        product['marketing_direction']=strategy_for(product)
+        concepts=propose_ai_concepts(product)
+        official_scene=(APPLICATION_IMAGE_CACHE.get(part)
+                       if product.get('application_photo_source') and
+                       product.get('application_photo_source')!=product.get('photo_source')
+                       else None)
+        image_variation=int.from_bytes(hashlib.sha256(str(part).encode("utf-8")).digest()[:2],"big")
+        for i,concept in enumerate(concepts):
+            # Enforce three different *verified* marketing purposes even when
+            # Gemini repeats the same feature or a mocked model omits focus.
+            concept=focus_concept(product,concept,i)
+            concepts[i]=concept
+            art=normalise_art_direction(concept.get('art_direction'),
+                                        concept.get('family'),concept.get('variant',i))
+            concept['art_direction']=art
+            concept['variant']=art['layout_variant']
+            # Pick a genuine scene automatically by what this specific tool
+            # does: battery charger -> battery with cables, brakes -> actual
+            # brake service, diagnostics -> scanner, etc. Prefer verified
+            # manufacturer in-situ imagery for the trade campaign.
+            scene,reference=find_scene(
+                product,variation=i+image_variation,official_photo=official_scene,
+                prefer_official=(i==2),family=concept.get('family'))
+            quality={}
+            treatment=scene_treatment(reference,art)
+            options={'background':'context','_scene_bytes':scene,'show_subline':True,
+                     '_scene_style':treatment,'_quality_report':quality,
+                     **editor_preferences(art)}
+            poster=render_ai_promo(concept,image,product,distributor,editor=options)
+            concept['preview']='data:image/png;base64,'+base64.b64encode(poster).decode('ascii')
+            if quality:
+                concept['quality']=quality
+                if quality.get('auto_corrected'):
+                    corrected=int(quality.get('layout_variant',concept['variant']))
+                    concept['variant']=corrected
+                    art['layout_variant']=corrected
+                    # The editor opens exactly the auto-repaired artwork.
+                    art.update(quality.get('effective_editor') or {})
+            # Keep the image source visible to staff for licence and accuracy
+            # review, but never embed large binary data in a JSON concept.
+            concept['scene']={k:reference.get(k) for k in (
+                'category','description','source','page_url','license_url',
+                'scene_type','family','crop')}
+            concept['editor']={'background':'context','show_subline':True,
+                               'palette':art['layout_variant'],
+                               **editor_preferences(art)}
+            concept['marketing_copy']=compose_promotional_copy(product,concept)
+        return jsonify(concepts=concepts,source=product.get('source'),review_required=True)
+    except RuntimeError as e:return jsonify(error=str(e)),503
+    except ValueError as e:return jsonify(error=str(e)),400
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+    except Exception:
+        app.logger.exception('AI concept generation failed')
+        return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
+
+
+@app.post('/api/copy/rewrite/<part>')
+def rewrite_marketing_copy(part):
+    """One reviewed copy suggestion. Never accepts user/model factual claims."""
+    try:
+        body=request.get_json(silent=True)
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid rewrite request.'),400
+        mode=body.get('mode')
+        channel=body.get('channel')
+        angle=body.get('angle')
+        current_text=body.get('current_text')
+        # Validate before manufacturer lookup or any optional Gemini call.
+        if mode not in SUPPORTED_MODES:
+            return jsonify(error='Choose a valid writing goal.'),400
+        if channel not in ('social_caption','linkedin_post','email_body','website_listing','short_message'):
+            return jsonify(error='Select social, LinkedIn, email, web or short-promo copy.'),400
+        if type(angle) is not int or angle not in (0,1,2):
+            return jsonify(error='Choose a valid campaign direction.'),400
+        if not isinstance(current_text,str) or not current_text.strip() or len(current_text)>5000:
+            return jsonify(error='Select a draft of no more than 5,000 characters.'),400
+        audience=body.get('audience','trade')
+        if audience not in AUDIENCES:
+            return jsonify(error='Choose a valid target audience.'),400
+        product,_=lookup(part,uk_url=body.get('official_url') or None)
+        product=with_reviewed_price(
+            product,body.get('staff_rrp_ex'),
+            body.get('staff_rrp_reviewed') is True,
+            body.get('staff_rrp_basis','ex'))
+        rewritten=rewrite_copy(
+            product,mode=mode,channel=channel,current_text=current_text,
+            angle=angle,audience=audience)
+        response=jsonify(rewritten)
+        response.headers['Cache-Control']='no-store, private'
+        return response
+    except LookupErrorPublic as exc:return jsonify(error=str(exc)),400
+    except ValueError as exc:return jsonify(error=str(exc)),400
+    except requests.RequestException:
+        return jsonify(error='Official manufacturer source could not be reached. Please retry.'),502
+    except Exception:
+        app.logger.exception('Marketing copy rewrite failed')
+        return jsonify(error='Unable to rewrite this copy. Please retry.'),500
+
+
+@app.post('/api/ai/headlines/<part>')
+def ai_headline_options(part):
+    """Generate three copy-only factual headline options for one selected promo."""
+    try:
+        body=request.get_json(silent=True) or {}
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid request.'),400
+        idx=body.get('index')
+        tone=body.get('tone','trade')
+        if type(idx) is not int or idx not in (0,1,2) or tone not in ('trade','technical','premium','sales'):
+            return jsonify(error='Choose a valid design and writing tone.'),400
+        product,image=lookup(part)
+        if not image:return jsonify(error='Official product image unavailable.'),422
+        product['marketing_direction']=strategy_for(product)
+        options=suggest_ai_headlines(product,AI_PROMO_FAMILIES[idx],tone=tone)
+        return jsonify(headlines=options,review_required=True)
+    except RuntimeError as exc:return jsonify(error=str(exc)),503
+    except LookupErrorPublic as exc:return jsonify(error=str(exc)),404
+    except ValueError as exc:return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('Headline suggestions failed')
+        return jsonify(error='Could not generate headline suggestions.'),500
+
+
+@app.post('/api/ai/edit/<part>')
+def edit_ai_promo(part):
+    """Edit one generated AI poster without changing original manufacturer facts.
+
+    The browser sends only selected concept text and presentation controls.
+    Product photo, part number, title, features and RRP are re-validated from
+    official source on EVERY render; clients cannot provide arbitrary images
+    or change the displayed price through this editor.
+    """
+    try:
+        body=request.get_json(silent=True)
+        if not isinstance(body,dict):
+            return jsonify(error='Invalid editor request.'),400
+        idx=body.get('index')
+        if type(idx) is not int or idx not in (0,1,2):
+            return jsonify(error='Choose one of the three promotional posters.'),400
+        family=AI_PROMO_FAMILIES[idx]
+        supplied=body.get('concept')
+        edits=body.get('edits',{})
+        if not isinstance(supplied,dict) or not isinstance(edits,dict):
+            return jsonify(error='Invalid poster editor data.'),400
+        product,image=lookup(part)
+        if not image:
+            return jsonify(error='Official product photography is required.'),422
+        if str(supplied.get('part',''))!=str(product.get('part','')) or supplied.get('family')!=family:
+            return jsonify(error='Poster does not match this product or design.'),400
+        product=with_reviewed_price(product,body.get('staff_rrp_ex'),
+                                   body.get('staff_rrp_reviewed') is True,
+                                   body.get('staff_rrp_basis','ex'))
+        brand=selected_distributor(body.get('distributor_brand','none'))
+
+        # Price, product title, product image and factual feature bullets are
+        # never supplied by or mutable from this editor.
+        known_features=[str(x).strip()[:175] for x in product.get('features',[]) if str(x).strip()]
+        selected=[x for x in supplied.get('features',[]) if
+                  isinstance(x,str) and x in known_features] if isinstance(supplied.get('features'),list) else []
+        selected=list(dict.fromkeys(selected))[:3]
+        if not selected:
+            selected=known_features[:2]
+        def phrase(value,limit):
+            return ' '.join(str(value or '').split())[:limit]
+        if body.get('regenerate') is True:
+            generated=propose_ai_concepts(product,only_family=family,
+                                          tone=edits.get('tone','trade'))[0]
+            headline=phrase(generated.get('headline'),48)
+            subline=phrase(generated.get('subline'),82)
+            name=phrase(generated.get('name'),30)
+            angle=phrase(generated.get('angle'),120)
+            selected=[x for x in generated.get('features',[]) if x in known_features][:3] or selected
+        else:
+            headline=phrase(edits.get('headline'),48)
+            if not headline:
+                return jsonify(error='Enter a headline before applying your changes.'),400
+            subline=phrase(edits.get('subline',supplied.get('subline')),82)
+            name=phrase(supplied.get('name'),30)
+            angle=phrase(supplied.get('angle'),120)
+        raw_palette=edits.get('palette',supplied.get('variant',0))
+        if type(raw_palette) is not int or not 0<=raw_palette<=2:
+            return jsonify(error='Select a valid colour palette.'),400
+        background=edits.get('background','clean')
+        position=edits.get('price_position','standard')
+        if background not in ('clean','grid','rings','context','workshop','bench','engine') or position not in ('standard','opposite'):
+            return jsonify(error='Unsupported background or price position.'),400
+        display_mode=edits.get('display_mode','shadow')
+        price_style=edits.get('price_style',('bubble','plaque','banner')[idx])
+        headline_size=edits.get('headline_size','normal')
+        tone=edits.get('tone','trade')
+        if display_mode not in ('panel','cutout','shadow','glow') or price_style not in ('bubble','plaque','banner','tag','sticker','corner','panel'):
+            return jsonify(error='Unsupported product or price appearance.'),400
+        if headline_size not in ('small','normal','large') or tone not in ('trade','technical','premium','sales'):
+            return jsonify(error='Unsupported headline style or tone.'),400
+        transforms={}
+        for key,low,high,default in [
+                ('product_scale',70,160,100),('product_x',-100,100,0),
+                ('product_y',-100,100,0),('shape_intensity',0,3,2),
+                ('background_intensity',0,100,50)]:
+            value=edits.get(key,default)
+            if type(value) is not int or not low<=value<=high:
+                return jsonify(error='Invalid position, zoom or background intensity.'),400
+            transforms[key]=value
+        if type(edits.get('show_subline',False)) is not bool:
+            return jsonify(error='Invalid subheading setting.'),400
+        scene_bytes=None
+        scene_data=edits.get('scene_data','')
+        if scene_data:
+            if not isinstance(scene_data,str) or len(scene_data)>2_900_000:
+                return jsonify(error='Workshop image is too large (maximum 2 MB).'),400
+            match=re.fullmatch(r'data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)',scene_data)
+            if not match:
+                return jsonify(error='Upload a valid PNG, JPEG or WebP workshop photo.'),400
+            try:
+                scene_bytes=base64.b64decode(match.group(2),validate=True)
+                if len(scene_bytes)>2_000_000:
+                    return jsonify(error='Workshop image is too large (maximum 2 MB).'),400
+                sample=Image.open(io.BytesIO(scene_bytes))
+                if sample.format not in ('JPEG','PNG','WEBP') or sample.width*sample.height>12_000_000:
+                    return jsonify(error='The workshop image must be under 12 megapixels.'),400
+                sample.verify()
+            except (ValueError,OSError,base64.binascii.Error):
+                return jsonify(error='Workshop photo could not be read.'),400
+        accent=edits.get('accent','')
+        bg_colour=edits.get('background_colour','')
+        if not isinstance(accent,str) or not isinstance(bg_colour,str):
+            return jsonify(error='Invalid colour settings.'),400
+        for value in (accent,bg_colour):
+            if value and not re.fullmatch(r'#[0-9a-fA-F]{6}',value):
+                return jsonify(error='Choose valid colours.'),400
+        options={'background':background,'price_position':position,
+                 'accent':accent,'background_colour':bg_colour,
+                 'display_mode':display_mode,'price_style':price_style,
+                 'headline_size':headline_size,'show_subline':edits.get('show_subline',False),
+                 'tone':tone,**transforms}
+        scene_reference=None
+        if scene_bytes is None and background in ('context','workshop','bench','engine'):
+            official=(APPLICATION_IMAGE_CACHE.get(part) if
+                product.get('application_photo_source') and
+                product.get('application_photo_source')!=product.get('photo_source')
+                else None)
+            selection={"workshop":"workshop","bench":"hand_tools",
+                       "engine":"engine"}.get(background)
+            seed=int.from_bytes(hashlib.sha256(str(part).encode("utf-8")).digest()[:2],"big")
+            scene_bytes,scene_reference=find_scene(
+                product,variation=idx+seed,official_photo=official,
+                prefer_official=(idx==2 and background=="context" and bool(official)),
+                category_override=selection,family=family)
+        if scene_reference is None:
+            scene_reference=stock_scene_reference(
+                classify_product(product),idx,family=family)
+        source_art=normalise_art_direction(supplied.get('art_direction'),
+                                           family,raw_palette)
+        source_art['layout_variant']=raw_palette
+        render_options={**options,'_scene_bytes':scene_bytes,
+                        '_scene_style':scene_treatment(scene_reference,source_art)}
+        focus_info=focus_concept(product,{'family':family},idx)
+        concept={'id':idx,'part':str(product.get('part','')),
+                 'title':str(product.get('title',''))[:125], 'family':family,
+                 'name':name or ('Promotional Option '+str(idx+1)),
+                 'headline':headline or str(product.get('title','Laser Tools'))[:48],
+                 'subline':subline,'angle':angle,'features':selected,
+                 'focus':focus_info['focus'],'focus_label':focus_info['focus_label'],
+                 'selling_point':focus_info['selling_point'],
+                 'variant':raw_palette,'art_direction':source_art,
+                 'editor':{**options,'palette':raw_palette}}
+        quality={}
+        render_options['_quality_report']=quality
+        rendered=render_ai_promo(concept,image,product,brand,editor=render_options)
+        concept['preview']='data:image/png;base64,'+base64.b64encode(rendered).decode('ascii')
+        if quality:
+            concept['quality']=quality
+            if quality.get('auto_corrected'):
+                corrected=int(quality.get('layout_variant',raw_palette))
+                concept['variant']=corrected
+                concept['editor']['palette']=corrected
+                concept['editor'].update(quality.get('effective_editor') or {})
+                concept['art_direction']['layout_variant']=corrected
+        if scene_reference:
+            concept['scene']={k:scene_reference.get(k) for k in (
+                'category','description','source','page_url','license_url',
+                'scene_type','family','crop')}
+        elif scene_bytes:
+            concept['scene']={'category':classify_product(product),
+                              'description':'Approved uploaded context photo',
+                              'source':'Staff-provided photo (confirm usage rights)',
+                              'page_url':'','license_url':None}
+        concept['copy_direction']=normalise_copy_direction(
+            supplied.get('copy_direction'))
+        concept['marketing_copy']=compose_promotional_copy(product,concept)
+        return jsonify(concept=concept,review_required=True)
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)),503
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)),404
+    except ValueError as exc:
+        return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('AI poster edit failed')
+        return jsonify(error='Unable to update the poster. Please retry.'),500
+
+
+
+# Temporary single-worker pack storage. Random tokens prevent unrelated visitors
+# from downloading other distributor drafts; expiry bounds memory on free Render.
+CAMPAIGN_PACKS = {}
+CAMPAIGN_PACK_LOCK = threading.Lock()
+CAMPAIGN_PACK_TTL = 45 * 60
+
+
+def _get_campaign_pack(token):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return None
+    with CAMPAIGN_PACK_LOCK:
+        now = time.time()
+        for key in list(CAMPAIGN_PACKS):
+            if CAMPAIGN_PACKS[key]['expires'] < now:
+                CAMPAIGN_PACKS.pop(key, None)
+        entry = CAMPAIGN_PACKS.get(token)
+        return entry['bundle'] if entry and entry['expires'] >= now else None
+
+
+def _assemble_campaign_bundle(part, body, progress=None):
+    """Source-safe generator for both synchronous and progressive campaigns."""
+    if progress:
+        progress("verifying_product")
+    product, image = lookup(part, uk_url=body.get('official_url') or None)
+    if not image:
+        raise ValueError('A genuine official product photograph is required.')
+    product = with_reviewed_price(
+        product, body.get('staff_rrp_ex'), body.get('staff_rrp_reviewed') is True,
+        body.get('staff_rrp_basis', 'ex'))
+    distributor = selected_distributor(body.get('distributor_brand', 'none'))
+    official_context = (
+        APPLICATION_IMAGE_CACHE.get(part)
+        if product.get('application_photo_source')
+        and product.get('application_photo_source') != product.get('photo_source')
+        else None)
+    if progress is not None:
+        return build_campaign(product, image, distributor,
+                              application_photo=official_context, progress=progress)
+    return build_campaign(product, image, distributor,
+                          application_photo=official_context)
+
+
+def _save_campaign_bundle(bundle):
+    token=secrets.token_urlsafe(24)
+    with CAMPAIGN_PACK_LOCK:
+        now=time.time()
+        for key in list(CAMPAIGN_PACKS):
+            if CAMPAIGN_PACKS[key]['expires'] < now:
+                CAMPAIGN_PACKS.pop(key, None)
+        while len(CAMPAIGN_PACKS)>=4:
+            CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS)))
+        CAMPAIGN_PACKS[token]={'expires':now+CAMPAIGN_PACK_TTL,'bundle':bundle}
+    return token
+
+
+@app.post('/api/campaign/<part>')
+def one_click_campaign(part):
+    """One click creates a full campaign, previews and a complete ZIP.
+
+    Generate draft material only; no automatic social posts or publishing.
+    The browser cannot replace verified product photos, technical claims or RRP.
+    """
+    try:
+        part = sku_clean(part)
+        body = request.get_json(silent=True) or {}
+        if not isinstance(body, dict):
+            return jsonify(error='Invalid campaign settings.'), 400
+        bundle = _assemble_campaign_bundle(part,body)
+        token = _save_campaign_bundle(bundle)
+        response = jsonify(token=token, manifest=bundle['manifest'])
+        response.headers['Cache-Control'] = 'no-store, private'
+        return response
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)), 400
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    except RuntimeError as exc:
+        app.logger.exception('Campaign rendering failed')
+        return jsonify(error='Campaign could not be completed: ' + str(exc)), 503
+    except Exception:
+        app.logger.exception('One-click campaign error')
+        return jsonify(error='Unable to build the marketing campaign. Please check the application logs.'), 500
+
+
+# Mobile Safari can suspend long POST responses when the screen locks.
+# This bounded in-memory job preserves the completed draft for an explicit
+# GET poll / Resume action without requiring the browser to hold a request.
+CAMPAIGN_JOBS={}
+CAMPAIGN_JOBS_LOCK=threading.Lock()
+CAMPAIGN_JOB_TTL=55*60
+# Nine independent campaign artwork files, excluding the optional QR code.
+from campaign_hub import FOLDERS as CAMPAIGN_ARTWORK
+PROGRESS_ASSETS=tuple(CAMPAIGN_ARTWORK)
+
+
+def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report=None):
+    """Atomically publish only fully validated PNGs to the job's bearer token.
+
+    Byte payloads never enter JSON status responses, and intermediate rejects
+    are never exposed through the download endpoint.
+    """
+    with CAMPAIGN_JOBS_LOCK:
+        job=CAMPAIGN_JOBS.get(job_id)
+        if job is None or job['status'] not in ('queued','running'):
+            return
+        if asset_id is not None:
+            if asset_id not in PROGRESS_ASSETS:
+                raise ValueError("Unexpected campaign asset ID")
+            if stage not in ('rendering','quality_checking','ready','failed'):
+                raise ValueError("Unexpected per-asset quality state")
+            state=job['assets'][asset_id]
+            if stage=='ready':
+                if not isinstance(payload,bytes) or not payload.startswith(b'\x89PNG\r\n\x1a\n'):
+                    raise ValueError("Validated campaign artwork must be PNG bytes")
+                job['preview_images'][asset_id]=payload
+            if stage=='failed':
+                reason=(report or {}).get('issues') or ["Artwork failed verification"]
+                state['error']=str(reason[0])[:180]
+            state['status']=stage
+        else:
+            if stage not in ('verifying_product','planning','finding_context',
+                             'rendering_posters','reviewing_posters',
+                             'rendering_formats','finalising_pack'):
+                raise ValueError("Unexpected campaign progress stage")
+            job['stage']=stage
+        job['last_activity_at']=time.time()
+
+
+def _progress_payload(job):
+    return {
+        'status':job['status'], 'part':job['part'],
+        'stage':job.get('stage','queued'),
+        'elapsed_seconds':max(0,int(time.time()-job.get('started_at',time.time()))),
+        'stage_age_seconds':max(0,int(time.time()-job.get('last_activity_at',time.time()))),
+        'ready_count':sum(a['status']=='ready' for a in job['assets'].values()),
+        'total_assets':len(PROGRESS_ASSETS),
+        'assets':{k:dict(v) for k,v in job['assets'].items()},
+    }
+
+
+
+
+
+def _run_campaign_job(job_id,part,body):
+    with CAMPAIGN_JOBS_LOCK:
+        if job_id not in CAMPAIGN_JOBS:return
+        CAMPAIGN_JOBS[job_id]['status']='running'
+    try:
+        # Each approved poster or native-format PNG is released to the
+        # authenticated job as soon as its existing QA has passed.
+        bundle=_assemble_campaign_bundle(part,body,progress=lambda *args:
+            _campaign_progress_update(job_id,*args))
+        token=_save_campaign_bundle(bundle)
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                job=CAMPAIGN_JOBS[job_id]
+                # Compatibility for tests and any older bundle providers
+                # without progressive callbacks; the final pack is validated.
+                for asset in bundle['manifest']['images']:
+                    key=asset['id']
+                    if key in job['assets'] and key in bundle['images']:
+                        job['assets'][key]['status']='ready'
+                job['preview_images'].clear()  # Avoid duplicate PNG bytes in RAM
+                job.update(status='ready',stage='complete',token=token,error=None,
+                           expires=time.time()+CAMPAIGN_PACK_TTL)
+    except (LookupErrorPublic,ValueError,RuntimeError) as exc:
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(
+                    status='failed',stage='failed',error=str(exc)[:350])
+    except Exception:
+        app.logger.exception('Async mobile campaign rendering failed')
+        with CAMPAIGN_JOBS_LOCK:
+            if job_id in CAMPAIGN_JOBS:
+                CAMPAIGN_JOBS[job_id].update(
+                    status='failed',stage='failed',
+                    error='Campaign could not be completed. Please retry or check the application logs.')
+
+
+@app.post('/api/campaign/start/<part>')
+def start_mobile_campaign(part):
+    """Return immediately; a short-lived, bounded job holds the AI work."""
+    try:
+        part=sku_clean(part)
+        body=request.get_json(silent=True) or {}
+        if not isinstance(body,dict) or len(json.dumps(body))>3500:
+            return jsonify(error='Invalid campaign settings.'),400
+        with CAMPAIGN_JOBS_LOCK:
+            now=time.time()
+            for key in list(CAMPAIGN_JOBS):
+                if CAMPAIGN_JOBS[key]['expires']<now:
+                    CAMPAIGN_JOBS.pop(key,None)
+            active=sum(v['status'] in ('queued','running') for v in CAMPAIGN_JOBS.values())
+            # Free Render has ~0.15 CPU and 512 MB RAM. Concurrent high-resolution
+            # campaigns saturate it and prevent even the first image from arriving.
+            # Run a single full-quality job instead of sacrificing artwork QA.
+            if active>=1:
+                response=jsonify(error='Another full-quality campaign is already generating. The server can handle one at a time; please retry once it finishes.')
+                response.status_code=429
+                response.headers['Retry-After']='45'
+                return response
+            job_id=secrets.token_urlsafe(24)
+            CAMPAIGN_JOBS[job_id]={
+                'part':part,'status':'queued','stage':'queued','token':None,
+                'assets':{k:{'status':'queued'} for k in PROGRESS_ASSETS},
+                'preview_images':{},
+                'error':None,'expires':now+CAMPAIGN_JOB_TTL,
+                'started_at':now,'last_activity_at':now}
+        try:
+            threading.Thread(target=_run_campaign_job,
+                args=(job_id,part,body),daemon=True,
+                name='laser-campaign-'+part).start()
+        except Exception:
+            with CAMPAIGN_JOBS_LOCK:CAMPAIGN_JOBS.pop(job_id,None)
+            raise
+        response=jsonify(job_id=job_id,status='queued',part=part)
+        response.status_code=202
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except LookupErrorPublic as exc:
+        return jsonify(error=str(exc)),400
+    except Exception:
+        app.logger.exception('Could not start mobile campaign')
+        return jsonify(error='Could not start this campaign.'),500
+
+
+@app.get('/api/campaign/jobs/<job_id>')
+def mobile_campaign_progress(job_id):
+    """Read-only progress endpoint. Never reveals other drafts or creates AI."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',job_id):
+        return jsonify(error='Invalid campaign job.'),404
+    with CAMPAIGN_JOBS_LOCK:
+        now=time.time()
+        job=CAMPAIGN_JOBS.get(job_id)
+        if not job or job['expires']<now:
+            return jsonify(error='Campaign job expired. Please generate it again.'),404
+        snapshot=dict(job)
+    status=snapshot['status']
+    summary=_progress_payload(snapshot)
+    if status=='ready':
+        bundle=_get_campaign_pack(snapshot['token'])
+        if bundle is None:
+            return jsonify(error='Campaign artwork has expired. Generate it again.'),404
+        response=jsonify(**summary, token=snapshot['token'],
+                         manifest=bundle['manifest'])
+    elif status=='failed':
+        response=jsonify(**summary,error=snapshot['error'])
+    else:
+        response=jsonify(**summary)
+    response.headers['Cache-Control']='private, no-store'
+    return response
+
+
+@app.get('/api/campaign/job-assets/<job_id>/<asset_id>')
+def progressive_campaign_asset(job_id, asset_id):
+    """Preview or individually download one approved asset before ZIP exists."""
+    if (not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',job_id)
+            or asset_id not in PROGRESS_ASSETS):
+        return jsonify(error='Unknown campaign artwork.'),404
+    with CAMPAIGN_JOBS_LOCK:
+        job=CAMPAIGN_JOBS.get(job_id)
+        if not job or job['expires']<time.time():
+            return jsonify(error='Campaign artwork has expired.'),404
+        item=job['assets'][asset_id]
+        if item['status']!='ready':
+            return jsonify(error='This image is still generating or failed quality review.'),409
+        payload=job['preview_images'].get(asset_id)
+        token=job.get('token')
+        part=job['part']
+    if payload is None and token:
+        bundle=_get_campaign_pack(token)
+        payload=bundle['images'].get(asset_id) if bundle else None
+    if payload is None:
+        return jsonify(error='Artwork is no longer available.'),404
+    response=send_file(
+        io.BytesIO(payload), mimetype='image/png',
+        as_attachment=request.args.get('download')=='1',
+        download_name='LASER_'+part+'_'+asset_id+'.png')
+    response.headers['Cache-Control']='no-store, private'
+    return response
+
+
+@app.post('/api/campaign/edit/<token>/<asset_id>')
+def edit_campaign_asset(token, asset_id):
+    """Revise exactly one source-verified poster; preserve all other assets."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return jsonify(error='Invalid or expired campaign link.'), 404
+    body=request.get_json(silent=True)
+    if not isinstance(body,dict):
+        return jsonify(error='Invalid poster edits.'),400
+    try:
+        from poster_live_edit import edit_campaign_poster
+        with CAMPAIGN_PACK_LOCK:
+            entry=CAMPAIGN_PACKS.get(token)
+            if not entry or entry['expires'] < time.time():
+                return jsonify(error='Campaign expired. Please build a new campaign.'),404
+            result=edit_campaign_poster(entry['bundle'],asset_id,body)
+        response=jsonify(result)
+        response.headers['Cache-Control']='no-store, private'
+        return response
+    except ValueError as exc:
+        return jsonify(error=str(exc)),400
+    except RuntimeError as exc:
+        return jsonify(error='Poster failed quality review: '+str(exc)),422
+    except Exception:
+        app.logger.exception('Single campaign poster edit failed')
+        return jsonify(error='Could not update this poster. Original campaign is unchanged.'),500
+
+
+@app.get('/api/campaign/manifest/<token>')
+def resume_campaign_manifest(token):
+    """Recover already completed mobile campaign after Safari tab suspension.
+
+    This only reads an existing short-lived in-memory draft, never repeats
+    the Gemini request or creates new artwork. Possession of the same
+    unguessable campaign token already grants its existing PNG/ZIP downloads.
+    """
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
+        return jsonify(error='Invalid or expired campaign link.'), 404
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='This campaign has expired. Generate a new one.'), 404
+    response = jsonify(token=token, manifest=bundle['manifest'])
+    response.headers['Cache-Control']='private, no-store, max-age=0'
+    return response
+
+
+@app.get('/api/campaign/download/<token>')
+def download_campaign(token):
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='Campaign link expired. Generate the campaign again.'), 404
+    part = re.sub(r'[^A-Za-z0-9_-]', '', str(bundle['manifest'].get('part') or 'Product'))
+    response = send_file(io.BytesIO(bundle['archive']), mimetype='application/zip',
+                         as_attachment=True,
+                         download_name='LASER_' + part + '_Complete_Campaign.zip')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
+@app.get('/api/campaign/assets/<token>/<asset_id>')
+def preview_campaign_asset(token, asset_id):
+    bundle = _get_campaign_pack(token)
+    if bundle is None:
+        return jsonify(error='Campaign preview expired. Generate it again.'), 404
+    asset = bundle['images'].get(asset_id)
+    if asset is None:
+        return jsonify(error='Campaign asset not found.'), 404
+    download_requested = request.args.get('download') == '1'
+    response = send_file(
+        io.BytesIO(asset), mimetype='image/png',
+        as_attachment=download_requested,
+        download_name='LASER_' + re.sub(r'[^A-Za-z0-9_-]', '',
+            str(bundle['manifest'].get('part') or 'Product')) + '_' + asset_id + '.png'
+    )
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+@app.get('/api/photo/<part>')
+def photo(part):
+    try:
+        _,image=lookup(part)
+        if not image:return jsonify(error='No verified image found'),404
+        im=Image.open(io.BytesIO(image));out=io.BytesIO();im.convert('RGB').save(out,'PNG');out.seek(0)
+        return send_file(out,mimetype='image/png',download_name=f'LASER_{part}.png')
+    except LookupErrorPublic:return jsonify(error='Photo unavailable'),404
+
+@app.post('/api/generate/<part>')
+def generate(part):
+    try:
+        product,img=lookup(part)
+        body=request.get_json(silent=True) or {}
+        if not body.get('confirmed'):
+            return jsonify(error='Please confirm you reviewed the official product facts before generating external marketing drafts.'),400
+        product=normalise_product_language(safe_override(product,body.get('edits') or {}))
+        product=with_reviewed_price(product,body.get('staff_rrp_ex'),body.get('staff_rrp_reviewed') is True,body.get('staff_rrp_basis','ex'))
+        distributor=selected_distributor(body.get('distributor_brand','none'))
+        product['distributor_brand']=BRAND_LABELS[distributor] if distributor else None
+        if distributor:product['brand_use_notice']='Customer logo for draft use only. Obtain brand owner approval before external publication.'
+        product['marketing_direction']=strategy_for(product)
+        product['technical_layout']=technical_layout_mode(product)
+        if not img:return jsonify(error='No verified official product photograph available; marketing posters will not be generated with a fabricated photo.'),422
+        assets=create_posters(product,img,APPLICATION_IMAGE_CACHE.get(part),distributor)
+        tech=create_fact_sheet_pdf(product,img,APPLICATION_IMAGE_CACHE.get(part),distributor)
+        txt=create_marketing_copy(product)
+        with io.BytesIO() as zbuf:
+            with zipfile.ZipFile(zbuf,'w',zipfile.ZIP_DEFLATED) as z:
+                for name,png in assets.items():z.writestr(f'LASER_{part}_{name}.png',png)
+                z.writestr(f'LASER_{part}_Technical_Sheet.pdf',tech)
+                z.writestr(f'LASER_{part}_Marketing_Copy.txt',txt)
+                z.writestr(f'LASER_{part}_Source_Record.json',json.dumps(product,indent=2))
+            zbuf.seek(0)
+            return send_file(io.BytesIO(zbuf.getvalue()),mimetype='application/zip',download_name=f'LASER_{part}_Marketing_Pack.zip',as_attachment=True)
+    except ValueError as e:return jsonify(error=str(e)),400
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+    except Exception:
+        app.logger.exception('generation error')
+        return jsonify(error='Unable to generate the marketing pack.'),500
+
+@app.get('/api/poster/<part>/<style>')
+def preview(part,style):
+    if style not in ('Hero','Technical','Price'):return jsonify(error='Poster format not found'),404
+    try:
+        p,img=lookup(part)
+        p=with_reviewed_price(p,request.args.get('staff_rrp_ex'),request.args.get('staff_rrp_reviewed')=='1',request.args.get('staff_rrp_basis','ex'))
+        distributor=selected_distributor(request.args.get('distributor_brand','none'))
+        if not img:return jsonify(error='Verified product image missing'),422
+        renderer={'Hero':render_hero,'Technical':render_technical,'Price':render_price}[style]
+        artwork=renderer(p,img,APPLICATION_IMAGE_CACHE.get(part),distributor) if style in ('Hero','Technical') else renderer(p,img,distributor)
+        return send_file(io.BytesIO(artwork),mimetype='image/png',download_name=f'LASER_{part}_{style}.png')
+    except ValueError as e:return jsonify(error=str(e)),400
+    except LookupErrorPublic as e:return jsonify(error=str(e)),404
+
+if __name__=='__main__':
+    app.run(debug=True,host='127.0.0.1',port=5000)
+,re.I)
     for page in [f'https://www.lasertools.co.uk/Product/{part}',
                  f'https://lasertools.toolconnection.co.uk/Product/{part}']:
         try:
