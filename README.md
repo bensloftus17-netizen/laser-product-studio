@@ -1,3 +1,43 @@
+## V63 — Source-photo selection rescue (Laser 4554)
+
+The 4554 screenshot showed the exact genuine Laser tap-and-die set but
+**0/9 artwork** due to `Source product image is too small for professional
+poster artwork`. The existing selector could stop after just three
+technically valid but undersized catalogue photos, and would only inspect the
+real official PIS PDF if it found **no** image at all. As a result, a genuine
+low-resolution thumbnail was prematurely chosen, then the freeform poster
+quality gate correctly rejected it.
+
+V63 fixes **image selection** rather than bypassing the quality gate:
+
+- Review up to **12 approved exact-part official photo URLs** in bounded,
+  concurrent batches. Stop early only for an actually passing 650px+ source,
+  not a merely valid thumbnail. The chosen photograph must pass the existing
+  text-free source-image preflight (dimensions, real visible edge detail,
+  authentic cutout, white-halo and clarity checks).
+- Parse every manufacturer gallery `srcset` entry, `data-original`, zoom,
+  full and large photo URL. A 1200w authentic source is checked before a 320w
+  version. Never fetch a domain outside the approved Laser Tools domains.
+- When the best manufacturer JPEG still **fails**, examine the genuinely
+  embedded image in the exact-SKU official PIS PDF. Compare with the verified
+  original photo using the exact same quality test and keep the best **actual
+  manufacturer source**. No AI-redraw, pixel extrapolation or artificial
+  enlargement is used to fake a passing image.
+- Preserve detailed photo-selection diagnostics (`photo_source`,
+  `quality_passed`, actual pixel dimensions, source URL, number of
+  candidates checked, PDF rescue status and failure issues). Low-quality
+  images can remain in the dashboard for context, but **will not be released
+  as professional poster art** if no acceptable original can be located.
+- Keep language, UK RRP, genuine-product, artwork-quality, competition and
+  three-concept checks intact.
+
+A strict regression simulates part **4554** with *three undersized original
+photos followed by a full-size original*, and a second case where only
+the verified official PDF embeds a sufficiently large genuine image. The
+whole nine-asset marketing pack continues to use the existing approval gate
+after image selection; if a source genuinely has no acceptable pixels, the
+site remains clear that a better manufacturer master is required.
+
 ## V62 — Dutch source-language leak prevented (Laser 7845)
 
 A UK campaign for Laser 7845 showed untranslated Dutch:
