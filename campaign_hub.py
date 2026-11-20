@@ -253,7 +253,7 @@ def _native_graphic(product, photo, distributor, kind, fact, scene=None,
         else:
             safe={"headline":(45,160,int(width*.54),height-74)}
         canvas=express_background(
-            canvas,creative_palette,visual_treatment,zones=safe)
+            canvas,creative_palette,visual_treatment,zones=safe,inplace=True)
     d = ImageDraw.Draw(canvas)
     title = _clean(product.get("title"), 150) or "Laser Tools product"
     # Verified source-title excerpt prevents tiny ellipsised fallback copy.
