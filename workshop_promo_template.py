@@ -60,7 +60,9 @@ def _verified(product,concept):
         if not isinstance(item,str):
             continue
         value=" ".join(item.split()).strip()
-        if value and value in official and value not in facts:
+        # Small source fact panels must contain WHOLE, readable claims, not
+        # a truncated sentence or a microscopic multi-line paragraph.
+        if value and value in official and value not in facts and len(value)<=90:
             facts.append(value)
     return facts[:9]
 
@@ -236,14 +238,14 @@ def render_workshop_showcase(product,official_photo,concept,scene=None,
            "TOOL DETAILS",accent)
     _panel(d,(780,1130,1168,1245),right_head,accent)
     # Each claim is painted in a measured, bounded text region.
-    _text(d,primary or "View the official product specifications.",
-          (65,1182,373,1234),base=23,minsize=15,bold=False,
+    _text(d,primary or "View official product specifications.",
+          (65,1178,373,1239),base=22,minsize=14,bold=False,
           maxlines=3,role="proof")
     _text(d,secondary or "Confirm suitability before ordering.",
-          (440,1182,747,1234),base=22,minsize=15,bold=False,
+          (440,1178,747,1239),base=22,minsize=14,bold=False,
           maxlines=3,role="detail")
-    _text(d,right_fact or "Refer to the manufacturer product listing.",
-          (811,1182,1154,1234),base=22,minsize=15,bold=False,
+    _text(d,right_fact or "See the manufacturer product listing.",
+          (811,1178,1154,1239),base=22,minsize=14,bold=False,
           maxlines=3,role="kit_details")
 
     price=verified_price(product)
