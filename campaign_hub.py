@@ -1158,7 +1158,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             {"name": concept.get("name") or FAMILIES_LABELS[index],
              "role":ROLES[index], "focus": concept["focus"],
              "third_angle":concept.get("third_angle"),
-             "layout":("Workshop Showcase · AI creative variations"
+             "layout":("Laser technical reference · structured product sheet"
+                       if index==0 else
+                       "Laser workshop reference · price promotion"
                        if index==1 and promo_template=="workshop_showcase" else
                        "Verified-safe recovery" if quality_reports[
                           ("poster_technical","poster_price","poster_smart")[index]
