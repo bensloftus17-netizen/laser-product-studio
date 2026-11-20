@@ -29,7 +29,7 @@ BRAND_BLUE=(0,157,225)
 CYAN=(21,181,237)
 WHITE="#FFFFFF"
 BLUEGREY="#BEDBEA"
-DESIGN_ID="laser_workshop_showcase"
+DESIGN_ID="workshop_showcase"
 TEMPLATE_OPTIONS=("workshop_showcase","ai_original")
 
 
