@@ -1831,6 +1831,7 @@ def normalize(s):return re.sub(r'\s+',' ',str(s or '')).strip()
 # Official English Tool Connection product pages verified for pilot demonstrations.
 # For other part numbers, a search discovery attempt locates the manufacturer page.
 OFFICIAL_UK_PRODUCTS = {
+    '4554':'https://www.toolconnection.co.uk/products/general-hand-tools/cutting-drilling/thread-repair/taps-dies/4554-metric-tap-die-set-110pc',
     '7845':'https://www.toolconnection.co.uk/products/general-hand-tools/striking-tools/pry-bars/heavy-duty/7845-pry-bar-900mm',
     '8324':'https://www.toolconnection.co.uk/products/cars-vans/steering-suspension/shock-absorbers/kits/8324-suspension-split-hub-knuckle-spreader',
     '9395':'https://www.toolconnection.co.uk/products/cars-vans/transmission/wheel-bearings/gen2-wheel-bearing-kits/9395-front-wheel-bearing-kit-for-mercedes-benz-sprinter-vw-crafter',
