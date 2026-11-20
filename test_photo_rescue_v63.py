@@ -19,7 +19,7 @@ from source_image_selection import (
 )
 
 PART="4554"
-UK_URL="https://www.toolconnection.co.uk/products/workshop/4554-metric-tap-and-die-set-110pc"
+UK_URL="https://www.toolconnection.co.uk/products/general-hand-tools/cutting-drilling/thread-repair/taps-dies/4554-metric-tap-die-set-110pc"
 HOST="https://www.lasertools.co.uk/items/XLarge/"
 LOW_URLS=[
     f"https://www.lasertools.co.uk/items/large/{PART}_{i}.jpg"
