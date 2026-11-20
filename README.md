@@ -1,3 +1,41 @@
+## V67 — Reference-led technical and promotional poster roles
+
+The two user-supplied reference screenshots are now **reusable dynamic layouts**,
+not embedded raster screenshots or invented pictures of Laser tools.
+
+- **Poster 01 — Technical / Application** uses the blue and white
+  manufacturer-style product sheet from reference two: prominent LASER header
+  and part number, product title, genuine large hero photo, source-backed
+  application line when available, and a complete-facts Additional
+  Information section. It never silently truncates a manufacturer claim.
+- **Poster 02 — Price Promotion** uses reference three's automotive-workshop
+  and steel-workbench visual style: LASER header, substantial genuine product,
+  labelled feature panels (always populated), a KIT CONTENTS panel **only when
+  explicitly backed by manufacturer features**, honest UK RRP/VAT label or
+  PRICE ON REQUEST, and a black/blue LASER footer. External workshop scene
+  photos must still come from the existing approved real-source library.
+- **Poster 03 — Product-Selected** remains the independently art-directed,
+  AI-led role; it must not clone the information sheet or the price design.
+- Both reference roles stay reference-led whether Gemini succeeds or not.
+  Their composition is also protected during AI visual-review repair and
+  verified-safe recovery. Variant selection may adjust source photo staging,
+  but will not change the role-specific layout.
+- Original manufacturer source pixels, approved price/VAT provenance,
+  distributor logo permissions, English-only source checks, candidate ranking,
+  full independent visual QA, nine native artwork files and ZIP workflow
+  are all retained. Any asset that still fails an actual quality gate is not
+  silently approved or published.
+- Campaign Manifest and the UI now label which fixed reference renderer
+  actually produced the technical and promotional posters.
+
+Regression tests: `python -m unittest -v test_reference_templates_v67.py`.
+Additional smoke testing has used simulated product records for parts 9395,
+6728 and 4554 (both reference layouts). Full live nine-asset generation,
+manufacturer source availability and aesthetic approval still need hands-on
+verification, particularly on the 512 MiB Render Free service.
+
+---
+
 ## V65 — Memory-stable full-quality campaigns on a 512 MiB Render worker
 
 Render confirmed `oomKilled: 512Mi` at **10:19 and 10:49 UTC on 20 November
