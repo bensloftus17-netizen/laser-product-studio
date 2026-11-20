@@ -100,7 +100,7 @@ def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
     return rgba
 
 
-@lru_cache(maxsize=10)
+@lru_cache(maxsize=2)
 def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     """Cache safe cutout result so rendering three designs doesn't repeat matting."""
     original = ImageOps.exif_transpose(Image.open(io.BytesIO(blob)))
