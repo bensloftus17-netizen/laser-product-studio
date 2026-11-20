@@ -2347,7 +2347,7 @@ def manufacturer_gallery_urls(part,session=requests):
     """
     matches=[]
     exact=re.compile(
-        re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp),re.I)
+        re.escape(part)+r'(?:[_-][^/]*)?\.(?:jpe?g|png|webp)$',re.I)
     for page in [f'https://www.lasertools.co.uk/Product/{part}',
                  f'https://lasertools.toolconnection.co.uk/Product/{part}']:
         try:
