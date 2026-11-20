@@ -40,16 +40,24 @@ def inspect_asset(blob):
         # they should be used as contextual backgrounds, NOT fake cutout heroes.
         issues.append("No reliable isolated product photo for freeform hero artwork")
     else:
-        cut=info["rgba"]
+        # Never mutate the cached source cutout: thumbnail() shrank its
+        # pixels for every later poster. Inspect a temporary copy instead,
+        # and stream pixels rather than retaining huge Python lists/tuples.
+        cut=info["rgba"].copy()
         # A halo is particularly visible when nearly all semi-transparent
         # edge pixels are paper-white. Inspect only feathered alpha boundaries,
         # avoiding opaque white metal and plastic parts.
         cut.thumbnail((600,600),Image.Resampling.LANCZOS)
-        pix=list(cut.getdata())
-        fringe=[p for p in pix if 20<=p[3]<=210]
-        if len(fringe)>=40:
-            paper=sum(min(p[:3])>244 and max(p[:3])-min(p[:3])<12
-                      for p in fringe)/len(fringe)
+        fringe_count=0
+        white_fringe_count=0
+        for pixel in cut.getdata():
+            if 20<=pixel[3]<=210:
+                fringe_count+=1
+                if min(pixel[:3])>244 and max(pixel[:3])-min(pixel[:3])<12:
+                    white_fringe_count+=1
+        cut.close()
+        if fringe_count>=40:
+            paper=white_fringe_count/fringe_count
             if paper>.65:
                 issues.append("Product cutout has visible white fringe around its edges")
             elif paper>.38:
