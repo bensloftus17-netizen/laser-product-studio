@@ -33,6 +33,7 @@ MAX_PAGES = 18
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
     "sealey.co.uk", "drapertools.com", "drapertools.co.uk",
+    "astrotools.com", "beswellpowertools.com",
     "hilka.co.uk",
     "bgs-technic.com", "bgs-technic.de", "gedore.com",
     "gedore-automotive.com", "sykes-pickavant.com", "kstools.com",
@@ -64,6 +65,8 @@ APPROVED_HOSTS = (
 )
 BRANDS = (
     ("Snap-on", ("snap-on", "snap on", "snapon")),
+    ("Astro Pneumatic", ("astro pneumatic", "astrotools", "astro tools")),
+    ("Beswell", ("beswell",)),
     ("Sykes-Pickavant", ("sykes-pickavant", "sykes pickavant")),
     ("BGS Technic", ("bgs-technic", "bgs technic", "bgs")),
     ("Gedore Automotive", ("gedore automotive", "gedore")),
@@ -88,6 +91,7 @@ BRANDS = (
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
+    ("pneumatic gasket scraper", ("pneumatic", "scraper")),
     ("open end torque wrench", ("torque", "wrench")),
     ("split hub spreader", ("hub", "spreader")),
     ("brake caliper windback", ("brake", "caliper", "windback")),
@@ -160,6 +164,9 @@ INSPECTION_CAMERA_SEEDS = (
 # its original title and tool type, and extracting photo/price source data.
 # Categories are deliberately broad; technical equivalence is NOT asserted.
 CATEGORY_SEEDS={
+    "pneumatic gasket scraper": tuple(
+        entry["url"] for entry in catalogue_references("pneumatic gasket scraper")
+    ),
     "wheel bearing":(
         "https://www.hoffmann-group.com/GB/en/houk/p/3283690-",
         "https://www.sealey.co.uk/front-wheel-bearing-gen2-removal-installation-kit-72mm-audi-seat-skoda-vw-vs7029/",
@@ -214,6 +221,9 @@ IMAGE_CDN_HOSTS=(
 )
 # Search synonyms improve discovery, NEVER certify interchangeability.
 TYPE_SYNONYMS={
+    "pneumatic gasket scraper": (
+        "air gasket scraper", "air powered gasket scraper",
+        "pneumatic air scraper kit", "vibrating gasket scraper"),
     "inspection camera":(
         "borescope endoscope","video inspection camera","articulating videoscope"),
     "wheel bearing":(
@@ -260,6 +270,8 @@ TYPE_SYNONYMS={
 # one term per group must be present on the ORIGINAL competitor listing.
 # Do not make up missing vehicle fits, capacities or complete kit contents.
 TYPE_MATCH_GROUPS={
+    "pneumatic gasket scraper":((r"pneumatic|air.powered|air.scraper|air.gasket",),
+                                 (r"gasket|scraper|scraping",)),
     "inspection camera":((r"borescope|boroscope|endoscope|videoscope|inspection.camera|snake.camera",),),
     "wheel bearing":((r"bearing",),(r"wheel|hub",)),
     "under bonnet light":((r"bonnet|hood|engine.bay",),
@@ -1103,8 +1115,8 @@ def keyless_discovery(signature,session=requests):
     if signature["type"]=="inspection camera":
         urls.extend(INSPECTION_CAMERA_SEEDS)
     urls.extend(CATEGORY_SEEDS.get(signature["type"],()))
-    if len(snapshots)>=3:
-        # First inspect four known official product pages. Avoid burning the
+    if len(snapshots)>=3 or signature["type"]=="pneumatic gasket scraper":
+        # First inspect known official product pages. Avoid burning the
         # worker's memory and 60-second request budget on blocked RSS/HTML
         # engines when the tool category already has comparable manufacturers.
         # Google Shopping (when configured) is still searched separately.
