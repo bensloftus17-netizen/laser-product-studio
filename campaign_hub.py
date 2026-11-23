@@ -49,7 +49,10 @@ from workshop_promo_template import (
 )
 from asset_quality import require_good_asset
 from campaign_distinctness import check_distinctness
-from creative_qa import review_finished_artworks, reconcile_with_measured_geometry
+from creative_qa import (
+    review_finished_artworks, reconcile_with_measured_geometry,
+    pending_review_after_outage,
+)
 from format_creative import (FORMAT_ORDER, validate_format_canvas,
                              generate_format,quality_check_safe_native)
 from product_evidence_ranker import verified_candidates
@@ -975,6 +978,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                          "; ".join(distinctness["issues"]))
     critic={"reviewed":False,"method":"legacy-layout-geometry-only",
             "issues":{},"warning":None}
+    # An unavailable second external AI review is not artwork approval.
+    # Provisional INTERNAL DRAFT delivery needs all independent geometry,
+    # genuine-photo and visual distinctness gates, with review status exposed.
+    manual_visual_review_pending=False
     if creative_enabled:
         critic=reconcile_with_measured_geometry(
             review_finished_artworks(image_assets),quality_reports,
@@ -1039,9 +1046,23 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     review_finished_artworks(image_assets),quality_reports,
                     check_distinctness(image_assets,concepts))
                 if not next_review["reviewed"]:
-                    raise ValueError(
-                        "AI visual re-review became unavailable after a "
-                        "rejected poster. Unapproved artwork was not released.")
+                    # Recovery from an external quota/outage is explicitly
+                    # not approval. Keep the initial AI concerns, demand actual
+                    # safe rerenders of EVERY flagged role, and allow only an
+                    # internally labelled draft if all objective gates pass.
+                    provisional=pending_review_after_outage(
+                        quality_reports,check_distinctness(image_assets,concepts),
+                        blocking,set(blocking)-set(local_rejections),
+                        next_review.get("warning"))
+                    if provisional is None:
+                        raise ValueError(
+                            "AI visual re-review unavailable; independent "
+                            "recovery checks could not establish a safe draft. "
+                            "No unreviewed poster was released.")
+                    critic=provisional
+                    manual_visual_review_pending=True
+                    blocking={}
+                    break
                 updated={
                     key:codes for key,codes in next_review["issues"].items()
                     if codes
@@ -1087,12 +1108,21 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         review_finished_artworks(image_assets),quality_reports,
                         check_distinctness(image_assets,concepts))
                     if not safe_review["reviewed"]:
-                        raise ValueError(
-                            "Independent visual review became unavailable for "
-                            "repaired poster artwork. No unreviewed poster was released.")
-                    critic=safe_review
-                    blocking={key:codes for key,codes in safe_review["issues"].items()
-                              if codes}
+                        provisional=pending_review_after_outage(
+                            quality_reports,check_distinctness(image_assets,concepts),
+                            blocking,set(recovery),safe_review.get("warning"))
+                        if provisional is None:
+                            raise ValueError(
+                                "AI visual re-review unavailable and safe "
+                                "poster recovery could not be confirmed. "
+                                "No unreviewed poster was released.")
+                        critic=provisional
+                        manual_visual_review_pending=True
+                        blocking={}
+                    else:
+                        critic=safe_review
+                        blocking={key:codes for key,codes in safe_review["issues"].items()
+                                  if codes}
                     if not blocking:
                         creative_plan["render_engine"]="mixed-ai-and-verified-safe-layout"
                         creative_plan["verified_safe_recoveries"]=list(recovery)
@@ -1113,10 +1143,18 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 raise ValueError("Revised artwork is not visually distinct.")
         if critic.get("warning"):
             warnings.append(critic["warning"])
-    # The batch critic must approve the complete poster set before ANY
-    # poster is revealed as ready. A later rejected design therefore never
-    # leaks an unreviewed intermediate poster to the user.
+        if manual_visual_review_pending:
+            warnings.append(
+                "INTERNAL DRAFT ONLY — external AI visual re-review unavailable; "
+                "a staff member must inspect and approve all three posters "
+                "before any external use.")
+    # All poster bytes were already checked by choose_best. An unavailable
+    # external second review never becomes a false AI approval. Mark each
+    # provisional preview and the final manifest for manual sign-off.
     for key in ("poster_technical","poster_price","poster_smart"):
+        if manual_visual_review_pending:
+            quality_reports[key]["visual_review_status"]="manual_review_pending"
+            quality_reports[key]["manual_review_required"]=True
         _emit("ready",key,image_assets[key],quality_reports[key])
     # Never claim success or build a ZIP while a native format is missing;
     # unlike V54, already-approved posters now remain downloadable even
@@ -1170,7 +1208,13 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "creative_critic":{
             "method":critic["method"],"reviewed":critic["reviewed"],
             "issues":critic["issues"],"warning":critic["warning"],
+            "manual_review_required":manual_visual_review_pending,
+            "review_status":critic.get("review_status",
+                                      "ai-reviewed" if critic["reviewed"]
+                                      else "automated-only"),
+            "original_visual_issues":critic.get("original_visual_issues",{}),
             "geometry_disagreements":critic.get("geometry_disagreements",{})},
+        "manual_visual_review_pending":manual_visual_review_pending,
         "campaign_distinctness":distinctness,
         "scene_photography": scene_references,
         "poster_editor":{
@@ -1234,7 +1278,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "The QR code (when included) links ONLY to an official product source.\n"
         "Generation: " + mode + "\n"
         + "\n".join(manifest["warnings"]) + "\n"
-        "The ZIP does not publish or schedule any content.\n"
+        + ("INTERNAL DRAFT ONLY. Manual visual poster review pending.\\n"
+           if manual_visual_review_pending else "")
+        + "The ZIP does not publish or schedule any content.\\n"
     )
     # Live server uses a private on-disk ZIP sink. Nine already-compressed
     # PNGs must not be duplicated into a second giant BytesIO buffer while
