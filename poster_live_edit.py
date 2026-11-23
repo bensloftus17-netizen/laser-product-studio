@@ -44,7 +44,9 @@ def edit_campaign_poster(bundle,asset_id,body):
     if not source:
         raise ValueError("This campaign cannot be edited. Generate a new campaign.")
     product=source["product"]
-    photo=source["genuine_photo"]
+    # Preserve the genuine manufacturer angle chosen for this poster, rather
+    # than quietly switching back to the primary packshot after an edit.
+    photo=(source.get("role_photos") or {}).get(asset_id) or source["genuine_photo"]
     distributor=source["distributor"]
     idx,role=ASSETS[asset_id]
     current=source["concepts"][idx]
