@@ -25,7 +25,7 @@ from reportlab.platypus import (
     KeepTogether, HRFlowable,
 )
 
-from competitor_finder import safe_url
+from competitor_finder import safe_url, safe_image_url
 
 INK = colors.HexColor("#0B2745")
 BLUE = colors.HexColor("#006EB9")
@@ -215,6 +215,14 @@ def _verified_competitor_rows(report, product, max_rows=4):
             "brand": brand, "title": title,
             "part_number": _clean(item.get("part_number"), 60) or None,
             "url": url, "match_status": status,
+            # Genuine product photograph, sourced from this exact live
+            # competitor listing. Dated catalogue leads have no photo.
+            "image_url": (
+                item.get("image_url") if
+                source=="retailer/manufacturer page" and
+                safe_image_url(
+                    item.get("image_url"),url)
+                else None),
             "evidence_type": ("dated manufacturer catalogue reference"
                               if source=="manufacturer catalogue reference"
                               else "live checked product page"),
@@ -310,140 +318,11 @@ def _link(url, label):
 
 
 def render_why_choose_laser_pdf(sheet, photo_bytes=None):
-    """Printable source-linked PDF. Draw every verified fact as selectable text."""
-    if not sheet.get("review_required"):
-        raise ValueError("A sales sheet must remain review-labelled")
-    output = io.BytesIO()
-    doc = SimpleDocTemplate(
-        output, pagesize=A4,
-        rightMargin=42, leftMargin=42, topMargin=74, bottomMargin=45,
-        title="Why Choose Laser? Part " + _clean(sheet.get("part"), 16),
-        author="Laser Product Studio — internal draft",
-    )
-    text = ParagraphStyle("body", fontName="Helvetica", fontSize=9.0,
-                          leading=13.6, textColor=INK, spaceAfter=5)
-    small = ParagraphStyle("small", parent=text, fontSize=8, leading=11,
-                           textColor=MUTED, spaceAfter=4)
-    headline = ParagraphStyle("headline", parent=text, fontName="Helvetica-Bold",
-                              fontSize=20, leading=24, spaceAfter=5)
-    section = ParagraphStyle("section", parent=text, fontName="Helvetica-Bold",
-                             fontSize=11, leading=14, textColor=BLUE, spaceBefore=13,
-                             spaceAfter=7)
-    item = ParagraphStyle("item", parent=text, fontSize=9, leading=13)
-    story = [
-        Paragraph("WHY CHOOSE LASER?", headline),
-        Paragraph("<b>PART " + _p(sheet.get("part")) + " — " +
-                  _p(sheet.get("title")) + "</b>", text),
-        Paragraph("Evidence-led sales comparison · Internal review required", small),
-        Spacer(1, 8),
-    ]
-    if photo_bytes:
-        try:
-            picture=Image(io.BytesIO(photo_bytes), width=130, height=85,
-                          kind="proportional")
-            picture.hAlign="CENTER"
-            left=Paragraph(
-                "<b>LASER PRODUCT AT A GLANCE</b><br/>" +
-                "Official manufacturer features. No AI-invented specifications.<br/>" +
-                _link(sheet.get("official_source"), "Open Laser product source"), text)
-            top=Table([[left,picture]],colWidths=[344,155])
-            top.setStyle(TableStyle([
-                ("BACKGROUND",(0,0),(-1,-1),PALE),
-                ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-                ("LEFTPADDING",(0,0),(-1,-1),12),
-                ("RIGHTPADDING",(0,0),(-1,-1),10),
-                ("TOPPADDING",(0,0),(-1,-1),9),
-                ("BOTTOMPADDING",(0,0),(-1,-1),9),
-            ]))
-            story.append(top)
-        except (OSError, ValueError):
-            pass
-    story.append(Paragraph("VERIFIED LASER SELLING POINTS",section))
-    feats=sheet.get("strengths") or []
-    if feats:
-        for index, fact in enumerate(feats[:5], 1):
-            story.append(Paragraph(
-                '<font color="#006EB9"><b>' + str(index) + '.</b></font>  ' +
-                _p(fact.get("text","")), item))
-    else:
-        story.append(Paragraph(
-            "No source-verified manufacturer features could be extracted. "
-            "Check the official product listing before drafting claims.",small))
-    story.append(Spacer(1,5))
-    story.append(Paragraph("COMPETITORS CHECKED · PUBLISHED EVIDENCE",section))
-    rivals=sheet.get("competitors") or []
-    if rivals:
-        cells=[[
-            Paragraph("<b>COMPETITOR PRODUCT</b>",small),
-            Paragraph("<b>WHAT THE SOURCES ACTUALLY SHOW</b>",small),
-        ]]
-        for i, c in enumerate(rivals[:4],1):
-            name=("<b>"+_p(c.get("brand"))+"</b><br/>"+
-                  _p(c.get("title"))+"<br/>"+
-                  _p(c.get("comparison_relationship"))+"<br/>"+
-                  ("Manufacturer catalogue details checked "+
-                   _p(c.get("source_checked_on"))+"<br/>"
-                   if c.get("source_checked_on") else "")+
-                  _link(c.get("url"),"Source ["+str(i)+"]"))
-            diffs=c.get("published_differences") or []
-            shared=c.get("shared_published_specs") or []
-            if diffs:
-                notes="<br/>".join(
-                    "<b>"+_p(x["attribute"])+":</b> Laser "+_p(x["laser"])+
-                    " / "+_p(c["brand"])+" "+_p(x["competitor"])
-                    for x in diffs[:2])
-                notes+="<br/><i>Published difference; not a proven performance advantage.</i>"
-            elif shared:
-                notes=("<b>Shared published specification:</b> "+
-                       _p(shared[0]["attribute"])+" — "+_p(shared[0]["laser"]))
-            else:
-                notes="No like-for-like technical advantage verified from the listing."
-            cells.append([Paragraph(name,small),Paragraph(notes,small)])
-        table=Table(cells,colWidths=[200,299],repeatRows=1,hAlign="LEFT")
-        table.setStyle(TableStyle([
-            ("BACKGROUND",(0,0),(-1,0),PALE),
-            ("VALIGN",(0,0),(-1,-1),"TOP"),
-            ("BOX",(0,0),(-1,-1),.5,BORDER),
-            ("LINEBELOW",(0,0),(-1,-2),.35,BORDER),
-            ("LEFTPADDING",(0,0),(-1,-1),8),
-            ("RIGHTPADDING",(0,0),(-1,-1),8),
-            ("TOPPADDING",(0,0),(-1,-1),7),
-            ("BOTTOMPADDING",(0,0),(-1,-1),6),
-        ]))
-        story.append(table)
-    else:
-        story.append(Paragraph(
-            "No accessible competitor product pages have been verified for "
-            "this part number. Do not claim superiority on this evidence.",small))
-    story.extend([
-        Spacer(1,9),
-        Paragraph("<b>EVIDENCE &amp; APPROVAL</b>",section),
-        Paragraph("Laser product: "+_link(sheet.get("official_source"),"Official Laser source")+
-                  " · Research checked: "+_p(sheet.get("research_checked_at_utc")),small),
-        Paragraph(_p(sheet.get("pricing_note")),small),
-        Paragraph(_p(sheet.get("caution")),small),
-        Paragraph("<b>DRAFT — NOT APPROVED FOR CUSTOMER DISTRIBUTION</b>",small),
-    ])
+    """Render the V76 reference-inspired landscape comparison PDF.
 
-    def chrome(canvas, _doc):
-        width,height=A4
-        canvas.saveState()
-        canvas.setFillColor(INK)
-        canvas.rect(0,height-52,width,52,stroke=0,fill=1)
-        canvas.setFont("Helvetica-Bold",20)
-        canvas.setFillColor(colors.white)
-        canvas.drawString(42,height-33,"LASER")
-        canvas.setFont("Helvetica-Bold",9)
-        canvas.drawString(114,height-30,"TOOLS")
-        canvas.setStrokeColor(YELLOW)
-        canvas.setLineWidth(4)
-        canvas.line(164,height-42,178,height-10)
-        canvas.setFont("Helvetica-Bold",9)
-        canvas.drawRightString(width-42,height-30,"PART "+_clean(sheet.get("part"),16))
-        canvas.setFillColor(MUTED)
-        canvas.setFont("Helvetica",7)
-        canvas.drawString(42,27,"Laser Product Studio · Evidence-based draft · Check sources before publication")
-        canvas.drawRightString(width-42,27,"Page "+str(_doc.page))
-        canvas.restoreState()
-    doc.build(story,onFirstPage=chrome,onLaterPages=chrome)
-    return output.getvalue()
+    A distinct blue Laser vs red competitor sheet is created for each
+    source-checked rival. The engine shares exactly the JSON evidence shown
+    in the browser, and never invents methods, images or pricing.
+    """
+    from why_laser_comparison_poster import render_visual_comparison_pdf
+    return render_visual_comparison_pdf(sheet, photo_bytes)
