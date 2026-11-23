@@ -2987,6 +2987,9 @@ def find_competitor_products(part):
                 report['why_laser_pack']={
                     'sheet':verified_sheet,
                     'pdf_base64':None,
+                    'photo_base64':(
+                        base64.b64encode(tiny_photo).decode('ascii')
+                        if tiny_photo else None),
                     'prepared_from':'same-source-checked-competitor-research',
                     'review_required':True,
                 }
