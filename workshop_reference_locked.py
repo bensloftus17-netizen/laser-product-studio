@@ -59,7 +59,7 @@ def _fact_panels(d, source_facts, required):
     columns = (
         (25, 268), (279, 555), (566, 838)
     )
-    names = ("KEY FEATURE", "WORKSHOP USE", "PRODUCT DETAIL")
+    names = ("KEY FEATURES", "WORKSHOP USE", "PRODUCT DETAIL")
     for name, fact, (x0, x1) in zip(names, chosen, columns):
         d.rectangle((x0, 1052, x1, 1056), fill=CYAN)
         required(d, name, (x0+9, 1073, x1-7, 1112),
