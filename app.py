@@ -40,7 +40,7 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v72-why-laser">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -100,10 +100,18 @@ V7_HOME_PAGE = r'''
   <div class="competitor-panel-actions">
    <button type="button" id="competitorRefresh" class="secondary">Refresh prices</button>
    <a id="competitorExport" class="competitor-export" download hidden>Export comparison CSV</a>
+   <button type="button" id="whyLaserBtn" class="why-laser-action" disabled>✦ Why Choose Laser? Sheet</button>
+   <a id="whyLaserPdf" class="why-laser-export" download hidden>Download sales sheet (PDF)</a>
   </div></div>
  <div id="competitorStats" class="competitor-stats"></div>
  <div id="competitorResults" class="competitor-results"></div>
  <div id="competitorSources" class="competitor-sources"></div>
+ <section id="whyLaserPanel" class="why-laser-panel" hidden aria-label="Why Choose Laser sales evidence sheet">
+  <div class="why-laser-heading"><div><span class="sectioncap">SOURCE-CHECKED SALES EVIDENCE</span><h4>WHY CHOOSE LASER?</h4></div>
+  <span>INTERNAL DRAFT · APPROVAL REQUIRED</span></div>
+  <p id="whyLaserStatus" role="status" aria-live="polite"></p>
+  <div id="whyLaserContent"></div>
+ </section>
  <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Used/pre-owned and new prices must not be compared as equivalent. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
 </section>
 <div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
@@ -1595,6 +1603,9 @@ const competitorPriceLabel = item => item.price_gbp
  ? '£'+Number(item.price_gbp).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})
  : item.brand==='Snap-on'?'UK price not publicly verified':'Price not verified';
 function renderCompetitorReport(result){
+ $('whyLaserBtn').disabled=false;
+ $('whyLaserPanel').hidden=true;
+ $('whyLaserPdf').hidden=true;
  const container=$('competitorResults'),stats=$('competitorStats');
  const rows=Array.isArray(result.results)?result.results:[];
  $('competitorTitle').textContent='Competitors for Laser '+result.laser.part;
@@ -1669,6 +1680,9 @@ async function findCompetitors(force=false){
  if(heroPhotoDebounce!==null)clearTimeout(heroPhotoDebounce);
  showOfficialHero(part);
  competitorBusy=true;
+ $('whyLaserBtn').disabled=true;
+ $('whyLaserPanel').hidden=true;
+ $('whyLaserPdf').hidden=true;
  const btn=$('competitorBtn'),refresh=$('competitorRefresh');
  btn.disabled=true;refresh.disabled=true;
  $('competitorPanel').hidden=false;
@@ -1706,6 +1720,72 @@ $('competitorResults').addEventListener('error',event=>{
  if(!cell)return;
  cell.innerHTML='<span class="competitor-no-photo">Source photo unavailable</span>';
 },true);
+function displayWhyLaserSheet(sheet){
+ const targets=$('whyLaserContent'), part=sheet.part;
+ const facts=Array.isArray(sheet.strengths)?sheet.strengths:[];
+ const rivals=Array.isArray(sheet.competitors)?sheet.competitors:[];
+ const official=String(sheet.official_source||'');
+ const officialLink=official.startsWith('https://')
+  ?'<a href="'+esc(official)+'" target="_blank" rel="noopener noreferrer">Official Laser listing ↗</a>'
+  :'Official source unavailable';
+ const feats=facts.length?
+  '<ol class="why-laser-strengths">'+facts.map(x=>
+    '<li>'+esc(x.text)+'</li>').join('')+'</ol>':
+  '<p class="why-laser-unknown">No verified Laser features were available. Do not invent selling points.</p>';
+ const compared=rivals.length?
+  '<div class="why-laser-rivals">'+rivals.map(c=>{
+   const diffs=Array.isArray(c.published_differences)?c.published_differences:[];
+   const matches=Array.isArray(c.shared_published_specs)?c.shared_published_specs:[];
+   const detail=diffs.length
+    ?diffs.map(d=>'<p><b>'+esc(d.attribute)+'</b>: Laser '+esc(d.laser)+
+      ' · '+esc(c.brand)+' '+esc(d.competitor)+
+      '<small>Documented difference; does not establish better performance.</small></p>').join('')
+    :matches.length?
+      '<p>Shared published specification: '+esc(matches[0].attribute)+
+      ' — '+esc(matches[0].laser)+'</p>':
+      '<p>No like-for-like technical advantage established from this listing.</p>';
+   return '<article class="why-laser-rival"><strong>'+esc(c.brand)+'</strong>'+
+     '<small>'+esc(c.title)+'</small>'+detail+
+     '<a href="'+esc(c.url)+'" target="_blank" rel="noopener noreferrer">View verified product page ↗</a></article>';
+  }).join('')+'</div>':
+  '<p class="why-laser-unknown">No competitor product pages verified for this item. This is a Laser-feature draft, not a claim of superiority.</p>';
+ targets.innerHTML=
+  '<div class="why-laser-summary"><b>Laser '+esc(part)+' · '+esc(sheet.title)+'</b>'+
+  '<span>'+esc(sheet.status)+'</span></div>'+
+  '<div class="why-laser-columns"><section><h5>Verified Laser selling points</h5>'+
+  feats+officialLink+'</section><section><h5>Competitors checked</h5>'+
+  compared+'</section></div>'+
+  '<p class="why-laser-caution">'+esc(sheet.caution)+' '+esc(sheet.pricing_note)+'</p>'+
+  '<small class="why-laser-date">Evidence checked '+esc(sheet.research_checked_at_utc)+
+  ' · Human approval required before customer use.</small>';
+}
+async function buildWhyLaserSheet(){
+ const part=$('part').value.trim().toUpperCase();
+ $('whyLaserPanel').hidden=false;
+ $('whyLaserStatus').textContent='Preparing product-specific, source-checked sales evidence…';
+ $('whyLaserContent').textContent='';
+ $('whyLaserPdf').hidden=true;
+ if(!part||part!==competitorShownPart){
+  $('whyLaserStatus').textContent='Search competitors for the selected Laser part number first.';
+  return;
+ }
+ const btn=$('whyLaserBtn');
+ btn.disabled=true;
+ try{
+  const response=await fetch('/api/competitors/'+encodeURIComponent(part)+'/why-laser',
+     {cache:'no-store',headers:{Accept:'application/json'}});
+  const sheet=await readApiJson(response);
+  if(part!==$('part').value.trim().toUpperCase())return;
+  displayWhyLaserSheet(sheet);
+  $('whyLaserStatus').textContent='Source-backed draft prepared. Review every claim before using it with a customer.';
+  $('whyLaserPdf').href='/api/competitors/'+encodeURIComponent(part)+'/why-laser.pdf';
+  $('whyLaserPdf').download='LASER_'+part+'_Why_Choose_Laser.pdf';
+  $('whyLaserPdf').hidden=false;
+ }catch(error){
+  $('whyLaserStatus').textContent=error.message||'Sales evidence is unavailable.';
+ }finally{btn.disabled=false;}
+}
+$('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
 $('competitorBtn').addEventListener('click',()=>findCompetitors(false));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
 $('part').addEventListener('input',()=>{
@@ -1713,6 +1793,9 @@ $('part').addEventListener('input',()=>{
  if(competitorShownPart!==selected){
   $('competitorPanel').hidden=true;
   competitorShownPart=null;
+  $('whyLaserBtn').disabled=true;
+  $('whyLaserPanel').hidden=true;
+  $('whyLaserPdf').hidden=true;
  }
  // Never keep showing another product's image when changing part number.
  $('heroProductPhoto').hidden=true;
