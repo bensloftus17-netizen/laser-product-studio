@@ -16,7 +16,7 @@ def wait_for_v74():
     for attempt in range(18):
         try:
             r = requests.get(BASE, timeout=15)
-            if r.status_code == 200 and "V74 competitor intelligence" in r.text:
+            if r.status_code == 200 and "V75 restart-safe sales sheets" in r.text:
                 print("V74 website is live")
                 return
             print("Waiting for V74 deploy", attempt + 1, "HTTP", r.status_code)
@@ -52,13 +52,26 @@ def main():
         "Official manufacturer comparison sources missing: "+repr(expected-skus))
     assert report["laser"]["part"]=="4832"
     assert all(row.get("url","").startswith("https://") for row in rivals)
+    # Render Free stops/restarts and clears in-memory cache. The verified
+    # evidence and exact PDF must ALREADY be in this response, so the button
+    # can work hours later without an additional server call.
+    import base64
+    pack=report.get("why_laser_pack") or {}
+    assert pack.get("sheet",{}).get("part")=="4832",repr(pack)
+    assert len(pack["sheet"].get("competitors",[]))>=4
+    assert pack.get("review_required") is True
+    assert pack["sheet"]["public_claim_approved"] is False
+    pdf=base64.b64decode(pack.get("pdf_base64") or "",validate=True)
+    assert pdf.startswith(b"%PDF-"),"No genuine PDF shipped with initial response"
+    assert len(pdf)>700,"Empty PDF in report"
+    print("Inline restart-safe PDF ready",len(pdf),"bytes")
     sheet=requests.get(BASE+"/api/competitors/4832/why-laser",timeout=25)
     assert sheet.status_code==200,(sheet.status_code,sheet.text[:350])
     body=sheet.json()
     assert body["part"]=="4832"
     assert len(body.get("competitors",[]))>=4,repr(body)
     assert body["public_claim_approved"] is False
-    print("PASS: 4832 live research and the Why Choose Laser sheet contain real sourced alternatives")
+    print("PASS: 4832 live research contains source-checked comparison AND self-contained downloadable PDF")
 
 
 if __name__=="__main__":
