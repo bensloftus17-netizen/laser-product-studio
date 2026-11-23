@@ -1,3 +1,38 @@
+## V69 — One workshop promo template, genuinely different supporting artwork
+
+The user-supplied blank workshop/workbench reference is reserved exclusively
+for **Poster 02 / Price Promotion** (the default Workshop Showcase choice).
+A genuine Laser product photo is placed into the large hero space; factual
+information panels are populated from verified product descriptions, and the
+price panel uses verified RRP/VAT or the truthful PRICE ON REQUEST label.
+The image is a dynamic layout reference, not a flattened image with empty boxes.
+
+- **Poster 01:** blue-and-white structured technical product sheet;
+  never uses the workshop sales layout.
+- **Poster 02:** approved workshop scene, workbench, source-authentic product,
+  functional information panels and commercial price treatment.
+- **Poster 03:** AI-selected benefit/product spotlight with its own layout
+  family; neither technical nor workshop references may overwrite it.
+- **Six additional native formats:** keep the approved parent *selling angle*,
+  but each gets an independent creative family and distinct visual treatment.
+  Valid original AI choices are honoured unless they repeat a family/treatment
+  already used in the same campaign. Verified fallback renders use the same
+  independent art directions rather than duplicating the parent poster.
+- The campaign validates the three poster render-engine roles before
+  generating social formats, and saves the chosen role/family/treatment in
+  the manifest for design review.
+- The pre-existing genuine manufacturer imagery, original product pixels,
+  English-only source checks, verified pricing, and visual/geometry QC remain
+  enforced. No draft is automatically published.
+
+Tests: `python -m unittest -v test_role_separation_v69.py
+test_reference_templates_v67.py test_reference_critic_v68.py`.
+GitHub Actions workflow: `.github/workflows/poster-regression.yml`.
+A full live 9-artwork campaign still requires verification before an important
+demo; a successful Render deployment only confirms the app starts.
+
+---
+
 ## V67 — Reference-led technical and promotional poster roles
 
 The two user-supplied reference screenshots are now **reusable dynamic layouts**,
