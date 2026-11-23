@@ -25,6 +25,7 @@ const elements={
  whyLaserContent:{textContent:''},
  whyLaserPdf:{hidden:true,href:'',download:''},
  whyLaserBtn:{disabled:false},
+ whyLaserClose:{addEventListener:()=>{}},
 };
 let fetchCount=0, blobCreated=0, revoked=0, displayed=null;
 const testContext=vm.createContext({
