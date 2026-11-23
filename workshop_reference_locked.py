@@ -51,8 +51,9 @@ def _fact_panels(d, source_facts, required):
         f, re.I)), None)
     descriptions = [f for f in all_facts if f != kit]
     chosen = []
-    for f in sorted(descriptions, key=lambda x: (len(x) > 105, len(x))):
-        if f not in chosen and len(chosen) < 3:
+    for f in sorted(descriptions, key=lambda x: (len(x) > 95, len(x))):
+        # Never cut manufacturer facts mid-sentence to make an info box fit.
+        if len(f) <= 95 and f not in chosen and len(chosen) < 3:
             chosen.append(f)
     while len(chosen) < 3:
         chosen.append("Check official Laser Tools product information")
@@ -74,7 +75,10 @@ def _fact_panels(d, source_facts, required):
     required(d, "KIT CONTENTS" if kit else "PRODUCT INFORMATION",
              (874, 1047, 1187, 1082), maximum=25, minimum=16,
              max_lines=1, colour=WHITE, role="panel_label")
-    required(d, kit or "Refer to the official product description for included items.",
+    required(d, (kit if kit and len(kit) <= 135 else
+                 "Refer to the official product description for complete kit contents."
+                 if kit else
+                 "Refer to the official product description for included items."),
              (875, 1103, 1183, 1235),
              maximum=23, minimum=13, max_lines=7,
              bold=False, colour=PALE, role="contents")
@@ -109,7 +113,7 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
     canvas.alpha_composite(reference_scene(), (0, 259))
     d=ImageDraw.Draw(canvas, "RGBA")
     # Original template: tall LASER header and single horizontal blue line.
-    d.rectangle((0, 0, W, 265), fill=(2, 15, 28, 255))
+    d.rectangle((0, 0, W, 265), fill=DARK)
     _logo(d, 68, 33, 470)
     d.rectangle((0, 262, W, 269), fill=CYAN)
     required(d, "PART "+str(product.get("part") or ""),
