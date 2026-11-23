@@ -1115,41 +1115,52 @@ def keyless_discovery(signature,session=requests):
 
 
 def _distinct(results):
-    # Multiple providers may return exactly the same retail product URL.
-    # Keep one card, favouring a verified merchant SKU and a sourced quote.
+    """Merge genuine sources without losing page-verified specifications.
+
+    Source-linked product pages outrank shopping snippets with the same URL.
+    Shopping prices remain explicitly identified as advertised retailer offers,
+    never as a manufacturer's technical specification or a Laser RRP.
+    """
+    def evidence_rank(item):
+        return (
+            item.get("source_type")=="retailer/manufacturer page",
+            bool(item.get("verified_specs")),
+            bool(item.get("part_number")),
+            bool(item.get("price_gbp")),
+            bool(item.get("image_url")),
+        )
+
     by_url={}
     for item in results:
         key=item["url"].lower().split("#",1)[0].rstrip("/")
         old=by_url.get(key)
-        if old is None or (
-                bool(item["part_number"]),bool(item["price_gbp"]),
-                bool(item.get("image_url"))) > (
-                bool(old["part_number"]),bool(old["price_gbp"]),
-                bool(old.get("image_url"))):
-            if old:
-                for field,related in (("image_url","image_source"),
-                                      ("price_gbp","price_source")):
-                    if not item.get(field) and old.get(field):
-                        item[field]=old[field]
-                        item[related]=old.get(related)
+        if old is None:
             by_url[key]=item
-        elif old and not old.get("image_url") and item.get("image_url"):
-            old["image_url"]=item["image_url"]
-            old["image_source"]=item.get("image_source")
+            continue
+        winner,other=(item,old) if evidence_rank(item)>evidence_rank(old) else (old,item)
+        for field,related in (
+                ("image_url","image_source"),
+                ("price_gbp","price_source")):
+            if not winner.get(field) and other.get(field):
+                winner[field]=other[field]
+                winner[related]=other.get(related)
+                if field=="price_gbp":
+                    winner["vat_basis"]=other.get("vat_basis","unknown")
+                    winner["listing_condition"]=other.get("listing_condition","Unconfirmed")
+        # Never copy alleged technical specs from shopping snippets into a
+        # page-verified result: the technical evidence must be live JSON-LD.
+        by_url[key]=winner
     best={}
     for item in by_url.values():
         key=(item["brand"].lower(),
              item["part_number"].lower() if item["part_number"] else
              re.sub(r"\W+","",item["title"].lower())[:85])
         previous=best.get(key)
-        if (not previous
-                or (bool(item["price_gbp"]),bool(item["part_number"]),
-                    bool(item.get("image_url"))) >
-                   (bool(previous["price_gbp"]),bool(previous["part_number"]),
-                    bool(previous.get("image_url")))):
+        if previous is None or evidence_rank(item)>evidence_rank(previous):
             best[key]=item
     return sorted(best.values(),key=lambda item:(
         0 if item["match_status"].startswith("Likely equivalent") else 1,
+        0 if item.get("verified_specs") else 1,
         0 if item["price_gbp"] else 1,
         item["brand"],item["title"]))[:MAX_RESULTS]
 
