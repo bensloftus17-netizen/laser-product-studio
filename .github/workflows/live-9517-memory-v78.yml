@@ -1,0 +1,53 @@
+name: Live Laser 9517 no-OOM recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/live-9517-memory-v78.yml"
+  workflow_dispatch:
+
+jobs:
+  verify-real-render-instance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install small HTTP client
+        run: python -m pip install requests
+      - name: Exercise health, real Laser 9517 product lookup and competitors without a worker OOM
+        run: |
+          python - <<'PY'
+          import requests,time,sys
+          base="https://laser-product-studio.onrender.com"
+          def get(path, timeout=65):
+              for attempt in range(4):
+                  try:
+                      r=requests.get(base+path,timeout=timeout,
+                          headers={"Accept":"application/json","User-Agent":"LaserStudioV78HealthTest/1.0"})
+                      print(path,"HTTP",r.status_code,
+                            "attempt",attempt+1,flush=True)
+                      if r.status_code==200:return r
+                      if r.status_code not in (429,502,503,504):
+                          raise AssertionError(path+" "+str(r.status_code)+" "+r.text[:350])
+                  except requests.RequestException as e:
+                      print("Transient HTTP error:",type(e).__name__,flush=True)
+                  if attempt<3:time.sleep(12)
+              raise AssertionError(path+" not usable after bounded retries")
+          health=get("/api/health",timeout=12)
+          assert health.json().get("ok") is True
+          product=get("/api/lookup/9517",timeout=70).json()["product"]
+          assert product["part"]=="9517"
+          assert product["photo_verified"] is True,"Official 9517 photo failed"
+          assert product.get("gallery_complete") is False,(
+              "Expensive full-gallery collection was run during lightweight product lookup")
+          print("Official photo URL",product.get("photo_source"),flush=True)
+          research=get("/api/competitors/9517",timeout=90).json()
+          assert research.get("laser",{}).get("part")=="9517"
+          print("Verified competitor count:",research.get("count"),flush=True)
+          health=get("/api/health",timeout=12)
+          assert health.json().get("ok") is True
+          print("PASS: live 9517 lookup, comparison, and worker survival",flush=True)
+          PY
