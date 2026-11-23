@@ -5,6 +5,7 @@ manual brake bleeder competitors get distinct visual A4 landscape pages.
 """
 import io
 import unittest
+from unittest.mock import patch
 
 import fitz
 from PIL import Image as PILImage
@@ -57,6 +58,31 @@ class VisualComparisonV76Tests(unittest.TestCase):
         document=fitz.open(stream=pdf,filetype="pdf")
         self.assertGreaterEqual(len(document[0].get_images(full=True)),1)
         self.assertIn("Laser Tools 4832",document[0].get_text())
+
+    def test_verified_competitor_photo_can_appear_in_pdf_without_ai_redraw(self):
+        original=PILImage.new("RGB",(450,340),(155,82,53))
+        out=io.BytesIO()
+        original.save(out,format="JPEG")
+        revised={**self.sheet,"competitors":[{
+            **self.sheet["competitors"][0],
+            "image_url":"https://www.drapertools.com/images/22495.jpg",
+        }]}
+        from why_laser_comparison_poster import _genuine_rival_photo
+        with patch("why_laser_comparison_poster._genuine_rival_photo",
+                   return_value=out.getvalue()) as fetch:
+            pdf=render_why_choose_laser_pdf(revised,out.getvalue())
+        fetch.assert_called_once()
+        page=fitz.open(stream=pdf,filetype="pdf")[0]
+        self.assertGreaterEqual(len(page.get_images(full=True)),2)
+
+    def test_unsafe_photo_urls_are_not_fetched(self):
+        from why_laser_comparison_poster import _genuine_rival_photo
+        with patch("why_laser_comparison_poster.requests.get") as request:
+            result=_genuine_rival_photo({
+                "url":"https://www.drapertools.com/product/22495/",
+                "image_url":"https://example.org/unverified-lookalike.jpg"})
+            self.assertIsNone(result)
+            request.assert_not_called()
 
     def test_every_rival_has_the_source_url_as_a_clickable_pdf_link(self):
         document=fitz.open(stream=render_why_choose_laser_pdf(self.sheet),filetype="pdf")
