@@ -19,6 +19,6 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install lightweight HTTP client
-        run: pip install requests
+        run: pip install requests pymupdf
       - name: Verify live V74 Render service finds real 4832 alternatives
         run: python smoke_live_competitors_v74.py
