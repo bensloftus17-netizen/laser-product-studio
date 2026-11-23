@@ -2925,6 +2925,38 @@ def find_competitor_products(part):
                     if isinstance(product.get("specs"),dict) else {},
             }
             tiny_photo=compact_photo(_)
+            # Render Free suspends and restarts its worker, destroying this
+            # process-local report cache. Prepare the actual source-linked
+            # sales sheet and its small, genuine-photo PDF DURING the verified
+            # competitor response; the browser holds its own complete copy.
+            # No unverified claims, photos, prices, or user-supplied facts.
+            try:
+                verified_sheet=build_why_choose_laser(source_snapshot,report)
+                report['why_laser_pack']={
+                    'sheet':verified_sheet,
+                    'pdf_base64':None,
+                    'prepared_from':'same-source-checked-competitor-research',
+                    'review_required':True,
+                }
+                try:
+                    pdf_bytes=render_why_choose_laser_pdf(verified_sheet,tiny_photo)
+                    if pdf_bytes.startswith(b'%PDF-') and len(pdf_bytes)<900_000:
+                        report['why_laser_pack']['pdf_base64']=base64.b64encode(
+                            pdf_bytes).decode('ascii')
+                    else:
+                        app.logger.warning(
+                            'Why Choose Laser PDF unavailable or too large for browser evidence pack: %s bytes',
+                            len(pdf_bytes))
+                except Exception:
+                    app.logger.exception('Why Choose Laser inline PDF preparation failed')
+            except Exception:
+                # Competitor search is independently useful. A missing
+                # manufacturer field must not cancel it or invent a sheet.
+                app.logger.exception('Why Choose Laser evidence preparation failed')
+                report['why_laser_pack']={
+                    'sheet':None, 'pdf_base64':None,
+                    'error':'Sales evidence not prepared; refresh competitor research.',
+                }
             with COMPETITOR_REPORT_LOCK:
                 now=time.time()
                 COMPETITOR_REPORT_CACHE[part]={
