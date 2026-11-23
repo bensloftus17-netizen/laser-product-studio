@@ -617,7 +617,8 @@ def candidate_sku(title, brand, explicit=None):
 
 def _build_result(title, url, signature, *, brand=None, sku=None,
                   seller=None, price=None, price_origin=None, vat=None,
-                  listing_condition=None,image_url=None,image_origin=None):
+                  listing_condition=None,image_url=None,image_origin=None,
+                  verified_specs=None):
     title = clean_text(title, 230)
     if len(title) < 8 or not safe_url(url):
         return None
@@ -644,6 +645,7 @@ def _build_result(title, url, signature, *, brand=None, sku=None,
         "image_source":image_origin if safe_image_url(image_url,url) else None,
         "source_type":"shopping" if price_origin=="Google Shopping listing"
               else "retailer/manufacturer page",
+        "verified_specs":verified_specs if isinstance(verified_specs,dict) else {},
     }
 
 
@@ -857,6 +859,42 @@ def _schema_brand(node):
             else raw if isinstance(raw,str) else "")
 
 
+def _schema_verified_specs(node):
+    """Only literal product JSON-LD additionalProperty values, never inferred.
+
+    Do not turn marketing description, shipping prices, product titles or AI
+    guesses into competitor technical specifications.
+    """
+    props=node.get("additionalProperty") or []
+    if isinstance(props,dict):
+        props=[props]
+    if not isinstance(props,list):
+        return {}
+    output={}
+    for prop in props[:35]:
+        if not isinstance(prop,dict):
+            continue
+        kind=str(prop.get("@type",""))
+        if kind and not kind.lower().endswith(("propertyvalue","quantitativevalue")):
+            continue
+        key=clean_text(prop.get("name"),70)
+        value=prop.get("value")
+        unit=clean_text(prop.get("unitText"),20)
+        if not isinstance(value,(str,int,float)) or isinstance(value,bool):
+            continue
+        detail=clean_text(str(value),110)
+        if unit and unit.casefold() not in detail.casefold():
+            detail+=" "+unit
+        if (not key or not detail or len(key)<3 or
+                re.search(r"\b(?:price|shipping|delivery|postage|url|sku|mpn|seller)\b",key,re.I)
+                or detail.lower().startswith(("http://","https://"))):
+            continue
+        output[key]=detail[:130]
+        if len(output)>=14:
+            break
+    return output
+
+
 def _schema_price(node):
     offers=node.get("offers")
     if isinstance(offers,dict):
@@ -955,12 +993,14 @@ def parse_product_page(content, url, signature):
                 price_origin="Retailer JSON-LD product offer",
                 seller=urlparse(url).hostname,
                 listing_condition=_listing_condition(soup,node),
-                image_url=image,image_origin=image_source)
+                image_url=image,image_origin=image_source,
+                verified_specs=_schema_verified_specs(node))
             if result:
                 rows.append(result)
     if rows:
         return max(rows,key=lambda r:(
-            bool(r["image_url"]),bool(r["price_gbp"]),bool(r["part_number"])))
+            bool(r["image_url"]),bool(r.get("verified_specs")),
+            bool(r["price_gbp"]),bool(r["part_number"])))
     # Manufacturer pages with genuine product heading and UK merchant
     # listings may not publish JSON-LD. Only a known explicit current-price
     # label on a supported merchant is accepted, never a generic pound sign
