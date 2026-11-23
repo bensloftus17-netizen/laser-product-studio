@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "why_choose_laser.py"
+      - "why_laser_comparison_poster.py"
+      - "test_why_laser_visual_v76.py"
       - "competitor_finder.py"
       - "competitor_catalogue.py"
       - "test_competitor_4832_v74.py"
@@ -29,12 +31,12 @@ jobs:
       - name: Install application and PDF dependencies
         run: python -m pip install -r requirements.txt
       - name: Check comparison and PDF source syntax
-        run: python -m py_compile why_choose_laser.py competitor_finder.py competitor_catalogue.py app.py
+        run: python -m py_compile why_choose_laser.py why_laser_comparison_poster.py competitor_finder.py competitor_catalogue.py app.py
       - name: Validate competitor preview and dashboard JavaScript
         run: |
           python -c "from app import V7_HOME_PAGE; open('/tmp/laser-studio-ui.js','w',encoding='utf-8').write(V7_HOME_PAGE.split('<script>',1)[1].split('</script>',1)[0])"
           node --check /tmp/laser-studio-ui.js
       - name: Test evidence provenance, comparison claims and PDF links
-        run: python -m unittest -v test_why_laser_restart_v75.py test_competitor_4832_v74.py test_why_choose_laser_v72.py test_competitor_finder_v49.py
+        run: python -m unittest -v test_why_laser_visual_v76.py test_why_laser_restart_v75.py test_competitor_4832_v74.py test_why_choose_laser_v72.py test_competitor_finder_v49.py
       - name: Test browser button against simulated Render restart
         run: node test_why_laser_restart_ui_v75.cjs
