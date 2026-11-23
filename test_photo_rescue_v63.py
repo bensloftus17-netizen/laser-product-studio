@@ -152,7 +152,7 @@ class SelectionV63Tests(unittest.TestCase):
              patch.object(app,"valid_image",return_value=True), \
              patch("asset_quality.manufacturer_image_rank",side_effect=ranking), \
              patch.object(app,"apply_official_taxonomy",side_effect=lambda p:p):
-            result,blob=app.lookup(PART,force=True)
+            result,blob=app.lookup(PART,force=True,collect_gallery=True)
         app.CACHE.pop(PART,None)
         self.assertEqual(blob,LARGE)
         self.assertEqual(result["photo_source"],MASTER)
@@ -188,7 +188,7 @@ class SelectionV63Tests(unittest.TestCase):
              patch.object(app,"valid_image",return_value=True), \
              patch("asset_quality.manufacturer_image_rank",side_effect=ranking), \
              patch.object(app,"apply_official_taxonomy",side_effect=lambda p:p):
-            result,blob=app.lookup(PART,force=True)
+            result,blob=app.lookup(PART,force=True,collect_gallery=True)
         app.CACHE.pop(PART,None)
         self.assertEqual(blob,LARGE)
         self.assertIn("#pdf-photo-embedded",result["photo_source"])
