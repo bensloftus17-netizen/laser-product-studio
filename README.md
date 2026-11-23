@@ -1,3 +1,50 @@
+## V73 — Render memory protection (23 November 2026)
+
+**Incident:** Render event history confirmed an out-of-memory worker kill at
+13:15:15 UTC, with a hard memory limit of 512 MiB. The Free service has one
+Gunicorn worker with four request threads; the failure restarted the service
+and made competitor search temporarily unavailable.
+
+**Changes now implemented:**
+
+1. **Progressive PNGs are disk-backed.** All nine approved native artwork
+   previews remain available via their private URL. The callback atomically
+   spills bytes into a per-job private temporary directory instead of keeping
+   a second full nine-image set in RAM. On success, previews are deleted and
+   the disk-backed ZIP / assets become the download source. On failure,
+   approved previews remain accessible until job expiry.
+2. **Heavy jobs are serialised.** Competitor discovery and full-resolution
+   campaign generation share one semaphore. Competing attempts respond 429
+   with Retry-After instead of risking an out-of-memory kill. Cached competitor
+   results remain available without repeating a heavy search.
+3. **Cgroup memory admission.** New research/campaign jobs read real cgroup
+   usage and limit, release unused Python/glibc heap, account for reclaimable
+   file cache, and require adequate headroom. If too much memory is in use,
+   the app returns 503 with Retry-After rather than crashing the worker.
+4. **Source photos receive memory-efficient inspection.** High-resolution
+   JPEG product photos are drafted and resized *before* large QA/cutout
+   decodes. Genuine manufacturer pixels and final artwork sizes remain intact.
+5. **Official product PDFs use bounded photo extraction.** Store only
+   compressed candidate image bytes until the best original is selected;
+   safely close PDF handles and limit rasterized pixel counts.
+6. **Competitor search coverage is preserved** using two rather than four
+   simultaneous page parsers. Exact product matching and verified prices
+   remain unaffected.
+
+**Regression tests:** Run the memory safety suite with test_render_memory_v73.py,
+test_campaign_memory_v65.py, test_competitor_finder_v49.py,
+and test_why_choose_laser_v72.py.
+CI: .github/workflows/render-memory-regression.yml.
+
+**Limits:** This reduces avoidable allocations and overload failures; it does
+not guarantee unlimited campaigns will fit in 512 MiB. Monitor actual Render
+memory and failed-service events. Future bulk campaign generation, parallel
+users and additional image-intensive features will need more memory (at least
+1 GiB) and ideally an isolated worker and durable queue. No plan changes are
+made automatically.
+
+---
+
 ## V72 — Why Choose Laser? source-backed sales sheet
 
 The existing **Find Competitors & UK Prices** panel now includes **Why Choose
