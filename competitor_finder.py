@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import requests
 from bs4 import BeautifulSoup
+from competitor_catalogue import catalogue_references
 
 SEARCH_HOST = "https://www.bing.com/search"
 SHOPPING_HOST = "https://serpapi.com/search.json"
@@ -32,6 +33,7 @@ MAX_PAGES = 18
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
     "sealey.co.uk", "drapertools.com", "drapertools.co.uk",
+    "hilka.co.uk",
     "bgs-technic.com", "bgs-technic.de", "gedore.com",
     "gedore-automotive.com", "sykes-pickavant.com", "kstools.com",
     "ks-tools.com", "schaeffler.com", "fag.com",
@@ -69,6 +71,7 @@ BRANDS = (
     ("KS Tools", ("ks tools", "ks-tools", "kstools")),
     ("Sealey", ("sealey",)),
     ("Draper", ("draper",)),
+    ("Hilka", ("hilka",)),
     ("Hazet", ("hazet",)),
     ("Facom", ("facom",)),
     ("Beta Tools", ("beta tools", "beta")),
@@ -183,6 +186,9 @@ CATEGORY_SEEDS={
     "injector return flow tester":(
         "https://www.sealey.co.uk/diesel-injector-flow-common-rail-test-kit-vs2046/",
     ),
+    "brake bleeder": tuple(
+        entry["url"] for entry in catalogue_references("brake bleeder")
+    ),
 }
 
 # Published manufacturer product pages verified 2026-11-19. These are indexed
@@ -243,7 +249,10 @@ TYPE_SYNONYMS={
     "fluid extractor":(
         "fluid transfer pump","fluid extraction tool"),
     "brake bleeder":(
-        "brake bleeding kit","brake fluid bleeder"),
+        "manual pressure brake bleeder 2L",
+        "pump action brake and clutch bleeder",
+        "brake fluid pressure bleeding system",
+        "hand pump brake fluid bleeding kit"),
     "injector puller":(
         "fuel injector extractor tool","injector removal kit"),
 }
@@ -713,6 +722,8 @@ def search_queries(signature):
             "automotive videoscope inspection camera UK price",
             "workshop borescope inspection camera alternative",
         ]
+    # Query the tool operation and leading manufacturer sites, not only the
+    # Laser-branded full title. This works for any category without a preset.
     queries=[
         (broad+" "+fit+" competitor alternative tools UK").strip(),
         ((synonyms[0] if synonyms else broad)+" "+fit+
@@ -723,8 +734,23 @@ def search_queries(signature):
         ((synonyms[2] if len(synonyms)>2 else broad)+
          " tool UK price comparison").strip(),
     ]
+    # Search different manufacturers' catalogues as well as retailers. A
+    # free text search cannot prove equivalence; only a product page can.
+    if name=="brake bleeder":
+        queries=[
+            "Draper 22495 manual pressure brake bleeder 2 litre",
+            "Hilka 12724211 manual pressure brake bleeder 2L",
+            "Sealey VS820 manual brake clutch bleeding system",
+            "Draper 29358 pump action brake bleeding kit",
+            *queries,
+        ]
+    else:
+        queries.extend([
+            "site:sealey.co.uk "+broad+" workshop tool",
+            "site:drapertools.com "+broad+" automotive",
+        ])
     # Avoid repeated identical requests on shorter unusual tool names.
-    return list(dict.fromkeys(q[:145] for q in queries))
+    return list(dict.fromkeys(q[:145] for q in queries))[:9]
 
 
 
@@ -1029,6 +1055,36 @@ def _get_product_page(url, signature,session=requests):
     return parse_product_page(response.content,url,signature)
 
 
+def _catalogue_snapshot_result(entry,signature):
+    """A dated independently checked manufacturer reference, never live stock.
+
+    Results still have a genuine source URL and explicit published facts;
+    today's price, stock and image remain unavailable until a live fetch.
+    Only internally curated, exact manufacturer sources are allowed.
+    """
+    url=entry.get("url")
+    if not safe_url(url) or not match_status(signature,entry.get("title","")):
+        return None
+    result=_build_result(
+        entry["title"],url,signature,brand=entry["brand"],sku=entry["sku"],
+        verified_specs=entry.get("verified_specs") or {})
+    if not result:
+        return None
+    result.update(
+        source_type="manufacturer catalogue reference",
+        match_status="Manufacturer catalogue reference — confirm current product details",
+        match_evidence=(
+            "Independently checked manufacturer specifications dated "+
+            entry["source_checked_on"]+
+            ". Live website access was unavailable; price, stock, product image "
+            "and any unlisted specifications have not been reverified."),
+        source_checked_on=entry["source_checked_on"],
+        comparison_relationship=entry.get("relationship","Related tool — verify use"),
+        price_gbp=None,price_source=None,vat_basis="unknown",
+        image_url=None,image_source=None)
+    return result
+
+
 def keyless_discovery(signature,session=requests):
     """Supplement unreliable web search with source-verified catalogue leads.
 
@@ -1039,6 +1095,11 @@ def keyless_discovery(signature,session=requests):
     found_urls=set()
     warnings=[]
     urls=[]
+    snapshots={
+        record["url"]:record for record in
+        catalogue_references(signature["type"])
+        if safe_url(record.get("url"))
+    }
     if signature["type"]=="inspection camera":
         urls.extend(INSPECTION_CAMERA_SEEDS)
     urls.extend(CATEGORY_SEEDS.get(signature["type"],()))
@@ -1081,6 +1142,12 @@ def keyless_discovery(signature,session=requests):
         try:
             verified=_get_product_page(url,signature,session)
             if verified:return verified
+            # When a free search provider or manufacturer blocks requests,
+            # show a clearly dated, sourced catalogue reference instead of
+            # falsely reporting zero competitors. Never attach guessed prices.
+            reference=snapshots.get(url)
+            if reference:
+                return _catalogue_snapshot_result(reference,signature)
             row=indexed_titles.get(url)
             curated=CURATED_CATALOGUE_LEADS.get(url)
             if row or curated:
@@ -1113,6 +1180,12 @@ def keyless_discovery(signature,session=requests):
     # Two workers preserve source coverage without sacrificing comparison.
     with ThreadPoolExecutor(max_workers=2) as pool:
         found.extend(item for item in pool.map(inspect,candidates) if item)
+    if any(item.get("source_type")=="manufacturer catalogue reference"
+           for item in found):
+        warnings.append(
+            "Dated official-manufacturer catalogue references are displayed "
+            "where live source pages could not be fetched. Current prices and "
+            "availability remain unverified.")
     warning=(" ".join(warnings) if warnings else None)
     return found,warning
 
@@ -1127,6 +1200,7 @@ def _distinct(results):
     def evidence_rank(item):
         return (
             item.get("source_type")=="retailer/manufacturer page",
+            item.get("source_type")=="manufacturer catalogue reference",
             bool(item.get("verified_specs")),
             bool(item.get("part_number")),
             bool(item.get("price_gbp")),
@@ -1256,7 +1330,9 @@ def research_competitors(product, *, session=requests,
     ai_status=_ai_review(product,signature,rows,session) if enable_ai else (
         "Conservative rules-based matching (AI review disabled).")
     if not rows or not any(
-            r["source_type"]!="unverified search-index title" for r in rows):
+            r["source_type"] in ("retailer/manufacturer page",
+                                "manufacturer catalogue reference")
+            for r in rows):
         warnings.append(
             "No source-verified competitor matches were found. This does not "
             "prove that competing tools do not exist. Try again or connect "
@@ -1272,7 +1348,9 @@ def research_competitors(product, *, session=requests,
         "images_found":sum(bool(r.get("image_url")) for r in rows),
         "product_links_found":sum(bool(r.get("product_url")) for r in rows),
         "verified_product_pages":sum(
-            r["source_type"]!="unverified search-index title" for r in rows),
+            r["source_type"]=="retailer/manufacturer page" for r in rows),
+        "manufacturer_catalogue_references":sum(
+            r["source_type"]=="manufacturer catalogue reference" for r in rows),
         "search_only_leads":sum(
             r["source_type"]=="unverified search-index title" for r in rows),
         "providers":providers,"warnings":list(dict.fromkeys(
