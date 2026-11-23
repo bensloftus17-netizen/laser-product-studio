@@ -62,9 +62,16 @@ def _normal_key(key):
         "weight": "weight", "product weight": "weight",
         "length": "length", "overall length": "length",
         "drive size": "drive size", "square drive": "drive size",
-        "maximum capacity": "capacity", "capacity": "capacity",
+        "maximum capacity": "fluid capacity", "capacity": "fluid capacity",
+        "tank capacity": "fluid capacity", "container capacity": "fluid capacity",
+        "reservoir capacity": "fluid capacity", "fluid capacity": "fluid capacity",
         "operating pressure": "operating pressure",
-        "max pressure": "operating pressure",
+        "maximum pressure": "maximum pressure",
+        "maximum pressure rating": "maximum pressure",
+        "max pressure": "maximum pressure",
+        "pressure gauge": "gauge range", "gauge range": "gauge range",
+        "euro adaptor neck": "adaptor neck",
+        "adapter neck": "adaptor neck", "adaptor neck": "adaptor neck",
     }
     return aliases.get(key, key)
 
@@ -98,22 +105,66 @@ def _strengths(product):
     return chosen
 
 
+def _spec_value(value):
+    """Normalise only equivalent unit spelling, without unit conversion.
+
+    2L, 2 L and 2 litres are the same published capacity. Never classify a
+    different value as an advantage just because its printed format differs.
+    """
+    text = _clean(value, 100).lower().replace("–", "-").replace("—", "-")
+    text = re.sub(r"(\d)\s*lit(?:re|er)s?\b", r"\1 l", text)
+    text = re.sub(r"(\d)\s*l\b", r"\1 l", text)
+    text = re.sub(r"(\d)\s*psi\b", r"\1 psi", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def _official_specs(product):
+    """Merge official technical specification fields with literal features.
+
+    Many Tool Connection listings publish fluid capacity and pressures only
+    in feature bullets, while the technical table contains only *packaged*
+    dimensions. Extract narrowly labelled numeric values without guessing.
+    """
     output = {}
     raw = product.get("specs") or {}
-    if not isinstance(raw, dict):
-        return output
-    for key, value in list(raw.items())[:36]:
-        label, detail = _clean(key, 70), _clean(value, 100)
-        if label and detail and not detail.startswith(("http://","https://")):
-            output[_normal_key(label)] = (label, detail)
+    if isinstance(raw, dict):
+        for key, value in list(raw.items())[:36]:
+            label, detail = _clean(key, 70), _clean(value, 100)
+            if (label and detail and not detail.startswith(("http://","https://"))
+                and not re.search(r"packaged|barcode|ean|shipping|carton",label,re.I)):
+                output[_normal_key(label)] = (label, detail)
+    features = " ".join(str(x) for x in product.get("features", [])
+                        if isinstance(x, str))
+    if re.search(r"\bbrake.{0,45}\bbleed",_clean(product.get("title"),180),re.I):
+        checks = (
+            ("fluid capacity", r"(\d+(?:\.\d+)?)\s*(?:l|litres?|liters?)\s+(?:capacity|tank|reservoir)",
+             "Fluid capacity"),
+            ("fluid capacity", r"(?:tank|reservoir|container|fluid)\s+(?:holds?\s+)?(?:capacity\s+)?(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:l|litres?|liters?)\b",
+             "Fluid capacity"),
+            ("operating pressure", r"operating\s+pressure\s*(?:rating\s*)?(?:of\s*)?(\d+(?:\.\d+)?)\s*psi",
+             "Operating pressure"),
+            ("maximum pressure", r"max(?:imum)?\s+pressure\s*(?:rating\s*)?(?:of\s*)?(\d+(?:\.\d+)?)\s*psi",
+             "Maximum pressure"),
+            ("gauge range", r"pressure\s+gauge\s*(?:from\s*)?(\d+\s*[-–]\s*\d+\s*psi)",
+             "Gauge range"),
+        )
+        for key, pattern, label in checks:
+            if key not in output:
+                m = re.search(pattern,features,re.I)
+                if m:
+                    detail = m.group(1).strip()
+                    if key in ("operating pressure","maximum pressure"):
+                        detail+=" psi"
+                    elif key=="fluid capacity":
+                        detail+=" L"
+                    output[key]=(label,detail)
     return output
-
 
 def _verified_competitor_rows(report, product, max_rows=4):
     rows = []
     laser_specs = _official_specs(product)
-    brands = set()
+    unique_products = set()
     for item in report.get("results") or []:
         if not isinstance(item, dict):
             continue
@@ -121,7 +172,8 @@ def _verified_competitor_rows(report, product, max_rows=4):
         # are leads but cannot be used as verified comparative evidence.
         source = item.get("source_type")
         url = item.get("product_url") or item.get("url")
-        if source != "retailer/manufacturer page" or not safe_url(url):
+        if source not in ("retailer/manufacturer page",
+                          "manufacturer catalogue reference") or not safe_url(url):
             continue
         brand = _clean(item.get("brand"), 55)
         title = _clean(item.get("title"), 180)
@@ -149,19 +201,26 @@ def _verified_competitor_rows(report, product, max_rows=4):
                      "competitor": competitor_value,
                      "laser_source": _safe_official(product.get("source")),
                      "competitor_source": url}
-            if laser_value.casefold() == competitor_value.casefold():
+            if _spec_value(laser_value) == _spec_value(competitor_value):
                 shared.append(claim)
             else:
                 differences.append(claim)
-        # Prefer one sourced product from each manufacturer for variety, but
-        # don't discard the only available product when brands repeat.
-        if brand.lower() in brands:
+        # One manufacturer can have distinct product lines/capacities.
+        # Deduplicate exact product URL/SKU, NOT all Draper or Sealey tools.
+        product_key=(brand.casefold(),_clean(item.get("part_number") or url,190).casefold())
+        if product_key in unique_products:
             continue
-        brands.add(brand.lower())
+        unique_products.add(product_key)
         rows.append({
             "brand": brand, "title": title,
             "part_number": _clean(item.get("part_number"), 60) or None,
             "url": url, "match_status": status,
+            "evidence_type": ("dated manufacturer catalogue reference"
+                              if source=="manufacturer catalogue reference"
+                              else "live checked product page"),
+            "source_checked_on": _clean(item.get("source_checked_on"),30) or None,
+            "comparison_relationship": _clean(item.get("comparison_relationship"),100)
+                                       or "Comparable category; technical fit unconfirmed",
             "verified_specifications": len(normalised),
             "published_differences": differences[:2],
             "shared_published_specs": shared[:2],
@@ -209,8 +268,10 @@ def build_why_choose_laser(product, report):
         "pricing_note": ("Laser manufacturer's RRP must not be directly "
                          "compared with competitors' retail offers. Pricing "
                          "is deliberately excluded from this sales sheet."),
-        "caution": ("An unpublished competitor feature is not evidence that "
-                    "the competitor lacks it. Different published specifications "
+        "caution": ("Dated manufacturer catalogue references are not live "
+                    "stock or price verification. An unpublished competitor "
+                    "feature is not evidence that the competitor lacks it. "
+                    "Different published specifications "
                     "are not automatically proof of better performance. "
                     "Confirm exact compatibility, date and claims before use."),
         "review_required": True,
@@ -318,7 +379,12 @@ def render_why_choose_laser_pdf(sheet, photo_bytes=None):
         ]]
         for i, c in enumerate(rivals[:4],1):
             name=("<b>"+_p(c.get("brand"))+"</b><br/>"+
-                  _p(c.get("title"))+"<br/>"+_link(c.get("url"),"Source ["+str(i)+"]"))
+                  _p(c.get("title"))+"<br/>"+
+                  _p(c.get("comparison_relationship"))+"<br/>"+
+                  ("Manufacturer catalogue details checked "+
+                   _p(c.get("source_checked_on"))+"<br/>"
+                   if c.get("source_checked_on") else "")+
+                  _link(c.get("url"),"Source ["+str(i)+"]"))
             diffs=c.get("published_differences") or []
             shared=c.get("shared_published_specs") or []
             if diffs:
