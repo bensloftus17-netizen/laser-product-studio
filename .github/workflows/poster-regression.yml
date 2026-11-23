@@ -13,6 +13,8 @@ on:
       - "test_role_separation_v69.py"
       - "test_reference_templates_v67.py"
       - "test_reference_critic_v68.py"
+      - "test_review_outage_v70.py"
+      - "app.py"
       - ".github/workflows/poster-regression.yml"
   workflow_dispatch:
 
@@ -30,4 +32,4 @@ jobs:
       - name: Compile application and poster modules
         run: python -m py_compile app.py campaign_hub.py creative_families.py format_creative.py reference_poster_templates.py workshop_promo_template.py
       - name: Verify reference layouts and diversity rules
-        run: python -m unittest -v test_role_separation_v69.py test_reference_templates_v67.py test_reference_critic_v68.py
+        run: python -m unittest -v test_role_separation_v69.py test_reference_templates_v67.py test_reference_critic_v68.py test_review_outage_v70.py
