@@ -264,7 +264,7 @@ def _card(c,x,y,w,h,name,title,colour,bullets,photo,source,missing_caption):
 
 
 def _table(c,rival):
-    x,y,w,h=19,132,PW-38,136
+    x,y,w,h=19,127,PW-38,125
     rows=_comparison_rows(rival)
     c.setLineWidth(.7)
     c.setStrokeColor(BORDER)
@@ -345,7 +345,7 @@ def render_visual_comparison_pdf(sheet,photo_bytes=None):
                   20,PH-96,530,12,size=8,bold=True,colour=RED)
         draw_text(c,"WHY CHOOSE LASER?",PW-182,PH-96,161,12,
                   size=9,bold=True,colour=BLUE)
-        panel_y=278
+        panel_y=262
         gap=10
         panel_w=(PW-48)/2
         left_x=19
