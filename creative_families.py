@@ -51,6 +51,54 @@ FORMAT_PARENTS={
     "linkedin_graphic":"technical_application",
     "landscape_ad":"product_selected",
 }
+# V69: six native outputs have individual format-specific art direction.
+# Parent role selects selling point and approved context, NOT a copied poster
+# composition. These six visual families are distinct by default.
+FORMAT_VISUAL_FAMILIES={
+    "social_square":"commercial_burst",
+    "social_story":"editorial_split",
+    "website_banner":"premium_spotlight",
+    "email_header":"toolkit_coverage",
+    "linkedin_graphic":"engineering_grid",
+    "landscape_ad":"workshop_motion",
+}
+FORMAT_VISUAL_TREATMENTS={
+    "social_square":"bold_geometry",
+    "social_story":"split_canvas",
+    "website_banner":"cinematic",
+    "email_header":"clean_minimal",
+    "linkedin_graphic":"technical_infographic",
+    "landscape_ad":"photo_editorial",
+}
+_FORMAT_TREATMENTS=tuple(FORMAT_VISUAL_TREATMENTS.values())
+
+
+def choose_native_visuals(kind, family=None, treatment=None, used_families=(),
+                          used_treatments=()):
+    """Retain valid independent AI choices; repair repeated/invalid ones.
+
+    Never changes the model's verified text zones, product source pixels or
+    role-specific technical/price/benefit claims. AI style is preferred only
+    when it does not make all six formats repeat the same composition.
+    """
+    if kind not in FORMAT_VISUAL_FAMILIES:
+        raise ValueError("Unsupported native campaign format")
+    fallback_family=FORMAT_VISUAL_FAMILIES[kind]
+    selected_family=family if family in FAMILIES else fallback_family
+    if selected_family in used_families:
+        selected_family=next(
+            (candidate for candidate in (fallback_family,*FAMILIES)
+             if candidate not in used_families),fallback_family)
+    fallback_treatment=FORMAT_VISUAL_TREATMENTS[kind]
+    selected_treatment=(
+        treatment if treatment in _FORMAT_TREATMENTS else fallback_treatment)
+    if selected_treatment in used_treatments:
+        selected_treatment=next(
+            (candidate for candidate in (fallback_treatment,*_FORMAT_TREATMENTS)
+             if candidate not in used_treatments),fallback_treatment)
+    return selected_family,selected_treatment
+
+
 # Native formats can inherit a different angle when warranted, but the
 # distributed campaign always uses all three angles.
 ALLOWED_FORMAT_PARENTS={
