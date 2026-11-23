@@ -10,7 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def collect_official_photo_options(urls, fetch, valid, rank, *,
-                                   max_checks=15, workers=3):
+                                   max_checks=15, workers=3,
+                                   min_distinct_good=1, distinct_signature=None):
     """Inspect bounded batches, continuing past low-quality images.
 
     Stop only when an actual source passes the strict preflight at a preferred
@@ -24,6 +25,7 @@ def collect_official_photo_options(urls, fetch, valid, rank, *,
     ))[:max_checks]
     found=[]
     checked=[]
+    good_signatures=[]
     def inspect(url):
         try:
             response=fetch(url)
@@ -42,11 +44,24 @@ def collect_official_photo_options(urls, fetch, valid, rank, *,
             results=list(pool.map(inspect,batch))
         checked.extend(batch)
         found.extend(result for result in results if result)
-        if any(
-            x[3].get("passed") and
-            min(x[3].get("size") or (0,0))>=650
-            for x in results if x
-        ):
+        for item in results:
+            if not item or not item[3].get("passed"):
+                continue
+            if min(item[3].get("size") or (0,0))<650:
+                continue
+            try:
+                signature=(distinct_signature(item[1])
+                           if distinct_signature else item[2])
+            except (OSError,ValueError):
+                continue
+            if isinstance(signature,int):
+                if any((signature^older).bit_count()<=5
+                       for older in good_signatures):
+                    continue
+            elif signature in good_signatures:
+                continue
+            good_signatures.append(signature)
+        if len(good_signatures)>=max(1,min_distinct_good):
             break
     return found,checked
 
