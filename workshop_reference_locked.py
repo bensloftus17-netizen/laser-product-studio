@@ -11,7 +11,7 @@ import base64
 import io
 import re
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance
 
 from ai_promo_renderer import verified_price
 from brand_assets import get_brand_image
@@ -113,7 +113,12 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
         raise ValueError("Locked workshop renderer requires source-safe adapters")
     canvas=Image.new("RGBA", (W,H), DARK)
     # Exact photographic workshop & steel workbench FROM USER TEMPLATE.
-    canvas.alpha_composite(reference_scene(), (0, 259))
+    photographed_workshop=reference_scene()
+    # Variants can change lighting without moving or reconstructing any
+    # photograph, kit panel, workbench, footer or product title region.
+    photographed_workshop=ImageEnhance.Brightness(
+        photographed_workshop).enhance((1.0,.92,.85)[variant%3])
+    canvas.alpha_composite(photographed_workshop, (0, 259))
     d=ImageDraw.Draw(canvas, "RGBA")
     # Original template: tall LASER header and single horizontal blue line.
     d.rectangle((0, 0, W, 265), fill=DARK)
