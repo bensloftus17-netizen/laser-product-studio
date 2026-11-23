@@ -255,7 +255,7 @@ def reconcile_with_measured_geometry(visual, quality_reports, distinctness=None)
     outcome["issues"]=preserved
     outcome["geometry_disagreements"]=disputed
     if disputed:
-        message=("Visual model findings disagreed with independently checked "
+        message=("Visual model findings disagreed with measurable, independently checked "
                  "text, product bounds or strong pairwise pixel differences "
                  "of locked reference templates. Disagreements are recorded "
                  "for human review; source, layout, image and duplication "
