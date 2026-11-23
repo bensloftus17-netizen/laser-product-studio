@@ -2685,7 +2685,17 @@ def manufacturer_gallery_urls(part,session=requests):
     # Deterministically check full-resolution srcset options ahead of tiny
     # thumbnails. Still quality-check every official image's actual pixels.
     sorted_matches=sorted(matches,key=lambda pair:-pair[1])
-    return list(dict.fromkeys(url for url,_ in sorted_matches))
+    # The two approved Laser domains often mirror the identical physical
+    # gallery path. Preserve different original angles and XLarge/large
+    # variants, but don't waste fetches on host-mirrored copies.
+    seen_paths=set()
+    official=[]
+    for url,_ in sorted_matches:
+        key=urlparse(url).path.lower()
+        if key not in seen_paths:
+            seen_paths.add(key)
+            official.append(url)
+    return official
 
 
 def pdf_render_photo(pdfbytes):
