@@ -47,6 +47,17 @@ jobs:
           research=get("/api/competitors/9517",timeout=90).json()
           assert research.get("laser",{}).get("part")=="9517"
           print("Verified competitor count:",research.get("count"),flush=True)
+          assert research.get("count",0)>=2,"9517 returned no real alternatives"
+          brands={row.get("brand") for row in research.get("results",[])}
+          assert {"Astro Pneumatic","Beswell"}.issubset(brands),brands
+          pack=research.get("why_laser_pack") or {}
+          sheet=pack.get("sheet") or {}
+          assert sheet.get("part")=="9517","Source-backed sales sheet missing"
+          assert len(sheet.get("competitors",[]))>=2,"Not enough sales sheet comparisons"
+          import base64
+          pdf=base64.b64decode(pack.get("pdf_base64") or "",validate=True)
+          assert pdf.startswith(b"%PDF-"),"Why Choose Laser PDF unavailable"
+          print("Why Choose Laser PDF ready, bytes:",len(pdf),flush=True)
           health=get("/api/health",timeout=12)
           assert health.json().get("ok") is True
           print("PASS: live 9517 lookup, comparison, and worker survival",flush=True)
