@@ -224,7 +224,7 @@ def _panel(draw, title, value, box, *, label_color=CYAN, role="detail"):
 
 
 def render_promo_reference(product, official_photo, concept, scene=None,
-                           distributor=None, variant=0):
+                           distributor=None, variant=0, *, _photo_placer=None):
     """V71: use the user-supplied workshop photo/reference, NOT generic art.
 
     Keep the original public function signature and the existing source-safe
@@ -234,5 +234,5 @@ def render_promo_reference(product, official_photo, concept, scene=None,
     from workshop_reference_locked import render_locked_workshop_promo
     return render_locked_workshop_promo(
         product, official_photo, concept, scene, distributor, variant=variant,
-        photo_placer=product_photo,
+        photo_placer=_photo_placer or product_photo,
         required=_required, source_facts=_verified_facts, save=_save)
