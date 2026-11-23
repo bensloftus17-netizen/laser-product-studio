@@ -75,7 +75,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V65 memory stable</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V69 distinct artwork</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -116,7 +116,7 @@ V7_HOME_PAGE = r'''
   <option value="workshop_showcase" selected>Workshop Showcase — your reference layout (default)</option>
   <option value="ai_original">AI Original — unrestricted brand-safe composition</option>
  </select>
- <small>Poster 01 always uses the structured technical product sheet. Poster 02 uses the workshop reference with the genuine Laser tool, approved source facts and verified UK price; quality-checked variants adjust staging without changing its structure. Poster 03 stays AI-led.</small>
+ <small>Only Poster 02 uses your workshop-bench reference (the default). Poster 01 keeps the technical product sheet; Poster 03 remains a separate AI-led product spotlight. The six social and web formats use their own varied native layouts. Genuine product photos, verified facts and price checks remain locked.</small>
 </div>
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
@@ -878,19 +878,21 @@ function renderCampaignGallery(data){
  function creativeAssetDetails(asset){
    if(posterRoles[asset.id]){
      const a=angleByRole[posterRoles[asset.id]]||{};
-     return (asset.id==='poster_technical'?'Template: Technical reference sheet · ':asset.id==='poster_price'&&m.promo_template==='workshop_showcase'?
-       'Template: Workshop Showcase · verified reference layout · ':'')+
-       'Angle: '+posterRoles[asset.id].replaceAll('_',' ')+' · Creative family: '+
-       String(a.creative_family||'source-verified layout').replaceAll('_',' ')+
-       ' · Headline: '+String(a.headline_strategy||'product')+
-       ' · Proof: '+String(a.proof_strategy||'verified')+
-       ' · Palette: '+String(a.creative_palette||'Laser blue').replaceAll('_',' ')+
-       ' · Design: '+String(a.visual_treatment||'source safe').replaceAll('_',' ');
+     if(asset.id==='poster_technical'){
+       return '01 / Technical reference · clean blue manufacturer-style fact sheet · source-verified application and specifications';
+     }
+     if(asset.id==='poster_price'&&m.promo_template==='workshop_showcase'){
+       return '02 / Workshop Showcase ONLY · real workshop scene · large original product on bench · verified price and filled information panels';
+     }
+     return '03 / Product spotlight · independently AI-directed creative composition · '+
+       'selling angle: '+String(a.proof_strategy||'verified product benefit').replaceAll('_',' ')+
+       ' · palette: '+String(a.creative_palette||'Laser blue').replaceAll('_',' ');
    }
    const report=(m.format_artwork_quality||{})[asset.id];
    if(!report)return '';
-   return 'Parent: '+String(report.parent_role||'source verified').replaceAll('_',' ')+
-     ' · Style: '+String(report.creative_family||'source-verified').replaceAll('_',' ')+
+   return 'Native design: '+String(report.creative_family||'source-verified').replaceAll('_',' ')+
+     ' · Treatment: '+String(report.visual_treatment||'original').replaceAll('_',' ')+
+     ' · Angle: '+String(report.parent_role||'verified').replaceAll('_',' ')+
      ' · Palette: '+String(report.creative_palette||'Laser blue').replaceAll('_',' ')+
      ' · '+(report.render_engine==='ai-original-format-canvas'
        ?'AI native composition': 'Verified fallback layout');
