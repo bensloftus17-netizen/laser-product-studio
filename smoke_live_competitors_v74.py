@@ -17,7 +17,7 @@ def wait_for_v74():
         try:
             r = requests.get(BASE, timeout=15)
             if r.status_code == 200 and "V75 restart-safe sales sheets" in r.text:
-                print("V74 website is live")
+                print("V75 website is live")
                 return
             print("Waiting for V74 deploy", attempt + 1, "HTTP", r.status_code)
         except requests.RequestException as error:
@@ -30,17 +30,24 @@ def main():
     wait_for_v74()
     expected={"22495", "12724211", "VS820", "29358"}
     response=None
-    for attempt in range(3):
-        response=requests.get(BASE+"/api/competitors/4832",timeout=85,
-                              headers={"Accept":"application/json"})
-        print("Competitor endpoint HTTP",response.status_code,
-              "attempt",attempt+1)
-        if response.status_code==200:
-            break
-        if response.status_code not in (429,503):
-            raise AssertionError("Unexpected HTTP status: "+
-                                 str(response.status_code)+" "+response.text[:450])
-        time.sleep(10)
+    # Render deploys can briefly return 502 while swapping instances.
+    # Retry those gateway failures without looping endlessly or hiding
+    # persistent application failures.
+    for attempt in range(5):
+        try:
+            response=requests.get(BASE+"/api/competitors/4832",timeout=85,
+                                  headers={"Accept":"application/json"})
+            print("Competitor endpoint HTTP",response.status_code,
+                  "attempt",attempt+1,flush=True)
+            if response.status_code==200:
+                break
+            if response.status_code not in (429,502,503,504):
+                raise AssertionError("Unexpected HTTP status: "+
+                                     str(response.status_code)+" "+response.text[:450])
+        except requests.RequestException as exc:
+            print("Temporary Render gateway/network error",type(exc).__name__,flush=True)
+        if attempt<4:
+            time.sleep(12)
     assert response is not None and response.status_code == 200, (
         "Render did not accept 4832 competitor research after bounded retries")
     report=response.json()
