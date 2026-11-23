@@ -472,7 +472,7 @@ def _source_qr(product):
 
 
 def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
-                   application_photo=None, progress=None,
+                   application_photo=None, gallery_images=None, progress=None,
                    promo_template="workshop_showcase",spill_archive=False):
     """Return a complete archive plus previewable images and a public manifest.
 
@@ -489,6 +489,41 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     if not genuine_photo:
         raise ValueError("A genuine manufacturer product image is required.")
     promo_template=validate_promo_template(promo_template)
+    # Every alternate must be a genuine, official exact-SKU photo that passes
+    # the same professional manufacturer-cutout QA as the original hero.
+    # The source list is read from a temporary private disk gallery, never
+    # from the model or untrusted browser-supplied image URLs.
+    role_photos=[genuine_photo]
+    for candidate in (gallery_images or [])[:4]:
+        if not isinstance(candidate,bytes) or candidate==genuine_photo:
+            continue
+        if any(candidate==existing for existing in role_photos):
+            continue
+        try:
+            require_good_asset(candidate)
+        except (OSError,ValueError):
+            continue
+        role_photos.append(candidate)
+        if len(role_photos)==4:
+            break
+    def _poster_photo(index):
+        return role_photos[index] if index<len(role_photos) else genuine_photo
+    def _format_photo(key):
+        return role_photos[(FORMAT_ORDER.index(key)+3)%len(role_photos)]
+    def _photo_source(blob):
+        import hashlib
+        digest=hashlib.sha256(blob).hexdigest()
+        for item in (product.get("photo_gallery") or []):
+            if item.get("sha256")==digest:
+                return {"source_url":item.get("source_url"),
+                        "type":item.get("type"),"sha256":digest}
+        return {"source_url":product.get("photo_source"),
+                "type":"original official hero","sha256":digest}
+    photo_assignments={
+        role:_photo_source(_poster_photo(index))
+        for index,role in enumerate(("poster_technical","poster_price","poster_smart"))}
+    photo_assignments.update({
+        key:_photo_source(_format_photo(key)) for key in FORMAT_ORDER})
     _emit("planning")
     if distributor and distributor not in BRAND_LABELS:
         raise ValueError("Unsupported distributor brand.")
@@ -614,7 +649,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         candidate = dict(concepts[index])
         candidate["variant"]=variant
         with capture() as tracked:
-            output = renderer(product,genuine_photo,candidate,
+            output = renderer(product,_poster_photo(index),candidate,
                               scenes[index],distributor)
         return output,_geometry(tracked)
 
@@ -623,11 +658,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         with capture() as tracked:
             if index==0:
                 payload=render_technical_reference(
-                    product,genuine_photo,concepts[index],scenes[index],
+                    product,_poster_photo(index),concepts[index],scenes[index],
                     distributor,variant=variant)
             elif index==1 and promo_template=="workshop_showcase":
                 payload=render_workshop_showcase(
-                    product,genuine_photo,concepts[index],scenes[index],
+                    product,_poster_photo(index),concepts[index],scenes[index],
                     distributor,variant=variant)
             else:
                 raise ValueError("No fixed reference for this campaign role")
@@ -654,7 +689,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "blur":(2.0,2.4,1.8)[variant],"colour":.82,
         }
         detail={}
-        output=render_promo(candidate,genuine_photo,product,distributor,editor={
+        output=render_promo(candidate,_poster_photo(index),product,distributor,editor={
             "background":"context","_scene_bytes":scenes[1],
             "_scene_style":context_style,"show_subline":False,
             "price_style":styles[variant],
@@ -681,7 +716,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             if index==0 or (index==1 and promo_template=="workshop_showcase"):
                 image_assets[key],quality_reports[key]=choose_best(
                     lambda variant,index=index:_reference_candidate(index,variant),
-                    ROLES[index],genuine_photo,
+                    ROLES[index],_poster_photo(index),
                     preferred_variant=1,scene_relevance=scene_warning)
                 quality_reports[key]["render_engine"]=(
                     "laser-technical-reference" if index==0
@@ -693,11 +728,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     if (key=="poster_price" and
                             promo_template=="workshop_showcase" and text_safety==0):
                         poster=render_workshop_showcase(
-                            product,genuine_photo,concepts[index],scenes[index],
+                            product,_poster_photo(index),concepts[index],scenes[index],
                             distributor,variant=variant)
                     else:
                         poster=render_creative_canvas(
-                            product,genuine_photo,concepts[index],scenes[index],
+                            product,_poster_photo(index),concepts[index],scenes[index],
                             distributor,variant=variant,text_safety=text_safety)
                 return poster,_geometry(tracked,measured_text=True)
             failures=[]
@@ -713,7 +748,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     selected=choose_best(
                         lambda variant,safety=safety:_creative_candidate(
                             variant,text_safety=safety),
-                        ROLES[index],genuine_photo,preferred_variant=1,
+                        ROLES[index],_poster_photo(index),preferred_variant=1,
                         scene_relevance=scene_warning)
                     if safety:
                         engine="ai-freeform-text-recovery"
@@ -727,7 +762,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 try:
                     selected=choose_best(
                         lambda variant:_verified_safe_candidate(index,variant),
-                        ROLES[index],genuine_photo,
+                        ROLES[index],_poster_photo(index),
                         scene_relevance=scene_warning)
                     engine="verified-safe-layout"
                     warnings.append(
@@ -752,7 +787,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         _emit("rendering","poster_technical")
         image_assets["poster_technical"],quality_reports["poster_technical"] = choose_best(
             lambda variant:_reference_candidate(0,variant),
-            "technical_application",genuine_photo,
+            "technical_application",_poster_photo(0),
             preferred_variant=concepts[0]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[0]["relevance_warning"]})
         quality_reports["poster_technical"]["render_engine"]="laser-technical-reference"
@@ -765,7 +800,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             if promo_template=="workshop_showcase":
                 with capture() as tracked:
                     output=render_workshop_showcase(
-                        product,genuine_photo,retail,scenes[1],
+                        product,_poster_photo(1),retail,scenes[1],
                         distributor,variant=variant)
                 return output,_geometry(tracked,measured_text=True)
             candidate=dict(retail)
@@ -780,7 +815,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 "blur":(2.0,2.4,1.8)[variant],"colour":.82,
             }
             detail={}
-            output=render_promo(candidate,genuine_photo,product,distributor,editor={
+            output=render_promo(candidate,_poster_photo(1),product,distributor,editor={
                 "background":"context","_scene_bytes":scenes[1],
                 "_scene_style":context_style,"show_subline":False,
                 "price_style":styles[variant],
@@ -795,7 +830,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                            "overlaps":bool(detail.get("issues"))}
     
         image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
-            _price_candidate,"price_promo",genuine_photo,
+            _price_candidate,"price_promo",_poster_photo(1),
             preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[1]["relevance_warning"]})
         if promo_template=="workshop_showcase":
@@ -804,7 +839,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         _emit("rendering","poster_smart")
         image_assets["poster_smart"],quality_reports["poster_smart"] = choose_best(
             lambda variant:_role_candidate(2,smart_poster,variant),
-            "product_selected",genuine_photo,
+            "product_selected",_poster_photo(2),
             preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[2]["relevance_warning"]})
         _emit("quality_checking","poster_smart")
@@ -893,15 +928,15 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 # Any failed native-format artwork is rejected rather than
                 # quietly shipping a white product rectangle or cropped text.
                 output,report=generate_format(
-                    key,brief,product,genuine_photo,scenes=scenes,
+                    key,brief,product,_format_photo(key),scenes=scenes,
                     headlines=headlines,facts=format_facts,distributor=distributor,
-                    source_report=asset_report)
+                    source_report=require_good_asset(_format_photo(key)))
                 image_assets[key]=output
                 format_reports[key]=report
                 format_canvases[key]=brief
             else:
                 image_assets[key]=_native_graphic(
-                    product,genuine_photo,distributor,key,parent_proof,
+                    product,_format_photo(key),distributor,key,parent_proof,
                     scene=scenes[scene_idx],visual_plan=creative_plan,
                     creative_family=native_family,headline=parent_headline,
                     creative_palette=palette,visual_treatment=native_treatment)
@@ -932,12 +967,12 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             recovered=False
             if brief and mode=="gemini-assisted":
                 try:
-                    source_gate=asset_report or require_good_asset(genuine_photo)
+                    source_gate=asset_report or require_good_asset(_format_photo(key))
                     safe_fact=min(
                         (f for f in format_facts if f),
                         key=len,default=proof)
                     native=_native_graphic(
-                        product,genuine_photo,distributor,key,
+                        product,_format_photo(key),distributor,key,
                         parent_proof if parent_proof else safe_fact,
                         scene=scenes[scene_idx],visual_plan=creative_plan,
                         creative_family=native_family,headline=parent_headline,
@@ -1020,13 +1055,13 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                             return _reference_candidate(index,variant)
                         with capture() as tracked:
                             payload=render_creative_canvas(
-                                product,genuine_photo,concepts[index],
+                                product,_poster_photo(index),concepts[index],
                                 scenes[index],distributor,variant=variant,
                                 text_safety=attempt)
                         return payload,_geometry(tracked,measured_text=True)
                     try:
                         revised,report=choose_best(
-                            _repair_candidate,ROLES[index],genuine_photo,
+                            _repair_candidate,ROLES[index],_poster_photo(index),
                             variants=(alternative,))
                     except ValueError as exc:
                         # A failed local layout never replaces a previously
@@ -1089,7 +1124,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     try:
                         revised,report=choose_best(
                             lambda variant,index=index:_verified_safe_candidate(index,variant),
-                            ROLES[index],genuine_photo,
+                            ROLES[index],_poster_photo(index),
                             scene_relevance={"warning":
                                 scene_references[index]["relevance_warning"]})
                     except (ValueError,OSError,RuntimeError):
@@ -1208,6 +1243,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "format_artwork_quality": format_reports,
         "ai_format_canvases": format_canvases,
         "product_photo_quality":asset_report,
+        "official_photo_gallery":product.get("photo_gallery") or [],
+        "artwork_photo_sources":photo_assignments,
         "creative_critic":{
             "method":critic["method"],"reviewed":critic["reviewed"],
             "issues":critic["issues"],"warning":critic["warning"],
