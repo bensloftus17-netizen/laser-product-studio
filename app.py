@@ -2,11 +2,12 @@
 Public-site pilot. Not affiliated with the official Laser Tools website.
 """
 from __future__ import annotations
-import io, re, json, time, zipfile, hashlib, logging, html, base64, secrets, threading, gc
+import io, re, json, time, zipfile, hashlib, logging, html, base64, secrets, threading, gc, tempfile, shutil
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
 from typing import Any
+from pathlib import Path
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import fitz
@@ -31,7 +32,7 @@ from promo_art_direction import normalise_art_direction, editor_preferences, sce
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
-from disk_campaign_store import store_campaign, StoredCampaign
+from disk_campaign_store import store_campaign, StoredCampaign, _atomic_file
 from copy_rewriter import rewrite_copy, SUPPORTED_MODES, AUDIENCES
 from competitor_finder import research_competitors, report_csv
 from why_choose_laser import (
@@ -3445,7 +3446,14 @@ def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report
             if stage=='ready':
                 if not isinstance(payload,bytes) or not payload.startswith(b'\x89PNG\r\n\x1a\n'):
                     raise ValueError("Validated campaign artwork must be PNG bytes")
-                job['preview_images'][asset_id]=payload
+                # The builder already holds a full PNG for every ready asset.
+                # Retaining a second copy in this job made cumulative 9-image
+                # generation liable to OOM. Spill each checked PNG atomically
+                # into a private per-job directory. Same genuine pixels, no
+                # recompression, no download or quality changes.
+                destination=Path(job['preview_folder'])/(asset_id+'.png')
+                _atomic_file(destination,payload)
+                job['preview_images'][asset_id]=destination
                 # Explicitly disclose an unreviewed INTERNAL DRAFT poster,
                 # never label a temporary Gemini outage as visual approval.
                 state['manual_review_required']=bool(
@@ -3497,7 +3505,8 @@ def _run_campaign_job(job_id,part,body):
                     key=asset['id']
                     if key in job['assets'] and key in bundle['images']:
                         job['assets'][key]['status']='ready'
-                job['preview_images'].clear()  # Avoid duplicate PNG bytes in RAM
+                job['preview_images'].clear()
+                shutil.rmtree(job['preview_folder'],ignore_errors=True)
                 job.update(status='ready',stage='complete',token=token,error=None,
                            expires=time.time()+CAMPAIGN_PACK_TTL)
         del bundle
@@ -3530,7 +3539,8 @@ def start_mobile_campaign(part):
             now=time.time()
             for key in list(CAMPAIGN_JOBS):
                 if CAMPAIGN_JOBS[key]['expires']<now:
-                    CAMPAIGN_JOBS.pop(key,None)
+                    stale=CAMPAIGN_JOBS.pop(key)
+                    shutil.rmtree(stale.get('preview_folder',''),ignore_errors=True)
             active=sum(v['status'] in ('queued','running') for v in CAMPAIGN_JOBS.values())
             # Free Render has ~0.15 CPU and 512 MB RAM. Concurrent high-resolution
             # campaigns saturate it and prevent even the first image from arriving.
@@ -3541,10 +3551,11 @@ def start_mobile_campaign(part):
                 response.headers['Retry-After']='45'
                 return response
             job_id=secrets.token_urlsafe(24)
+            preview_folder=tempfile.mkdtemp(prefix='laser-progress-')
             CAMPAIGN_JOBS[job_id]={
                 'part':part,'status':'queued','stage':'queued','token':None,
                 'assets':{k:{'status':'queued'} for k in PROGRESS_ASSETS},
-                'preview_images':{},
+                'preview_images':{},'preview_folder':preview_folder,
                 'error':None,'expires':now+CAMPAIGN_JOB_TTL,
                 'started_at':now,'last_activity_at':now}
         try:
@@ -3552,7 +3563,10 @@ def start_mobile_campaign(part):
                 args=(job_id,part,body),daemon=True,
                 name='laser-campaign-'+part).start()
         except Exception:
-            with CAMPAIGN_JOBS_LOCK:CAMPAIGN_JOBS.pop(job_id,None)
+            with CAMPAIGN_JOBS_LOCK:
+                unsuccessful=CAMPAIGN_JOBS.pop(job_id,None)
+            if unsuccessful:
+                shutil.rmtree(unsuccessful.get('preview_folder',''),ignore_errors=True)
             CAMPAIGN_RENDER_SLOT.release()
             raise
         response=jsonify(job_id=job_id,status='queued',part=part)
