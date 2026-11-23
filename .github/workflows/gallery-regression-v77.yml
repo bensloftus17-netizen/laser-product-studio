@@ -1,0 +1,31 @@
+name: Official gallery and image-diverse posters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app.py"
+      - "source_image_selection.py"
+      - "official_photo_gallery.py"
+      - "campaign_hub.py"
+      - "test_multi_gallery_v77.py"
+      - ".github/workflows/gallery-regression-v77.yml"
+  workflow_dispatch:
+
+jobs:
+  official-photo-gallery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile altered application modules
+        run: python -m py_compile app.py official_photo_gallery.py source_image_selection.py campaign_hub.py
+      - name: Verify exact-SKU gallery discovery, private image storage and differentiated source photos
+        env:
+          GEMINI_API_KEY: ""
+        run: python -m unittest -v test_multi_gallery_v77.py test_photo_rescue_v63.py
