@@ -139,6 +139,12 @@ class RenderMemoryProtectionV73Tests(unittest.TestCase):
             with patch.object(memory_guard,'current_memory',
                               return_value={'used_bytes':300*M,'limit_bytes':512*M}):
                 self.assertTrue(memory_guard.can_start_heavy('campaign'))
+            # PNG previews are disk-backed; reclaimable page cache must not
+            # cause false rejection of otherwise safe memory workloads.
+            with patch.object(memory_guard,'current_memory',
+                              return_value={'used_bytes':482*M,'limit_bytes':512*M,
+                                            'reclaimable_bytes':185*M}):
+                self.assertTrue(memory_guard.can_start_heavy('campaign'))
             with patch.object(memory_guard,'current_memory',
                               return_value={'used_bytes':None,'limit_bytes':None}):
                 self.assertTrue(memory_guard.can_start_heavy('campaign'))
