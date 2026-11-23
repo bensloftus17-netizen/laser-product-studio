@@ -868,8 +868,12 @@ function renderCampaignGallery(data){
   throw new Error('The campaign response is incomplete. No missing artwork will be shown as finished.');
  }
  const artworkCount=m.images.filter(item=>item.id!=='source_qr').length;
- $('campaignAssetCount').textContent='All '+artworkCount+' campaign artwork files are ready. Scroll down to view every format; tap a graphic to open it.';
- $('assetWorkspaceStatus').textContent='Complete campaign available: '+artworkCount+' native artwork formats. Scroll to browse them all.';
+ const manualPending=Boolean(m.manual_visual_review_pending);
+ $('campaignAssetCount').textContent=(manualPending?'INTERNAL DRAFT — MANUAL POSTER REVIEW REQUIRED. ':'')+
+   'All '+artworkCount+' campaign artwork files are available. Scroll down to view every format; tap a graphic to open it.';
+ $('assetWorkspaceStatus').textContent=manualPending
+   ?'Complete internal draft: '+artworkCount+' assets. All 3 posters require human visual approval before use.'
+   :'Complete campaign available: '+artworkCount+' native artwork formats. Scroll to browse them all.';
  const names={poster_technical:'01 / Application & Technical',poster_price:'02 / Price Promotion',poster_smart:'03 / Product-Selected',
  social_square:'Facebook / Instagram Square',social_story:'Instagram Story (9:16)',website_banner:'Website Banner',
  email_header:'Email Header',linkedin_graphic:'LinkedIn Graphic',landscape_ad:'Landscape Advert',source_qr:'Official Product QR'};
@@ -1135,8 +1139,10 @@ function renderProgressGallery(jobId,data){
   const oldStatus=item.status||'queued';
   const status=failed&&oldStatus!=='ready'
     ?(oldStatus==='queued'?'skipped':'failed'):oldStatus;
-  const message={queued:'Queued',rendering:'Generating',quality_checking:'Quality checking',
-    ready:'Ready · passed checks',failed:'Not approved',skipped:'Not generated'}[status]||'Queued';
+  const message=status==='ready'&&item.manual_review_required
+    ?'Draft · manual review pending'
+    :({queued:'Queued',rendering:'Generating',quality_checking:'Quality checking',
+       ready:'Ready · passed checks',failed:'Not approved',skipped:'Not generated'}[status]||'Queued');
   $('progress-state-'+id).textContent=message;
   $('progress-card-'+id).dataset.status=status;
   if(status!=='ready'){
@@ -1285,7 +1291,9 @@ function showCampaign(data){
  const engine=m.creative_plan&&m.creative_plan.render_engine;
  const freeform=engine==='ai-authored-freeform-layout';
  const mixed=engine==='mixed-ai-and-verified-safe-layout';
- $('campaignSummary').textContent=(mixed
+ $('campaignSummary').textContent=(m.manual_visual_review_pending
+     ?'INTERNAL DRAFT ONLY — a second AI visual review was unavailable. All nine assets can be examined but posters still require human sign-off. '
+     :'' )+(mixed
      ?'Original AI compositions plus independently approved safe-layout recovery for a rejected poster. Genuine manufacturer photos and verified facts retained. '
      :freeform
        ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
@@ -1296,7 +1304,8 @@ function showCampaign(data){
  const checked=Object.values(m.artwork_quality||{});
  const alerts=checked.flatMap(item=>item.warnings||[]);
  $('campaignQuality').textContent=checked.length
-   ?checked.filter(item=>item.passed).length+' / '+checked.length+
+   ?(m.manual_visual_review_pending?'MANUAL VISUAL APPROVAL PENDING · ':'')+
+    checked.filter(item=>item.passed).length+' / '+checked.length+
     ' posters passed automated layout checks · '+checked.reduce((n,item)=>n+(item.candidates_checked||0),0)+
     ' candidate designs reviewed.'+(alerts.length?' Photo review: '+[...new Set(alerts)].join('; ')+'.':'')
    :'Automated poster checks unavailable — review every image before sharing.';
@@ -3284,6 +3293,10 @@ def _campaign_progress_update(job_id, stage, asset_id=None, payload=None, report
                 if not isinstance(payload,bytes) or not payload.startswith(b'\x89PNG\r\n\x1a\n'):
                     raise ValueError("Validated campaign artwork must be PNG bytes")
                 job['preview_images'][asset_id]=payload
+                # Explicitly disclose an unreviewed INTERNAL DRAFT poster,
+                # never label a temporary Gemini outage as visual approval.
+                state['manual_review_required']=bool(
+                    (report or {}).get('manual_review_required'))
             if stage=='failed':
                 reason=(report or {}).get('issues') or ["Artwork failed verification"]
                 state['error']=str(reason[0])[:180]
