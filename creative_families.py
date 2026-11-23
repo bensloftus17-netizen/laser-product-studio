@@ -73,6 +73,34 @@ FORMAT_VISUAL_TREATMENTS={
 _FORMAT_TREATMENTS=tuple(FORMAT_VISUAL_TREATMENTS.values())
 
 
+def validate_poster_reference_roles(engines, promo_template):
+    """Never let one of the three poster slots inherit another's template.
+
+    The workshop reference supplied by the user is exclusive to poster 02,
+    technical poster 01 is always the clean source-backed product sheet, and
+    poster 03 must be independently directed. Called before the extra six
+    native formats are generated, so a wrong mapping stops immediately.
+    """
+    if not isinstance(engines,dict):
+        raise ValueError("Missing poster render-engine records")
+    if engines.get("poster_technical")!="laser-technical-reference":
+        raise ValueError("Technical poster reference layout was not retained.")
+    workshop_slots=[
+        key for key,value in engines.items()
+        if value=="laser-workshop-promo-reference"
+    ]
+    if promo_template=="workshop_showcase":
+        if workshop_slots!=["poster_price"]:
+            raise ValueError(
+                "Workshop reference must be used for the price poster only.")
+    elif workshop_slots:
+        raise ValueError("Workshop reference was used without selection.")
+    if engines.get("poster_smart") in (
+        "laser-workshop-promo-reference","laser-technical-reference"):
+        raise ValueError("Product-selected poster duplicated a fixed reference.")
+    return True
+
+
 def choose_native_visuals(kind, family=None, treatment=None, used_families=(),
                           used_treatments=()):
     """Retain valid independent AI choices; repair repeated/invalid ones.
