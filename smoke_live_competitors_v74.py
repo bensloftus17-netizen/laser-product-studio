@@ -71,6 +71,20 @@ def main():
     pdf=base64.b64decode(pack.get("pdf_base64") or "",validate=True)
     assert pdf.startswith(b"%PDF-"),"No genuine PDF shipped with initial response"
     assert len(pdf)>700,"Empty PDF in report"
+    # New reference-driven comparison is a *visual* A4 landscape document,
+    # one dedicated side-by-side page per manufacturer product.
+    import pymupdf
+    document=pymupdf.open(stream=pdf,filetype="pdf")
+    assert document.page_count==4, ("Expected four visual comparison pages",
+                                   document.page_count)
+    for page in document:
+        assert page.rect.width>page.rect.height,("Landscape layout expected",page.rect)
+        text=page.get_text()
+        assert "WHY CHOOSE LASER?" in text
+        assert "Key takeaway" in text
+        assert "NOT APPROVED" in text
+        assert "Laser Tools 4832 vs" in text
+    print("Visual comparisons ready: four landscape comparison pages")
     print("Inline restart-safe PDF ready",len(pdf),"bytes")
     sheet=requests.get(BASE+"/api/competitors/4832/why-laser",timeout=25)
     assert sheet.status_code==200,(sheet.status_code,sheet.text[:350])
