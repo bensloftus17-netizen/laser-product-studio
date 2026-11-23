@@ -103,10 +103,15 @@ def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
 @lru_cache(maxsize=2)
 def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     """Cache safe cutout result so rendering three designs doesn't repeat matting."""
-    original = ImageOps.exif_transpose(Image.open(io.BytesIO(blob)))
-    original.load()
-    if original.width * original.height > 4_000_000:
-        original.thumbnail((1450, 1450), RESAMPLE)
+    with Image.open(io.BytesIO(blob)) as source:
+        # JPEG draft reduces decoding allocation before EXIF correction.
+        # Every retained pixel is from the actual official product image.
+        if source.format in ("JPEG", "MPO"):
+            source.draft("RGB", (1800, 1800))
+        if source.width * source.height > 4_000_000:
+            source.thumbnail((1450, 1450), RESAMPLE)
+        original = ImageOps.exif_transpose(source)
+        original.load()
     rgba = original.convert("RGBA")
     orig_a = rgba.getchannel("A")
     if orig_a.getextrema()[0] < 250:
