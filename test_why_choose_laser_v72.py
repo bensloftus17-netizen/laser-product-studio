@@ -164,7 +164,7 @@ class WhyChooseLaserV72Tests(unittest.TestCase):
             self.assertEqual(preview.status_code,200,preview.get_data(as_text=True))
             self.assertEqual(preview.json["part"],"9395")
             sheet=self.client.get("/api/competitors/9395/why-laser.pdf")
-            self.assertEqual(sheet.status_code,200,sheet.get_data(as_text=True)[:150])
+            self.assertEqual(sheet.status_code,200,repr(sheet.data[:150]))
             self.assertTrue(sheet.data.startswith(b"%PDF-"))
             self.assertIn("application/pdf",sheet.content_type)
             self.assertIn("attachment",sheet.headers["Content-Disposition"])
