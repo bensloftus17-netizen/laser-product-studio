@@ -328,8 +328,8 @@ def render_why_choose_laser_pdf(sheet, photo_bytes=None):
                     for x in diffs[:2])
                 notes+="<br/><i>Published difference; not a proven performance advantage.</i>"
             elif shared:
-                notes="<b>Shared published specification:</b> "+_p(shared[0]["attribute"])+
-                      " — "+_p(shared[0]["laser"])
+                notes=("<b>Shared published specification:</b> "+
+                       _p(shared[0]["attribute"])+" — "+_p(shared[0]["laser"]))
             else:
                 notes="No like-for-like technical advantage verified from the listing."
             cells.append([Paragraph(name,small),Paragraph(notes,small)])
