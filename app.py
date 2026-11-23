@@ -34,6 +34,9 @@ from campaign_hub import build_campaign
 from disk_campaign_store import store_campaign, StoredCampaign
 from copy_rewriter import rewrite_copy, SUPPORTED_MODES, AUDIENCES
 from competitor_finder import research_competitors, report_csv
+from why_choose_laser import (
+    build_why_choose_laser, compact_photo, render_why_choose_laser_pdf,
+)
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
@@ -2769,10 +2772,23 @@ def find_competitor_products(part):
             # from a scraped competitor search result.
             product,_=lookup(part,uk_url=request.args.get('uk_url') or None)
             report=research_competitors(product)
+            # Retain only a bounded, official-source snapshot and compact
+            # authentic product preview. The PDF is built from the exact same
+            # time-stamped competitor report the user just reviewed.
+            source_snapshot={
+                "part":product.get("part"),"title":product.get("title"),
+                "source":product.get("source"),"features":list(
+                    (product.get("features") or [])[:25]),
+                "specs":dict(list((product.get("specs") or {}).items())[:40])
+                    if isinstance(product.get("specs"),dict) else {},
+            }
+            tiny_photo=compact_photo(_)
             with COMPETITOR_REPORT_LOCK:
                 now=time.time()
                 COMPETITOR_REPORT_CACHE[part]={
-                    'expires':now+COMPETITOR_REPORT_TTL,'report':report}
+                    'expires':now+COMPETITOR_REPORT_TTL,'report':report,
+                    'official_product':source_snapshot,
+                    'official_photo_preview':tiny_photo}
                 while len(COMPETITOR_REPORT_CACHE)>24:
                     COMPETITOR_REPORT_CACHE.pop(next(iter(COMPETITOR_REPORT_CACHE)))
             reply=jsonify(report)
@@ -2790,6 +2806,58 @@ def find_competitor_products(part):
     except Exception:
         app.logger.exception('Competitor lookup error')
         return jsonify(error='Could not complete verified competitor research. Please retry.'),503
+
+
+def _cached_why_laser_evidence(part):
+    """Use the actual official lookup and competitor results from one search."""
+    clean=sku_clean(part)
+    with COMPETITOR_REPORT_LOCK:
+        entry=COMPETITOR_REPORT_CACHE.get(clean)
+        if not entry or entry.get('expires',0)<=time.time():
+            return None,None
+        official=entry.get('official_product')
+        report=entry.get('report')
+        small_photo=entry.get('official_photo_preview')
+    if not official or not report:
+        return None,None
+    return build_why_choose_laser(official,report),small_photo
+
+
+@app.get('/api/competitors/<part>/why-laser')
+def why_choose_laser_preview(part):
+    """Reviewable evidence dossier, not an unconditional superiority claim."""
+    try:
+        sheet,_=_cached_why_laser_evidence(part)
+        if sheet is None:
+            return jsonify(error='Run Find Competitors first to prepare a verified sales sheet.'),404
+        result=jsonify(sheet)
+        result.headers['Cache-Control']='private, no-store'
+        return result
+    except (ValueError,LookupErrorPublic) as exc:
+        return jsonify(error=str(exc)),422
+    except Exception:
+        app.logger.exception('Laser evidence sheet preview failed')
+        return jsonify(error='Could not prepare a source-verified sales sheet.'),503
+
+
+@app.get('/api/competitors/<part>/why-laser.pdf')
+def why_choose_laser_download(part):
+    """Download a branded review-labelled A4 PDF using cached source evidence."""
+    try:
+        sheet,photo=_cached_why_laser_evidence(part)
+        if sheet is None:
+            return jsonify(error='Run Find Competitors before downloading the sheet.'),404
+        document=render_why_choose_laser_pdf(sheet,photo)
+        result=send_file(
+            io.BytesIO(document),mimetype='application/pdf',as_attachment=True,
+            download_name='LASER_'+sheet['part']+'_Why_Choose_Laser.pdf')
+        result.headers['Cache-Control']='private, no-store'
+        return result
+    except (ValueError,LookupErrorPublic) as exc:
+        return jsonify(error=str(exc)),422
+    except Exception:
+        app.logger.exception('Laser comparison sheet PDF generation failed')
+        return jsonify(error='Unable to export a source-verified PDF sheet.'),503
 
 
 @app.get('/api/competitors/<part>/export.csv')
