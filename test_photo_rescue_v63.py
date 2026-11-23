@@ -154,7 +154,10 @@ class SelectionV63Tests(unittest.TestCase):
              patch.object(app,"apply_official_taxonomy",side_effect=lambda p:p):
             result,blob=app.lookup(PART,force=True,collect_gallery=True)
         app.CACHE.pop(PART,None)
-        self.assertEqual(blob,LARGE)
+        self.assertEqual(blob,LARGE,
+            "Expected source master; attempted="+repr(attempts)+
+            " selected="+repr(result.get("photo_source"))+
+            " photo_report="+repr(result.get("photo_quality_selection")))
         self.assertEqual(result["photo_source"],MASTER)
         self.assertTrue(result["photo_quality_selection"]["quality_passed"])
         self.assertEqual(result["photo_quality_selection"]["dimensions"],[820,930])
