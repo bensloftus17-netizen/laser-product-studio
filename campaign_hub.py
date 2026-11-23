@@ -36,7 +36,8 @@ from campaign_art_quality import choose_best, campaign_consistency, photo_releva
 from creative_director import distinct_briefs
 from creative_families import (
     diversify_concepts, choose_format_parents, copy_diversity,
-    choose_native_visuals, DEFAULT_FAMILY, FORMAT_PARENTS,
+    choose_native_visuals, validate_poster_reference_roles,
+    DEFAULT_FAMILY, FORMAT_PARENTS,
 )
 from creative_expression import (
     express_background, format_palette, DEFAULT_FORMAT_PALETTE,
@@ -810,16 +811,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     poster_engines={
         key:quality_reports[key].get("render_engine","")
         for key in ("poster_technical","poster_price","poster_smart")}
-    workshop_roles=[key for key,engine in poster_engines.items()
-                    if engine=="laser-workshop-promo-reference"]
-    if promo_template=="workshop_showcase" and workshop_roles!=["poster_price"]:
-        raise ValueError(
-            "Campaign poster mapping rejected: the approved workshop "
-            "reference must be used only for price promotion.")
-    if promo_template!="workshop_showcase" and workshop_roles:
-        raise ValueError("Workshop reference appeared without being selected.")
-    if poster_engines["poster_technical"]!="laser-technical-reference":
-        raise ValueError("Technical poster reference layout was not retained.")
+    validate_poster_reference_roles(poster_engines,promo_template)
     # Format art is independently checked. Publish the six approved social,
     # web and email graphics even if a poster's later vision review fails.
     # This does not make a failed poster or a partial ZIP downloadable.
