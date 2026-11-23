@@ -2056,6 +2056,10 @@ logging.basicConfig(level=logging.INFO)
 ALLOWED={'www.lasertools.co.uk','lasertools.co.uk','lasertools.toolconnection.co.uk','www.toolconnection.co.uk','toolconnection.co.uk'}
 HEADERS={'User-Agent':'Mozilla/5.0 (compatible; LaserProductStudioPilot/1.0; product-content-review)', 'Accept':'text/html,application/pdf,image/avif,image/webp,image/jpeg,image/png,*/*', 'Accept-Language':'en-GB,en;q=0.9'}
 CACHE: dict[str, tuple[float,dict,bytes|None]]={}
+# Browser hero, competitor research and campaign start can arrive on separate
+# Gunicorn threads for the same part. Never decode multiple giant sources
+# concurrently on the single 512 MiB Render worker.
+LOOKUP_SERIAL_LOCK=threading.RLock()
 APPLICATION_IMAGE_CACHE: dict[str,bytes]={}
 
 class LookupErrorPublic(Exception): pass
@@ -2734,6 +2738,16 @@ def pdf_render_photo(pdfbytes):
     finally:doc.close()
 
 
+def _serialized_lookup(func):
+    from functools import wraps
+    @wraps(func)
+    def inner(*args,**kwargs):
+        with LOOKUP_SERIAL_LOCK:
+            return func(*args,**kwargs)
+    return inner
+
+
+@_serialized_lookup
 def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
     part=sku_clean(part)
     if uk_url:
@@ -2873,10 +2887,19 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
         studio
     )
     product['photo_source']=None
+    def _bounded_photo_rank(blob):
+        # A full source QA may decode multiple RGB/RGBA copies. The genuine
+        # bytes remain in the option tuple, so free its temporary decoded
+        # cutouts *between* candidates, rather than accumulating 18 images
+        # worth of Pillow state while selecting the campaign's 3 angles.
+        try:
+            return manufacturer_image_rank(blob)
+        finally:
+            _release_campaign_image_caches()
     photo_options,checked_urls=collect_official_photo_options(
         candidates,
         lambda url: official_get(url,session,timeout=4),
-        valid_image,manufacturer_image_rank,
+        valid_image,_bounded_photo_rank,
         # Avoid two simultaneous 30-megapixel Pillow decodes on 512 MiB
         # Render Free. A broad photo gallery is only required for a campaign.
         max_checks=9 if collect_gallery else 4,workers=1,
