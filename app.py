@@ -2356,62 +2356,83 @@ def parse_html(content,part,url):
 
 def parse_pis_pdf(pdfbytes,part,url):
     d=fitz.open(stream=pdfbytes,filetype='pdf')
-    if d.page_count<1:raise LookupErrorPublic('The official information sheet is empty.')
-    page=d[0]
-    txt=page.get_text('text',sort=True)
-    lines=[normalize(line) for line in txt.splitlines() if normalize(line)]
-    # PDF often starts with LASER then part no, then name, possibly preceding boilerplate.
-    exact=[i for i,l in enumerate(lines[:40]) if l==part]
-    if not exact: raise LookupErrorPublic('The official product information sheet does not match the requested part number.')
-    i=exact[0]
-    title=''
-    for l in lines[i+1:i+8]:
-        if l.lower().startswith(('additional information','distributed by','the tool connection')):break
-        if len(l)>7: title=l;break
-    if not title: raise LookupErrorPublic('Product name could not be extracted from the information sheet.')
-    add=next((j for j,l in enumerate(lines) if l.lower().startswith('additional information')),len(lines))
-    desc=' '.join(x for x in lines[i+2:add] if len(x)>8)[:1250]
-    features=[]; curr=''
-    after=lines[add+1:]
-    for l in after:
-        if re.search(r'(distributed by|tool connection ltd|www\.toolconnection|telephone|©|\bCV47\b)',l,re.I): break
-        if l.startswith(('•','-','●')):
-            if curr:features.append(normalize(curr))
-            curr=l.lstrip('•-● ').strip()
-        elif curr and len(l)>8:curr+=' '+l
-    if curr:features.append(normalize(curr))
-    features=[x for x in features if 10<len(x)<650][:9]
-    if not features:
-        # bullet glyph may appear as separate blocks; fallback to feature-like lines
-        features=[x for x in after[:20] if len(x)>25 and not re.search(r'distributed by|tool connection',x,re.I)][:7]
-    specs={}
-    patterns=[('Dimensions',r'(?:dimensions\s*:\s*)(\d+\s*[×xX]\s*\d+\s*[×xX]\s*\d+\s*mm)'),
-              ('Power',r'\b(\d+\s*W)\b'),('Length',r'\b(\d+\s*mm)\s*(?:long|length)\b'),
-              ('Brightness',r'\b(\d{2,5}\s*lumens?)\b'),('Battery',r'\b(\d{3,6}\s*mAh)\b'),
-              ('Voltage',r'\b(\d+(?:\.\d+)?\s*V)\b')]
-    for k,pat in patterns:
-        m=re.search(pat,txt,re.I)
-        if m:specs[k]=normalize(m.group(1))
-    photos=[]
-    for j in range(min(d.page_count,2)):
-        pg=d[j]
-        for entry in pg.get_images(full=True):
-            xref=entry[0]
+    try:
+        if d.page_count<1:raise LookupErrorPublic('The official information sheet is empty.')
+        page=d[0]
+        txt=page.get_text('text',sort=True)
+        lines=[normalize(line) for line in txt.splitlines() if normalize(line)]
+        # PDF often starts with LASER then part no, then name, possibly preceding boilerplate.
+        exact=[i for i,l in enumerate(lines[:40]) if l==part]
+        if not exact: raise LookupErrorPublic('The official product information sheet does not match the requested part number.')
+        i=exact[0]
+        title=''
+        for l in lines[i+1:i+8]:
+            if l.lower().startswith(('additional information','distributed by','the tool connection')):break
+            if len(l)>7: title=l;break
+        if not title: raise LookupErrorPublic('Product name could not be extracted from the information sheet.')
+        add=next((j for j,l in enumerate(lines) if l.lower().startswith('additional information')),len(lines))
+        desc=' '.join(x for x in lines[i+2:add] if len(x)>8)[:1250]
+        features=[]; curr=''
+        after=lines[add+1:]
+        for l in after:
+            if re.search(r'(distributed by|tool connection ltd|www\.toolconnection|telephone|©|\bCV47\b)',l,re.I): break
+            if l.startswith(('•','-','●')):
+                if curr:features.append(normalize(curr))
+                curr=l.lstrip('•-● ').strip()
+            elif curr and len(l)>8:curr+=' '+l
+        if curr:features.append(normalize(curr))
+        features=[x for x in features if 10<len(x)<650][:9]
+        if not features:
+            # bullet glyph may appear as separate blocks; fallback to feature-like lines
+            features=[x for x in after[:20] if len(x)>25 and not re.search(r'distributed by|tool connection',x,re.I)][:7]
+        specs={}
+        patterns=[('Dimensions',r'(?:dimensions\s*:\s*)(\d+\s*[×xX]\s*\d+\s*[×xX]\s*\d+\s*mm)'),
+                  ('Power',r'\b(\d+\s*W)\b'),('Length',r'\b(\d+\s*mm)\s*(?:long|length)\b'),
+                  ('Brightness',r'\b(\d{2,5}\s*lumens?)\b'),('Battery',r'\b(\d{3,6}\s*mAh)\b'),
+                  ('Voltage',r'\b(\d+(?:\.\d+)?\s*V)\b')]
+        for k,pat in patterns:
+            m=re.search(pat,txt,re.I)
+            if m:specs[k]=normalize(m.group(1))
+        # Keep compressed native photo bytes while choosing one candidate.
+        # Previously every PDF image was converted into full-resolution RGB and
+        # held in a list: multiple megapixel images could exceed Render's RAM.
+        photos=[]
+        for j in range(min(d.page_count,2)):
+            pg=d[j]
+            for entry in pg.get_images(full=True):
+                xref=entry[0]
+                try:
+                    blob=d.extract_image(xref)['image']
+                    if len(blob)>9*1024*1024:
+                        continue
+                    with Image.open(io.BytesIO(blob)) as original:
+                        w,h=original.size
+                    if min(w,h)>=80 and max(w,h)>=350 and 50000<=w*h<=30_000_000:
+                        rects=pg.get_image_rects(xref)
+                        metric=(w*h,min((r.y0 for r in rects),default=999))
+                        photos.append((metric,blob))
+                except (OSError,ValueError,KeyError):
+                    continue
+        photos.sort(key=lambda t:(-t[0][0],t[0][1]))
+        chosen=None
+        for _,blob in photos[:3]:
             try:
-                image=d.extract_image(xref)
-                im=Image.open(io.BytesIO(image['image']))
-                if min(im.size)>=80 and max(im.size)>=350 and im.width*im.height>=50000:
-                    rects=pg.get_image_rects(xref)
-                    metric=(min(im.size)*max(im.size),min((r.y0 for r in rects),default=999))
-                    photos.append((metric,im.convert('RGB')))
-            except Exception:pass
-    photos.sort(key=lambda t:(-t[0][0],t[0][1]))
-    chosen=None
-    for _,im in photos:
-        out=io.BytesIO();im.thumbnail((2100,2100));im.save(out,format='PNG');chosen=out.getvalue();break
-    result=dict(part=part,title=title,description=desc,features=features,specs=specs,price=None,source=url,source_type='Official Laser product information sheet',image_candidates=[])
-    d.close()
-    return result,chosen
+                with Image.open(io.BytesIO(blob)) as original:
+                    if original.format in ('JPEG','MPO'):
+                        original.draft('RGB',(2200,2200))
+                    original.thumbnail((2100,2100),Image.Resampling.LANCZOS)
+                    rendered=ImageOps.exif_transpose(original).convert('RGB')
+                    output=io.BytesIO()
+                    rendered.save(output,format='PNG')
+                    chosen=output.getvalue()
+                    rendered.close()
+                    break
+            except (OSError,ValueError):
+                continue
+        result=dict(part=part,title=title,description=desc,features=features,specs=specs,price=None,source=url,source_type='Official Laser product information sheet',image_candidates=[])
+        return result,chosen
+    finally:
+        d.close()
 
 def valid_image(blob):
     """Reject blank/broken crops as well as undersized manufacturer photos.
@@ -2536,7 +2557,11 @@ def pdf_render_photo(pdfbytes):
             checked.add(key)
             clip=fitz.Rect(max(0,rect.x0-12),max(0,rect.y0-12),
                            min(page.rect.width,rect.x1+12),min(page.rect.height,rect.y1+12))
-            data=page.get_pixmap(matrix=fitz.Matrix(2.3,2.3),clip=clip,alpha=False).tobytes('png')
+            # Rasterise only as many real source pixels as a full-quality
+            # 1200x1500 poster can use; giant PIS crops used to allocate
+            # massive temporary pixmaps in the same 512 MiB worker.
+            scale=min(2.3, 2050/max(1,clip.width,clip.height))
+            data=page.get_pixmap(matrix=fitz.Matrix(scale,scale),clip=clip,alpha=False).tobytes('png')
             if valid_image(data):return data
         return None
     finally:doc.close()
