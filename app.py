@@ -103,7 +103,7 @@ V7_HOME_PAGE = r'''
    <button type="button" id="competitorRefresh" class="secondary">Refresh prices</button>
    <a id="competitorExport" class="competitor-export" download hidden>Export comparison CSV</a>
    <button type="button" id="whyLaserBtn" class="why-laser-action" disabled>✦ Why Choose Laser? Sheet</button>
-   <a id="whyLaserPdf" class="why-laser-export" download hidden>Download sales sheet (PDF)</a>
+
   </div></div>
  <div id="competitorStats" class="competitor-stats"></div>
  <div id="competitorResults" class="competitor-results"></div>
@@ -111,6 +111,7 @@ V7_HOME_PAGE = r'''
  <section id="whyLaserPanel" class="why-laser-panel" hidden aria-label="Why Choose Laser sales evidence sheet">
   <div class="why-laser-heading"><div><span class="sectioncap">PRODUCT VS COMPETITOR · VERIFIED EVIDENCE</span><h4>WHY CHOOSE LASER?</h4></div>
   <span>INTERNAL DRAFT · APPROVAL REQUIRED</span>
+  <a id="whyLaserPdf" class="why-laser-export" download hidden>Download comparison PDF</a>
   <button type="button" id="whyLaserClose" class="why-compare-close" aria-label="Close comparison sheet">Close ×</button></div>
   <p id="whyLaserStatus" role="status" aria-live="polite"></p>
   <div id="whyLaserContent"></div>
