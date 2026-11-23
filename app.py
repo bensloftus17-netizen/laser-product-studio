@@ -1294,7 +1294,7 @@ function showCampaign(data){
  $('campaignSummary').textContent=(m.manual_visual_review_pending
      ?'INTERNAL DRAFT ONLY — a second AI visual review was unavailable. All nine assets can be examined but posters still require human sign-off. '
      :'' )+(mixed
-     ?'Original AI compositions plus independently approved safe-layout recovery for a rejected poster. Genuine manufacturer photos and verified facts retained. '
+     ?'Original AI compositions with verified safe-layout recovery. Genuine manufacturer photos and source-checked facts retained; independent visual approval is still required for drafts. '
      :freeform
        ?'AI-designed original compositions using genuine manufacturer photos and verified facts. '
        :(m.generation_method==='gemini-assisted'
@@ -1309,9 +1309,11 @@ function showCampaign(data){
     ' posters passed automated layout checks · '+checked.reduce((n,item)=>n+(item.candidates_checked||0),0)+
     ' candidate designs reviewed.'+(alerts.length?' Photo review: '+[...new Set(alerts)].join('; ')+'.':'')
    :'Automated poster checks unavailable — review every image before sharing.';
- if(freeform||mixed){
+ if(freeform||mixed||m.manual_visual_review_pending){
    const vision=m.creative_critic||{};
-   $('campaignQuality').textContent+=' · '+(vision.reviewed
+   $('campaignQuality').textContent+=' · '+(m.manual_visual_review_pending
+      ?'Second external visual review unavailable. Earlier flagged issues are retained for human inspection — these posters are NOT visually approved.'
+      :vision.reviewed
       ?'Independent AI review of finished posters completed.'
       :'AI visual review unavailable; deterministic QA applied.');
    const disagreements=Object.entries(vision.geometry_disagreements||{});
