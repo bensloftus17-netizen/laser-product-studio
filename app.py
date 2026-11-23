@@ -2498,7 +2498,12 @@ def parse_html(content,part,url):
         if authorized_url(u) and (part in src or 'XLarge' in src):image_urls.append(u)
     specs=english_only_specs(specs)
     if not features and not specs: raise LookupErrorPublic('The product page contains insufficient technical information.')
-    return dict(part=part,title=title,description=desc,features=features,specs=specs,price=rrp,source=url,image_candidates=list(dict.fromkeys(verified_gallery+image_urls)),source_type='Official Laser/Tool Connection product page')
+    return dict(part=part,title=title,description=desc,features=features,specs=specs,price=rrp,source=url,image_candidates=list(dict.fromkeys(
+        verified_gallery+[
+            u for u in image_urls
+            if re.search(r'(?<![A-Za-z0-9])'+re.escape(part)+
+                         r'(?![A-Za-z0-9])',urlparse(u).path,re.I)
+        ])),source_type='Official Laser/Tool Connection product page')
 
 def parse_pis_pdf(pdfbytes,part,url):
     d=fitz.open(stream=pdfbytes,filetype='pdf')
@@ -2838,11 +2843,16 @@ def lookup(part,session=requests,force=False,uk_url=None):
     image_bytes=None
     gallery=manufacturer_gallery_urls(part,session)
     studio=[url for url in gallery if not re.search(r'in.?situ',url,re.I)]
-    candidates=preferred_manufacturer_photos(part)+studio
-    candidates += [
-        url for url in product.get('image_candidates',[])
-        if re.search(r'/'+re.escape(part)+r'(?:[_./-]|$)',urlparse(url).path,re.I)
-    ]
+    # Product gallery URLs are already proven by exact-SKU markup and
+    # allowlisted manufacturer hosts. Some genuine carousel assets use
+    # opaque hashed filenames: don't drop these just because the SKU isn't
+    # repeated in the file name.
+    candidates=(
+        preferred_manufacturer_photos(part)[:2]+
+        [u for u in product.get('image_candidates',[])
+         if authorized_url(u)][:12]+
+        studio
+    )
     product['photo_source']=None
     photo_options,checked_urls=collect_official_photo_options(
         candidates,
