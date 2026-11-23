@@ -41,11 +41,11 @@ class VisualComparisonV76Tests(unittest.TestCase):
         doc=fitz.open(stream=pdf,filetype="pdf")
         pix=doc[0].get_pixmap(matrix=fitz.Matrix(.8,.8),alpha=False)
         def pixel(x,y):
-            offset=(int(y*.8)*pix.width+int(x*.8))*pix.n
-            return pix.samples[offset:offset+3]
-        # canvas origin bottom-left; pixmap origin top-left.
-        laser=pixel(140,110) # header card top around 595-(278+223)=94
-        rival=pixel(570,110)
+            return pix.pixel(int(x*.8),int(y*.8))
+        # Sample the unobstructed right edge of each header so white text
+        # does not mask the underlying blue and red panel fills.
+        laser=pixel(390,110)  # header top about 595-(278+223)=94
+        rival=pixel(796,110)
         self.assertGreater(laser[2],laser[0],laser)
         self.assertGreater(rival[0],rival[2],rival)
 
