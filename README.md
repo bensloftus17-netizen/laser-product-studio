@@ -1,3 +1,41 @@
+## V77 — Multiple official product photos across all campaign artwork
+
+Laser Product Studio no longer stops once the first usable manufacturer packshot is found.
+For each *verified exact Laser part number* it also inspects official manufacturer
+image galleries, responsive `srcset`, lazy image attributes, zoom links and
+JSON-LD Product image lists.
+
+The verified gallery pipeline:
+- accepts only approved Laser/Tool Connection hosts and exact-SKU-associated
+  images (including opaque filename images attached to the exact product);
+- rejects logos, icons, unrelated part numbers, tiny images, photos that fail
+  the existing cutout/white-background inspection and unverified photos;
+- uses a perceptual difference hash to avoid treating the *same* product
+  packshot in different resolutions as a new angle;
+- retains at most **four** genuine, distinct photos on private temporary disk,
+  with URLs and hashes in the source audit rather than extra image bytes in the
+  in-memory product cache (Render Free remains limited to 512 MiB);
+- assigns image 1 to the technical sheet, image 2 to the price/workshop poster,
+  image 3 to the AI-selected poster, and rotates all available verified angles
+  through the other six social and web formats;
+- re-checks the selected alternate photos using the existing asset quality
+  gate before artwork generation; an unapproved alternate cannot silently
+  replace the main manufacturer hero;
+- records `official_photo_gallery` and `artwork_photo_sources` for all nine
+  formats in `Campaign_Manifest.json` and preserves each poster's selected
+  genuine photo when that poster is edited later.
+
+When the official site supplies only one usable photograph, the app retains
+the current diverse layouts and source-safe single-image fallback. It does
+**not** manufacture missing angles, upscale low-res thumbnails or pretend
+different cropping means a different source photograph.
+
+Tests: `python -m unittest -v test_multi_gallery_v77.py test_photo_rescue_v63.py`
+
+Workflow: `.github/workflows/gallery-regression-v77.yml`.
+
+---
+
 ## V73 — Render memory protection (23 November 2026)
 
 **Incident:** Render event history confirmed an out-of-memory worker kill at
