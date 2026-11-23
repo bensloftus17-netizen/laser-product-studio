@@ -115,6 +115,13 @@ class StoredCampaign(MutableMapping):
         ctx=json.loads(path.read_text(encoding="utf-8"))
         photo=self.folder/"product_photo.bin"
         ctx["genuine_photo"]=photo.read_bytes() if photo.exists() else None
+        photo_files=ctx.pop("role_photo_files",{})
+        ctx["role_photos"]={
+            key:(self.folder/name).read_bytes()
+            for key,name in photo_files.items()
+            if key in ("poster_technical","poster_price","poster_smart")
+            and re.fullmatch(r"role_(?:poster_technical|poster_price|poster_smart)\.bin",str(name))
+            and (self.folder/name).is_file()}
         scene_files=ctx.pop("scene_files",[])
         ctx["scenes"]=[
             (self.folder/name).read_bytes() if name else None
@@ -136,11 +143,20 @@ class StoredCampaign(MutableMapping):
         photo=ctx.get("genuine_photo")
         if isinstance(photo,bytes):
             _atomic_file(self.folder/"product_photo.bin",photo)
+        photo_files={}
+        for role,payload in (ctx.get("role_photos") or {}).items():
+            if role not in ("poster_technical","poster_price","poster_smart"):
+                continue
+            if isinstance(payload,bytes):
+                name="role_"+role+".bin"
+                _atomic_file(self.folder/name,payload)
+                photo_files[role]=name
         data={
             "product":ctx.get("product") or {},
             "concepts":ctx.get("concepts") or [],
             "distributor":ctx.get("distributor"),
             "scene_files":scene_files,
+            "role_photo_files":photo_files,
         }
         _atomic_file(self.folder/"editor.json",json.dumps(
             data,ensure_ascii=False,default=str).encode("utf-8"))
