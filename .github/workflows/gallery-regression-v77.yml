@@ -10,6 +10,7 @@ on:
       - "campaign_hub.py"
       - "test_multi_gallery_v77.py"
       - "test_photo_rescue_v63.py"
+      - "test_lightweight_lookup_v78.py"
       - ".github/workflows/gallery-regression-v77.yml"
   workflow_dispatch:
 
@@ -29,4 +30,4 @@ jobs:
       - name: Verify exact-SKU gallery discovery, private image storage and differentiated source photos
         env:
           GEMINI_API_KEY: ""
-        run: python -m unittest -v test_multi_gallery_v77.py test_photo_rescue_v63.py
+        run: python -m unittest -v test_lightweight_lookup_v78.py test_multi_gallery_v77.py test_photo_rescue_v63.py
