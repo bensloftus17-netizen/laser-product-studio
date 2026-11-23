@@ -85,7 +85,7 @@ class LockedWorkshopReferenceV71Tests(unittest.TestCase):
         _,record,_=self.render()
         displayed=[t["text"] for t in record.texts]
         self.assertNotIn("KIT CONTENTS",displayed)
-        self.assertIn("PRODUCT INFORMATION",displayed)
+        self.assertIn("PRODUCT DETAILS",displayed)
 
     def test_workshop_look_is_immutable_against_unverified_scene_bytes(self):
         # User-approved reference is fixed; the model cannot swap it with an
