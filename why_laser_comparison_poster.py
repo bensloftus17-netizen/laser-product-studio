@@ -285,7 +285,9 @@ def render_visual_comparison_pdf(sheet,photo_bytes=None):
         draw_text(c,clean(sheet.get("title"),170)+" | evidence-based product comparison",
                   20,PH-80,PW-40,23,size=13,bold=True,colour=MUTED)
         draw_text(c,"INTERNAL DRAFT · MANUFACTURER SOURCE CHECK REQUIRED",
-                  20,PH-96,PW-40,12,size=8,bold=True,colour=RED)
+                  20,PH-96,530,12,size=8,bold=True,colour=RED)
+        draw_text(c,"WHY CHOOSE LASER?",PW-182,PH-96,161,12,
+                  size=9,bold=True,colour=BLUE)
         panel_y=278
         gap=10
         panel_w=(PW-48)/2
