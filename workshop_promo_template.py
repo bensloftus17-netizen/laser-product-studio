@@ -176,4 +176,4 @@ def render_workshop_showcase(product, official_photo, concept, scene=None,
     from reference_poster_templates import render_promo_reference
     return render_promo_reference(
         product, official_photo, concept, scene,
-        distributor, variant=variant)
+        distributor, variant=variant, _photo_placer=product_photo)
