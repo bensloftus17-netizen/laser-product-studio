@@ -75,7 +75,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V69 distinct artwork</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V71 photo template</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -113,10 +113,10 @@ V7_HOME_PAGE = r'''
 <div class="promo-layout-setting">
  <label for="promoTemplate"><strong>Promotional poster template</strong></label>
  <select id="promoTemplate" name="promo_template" aria-label="Promotional poster layout">
-  <option value="workshop_showcase" selected>Workshop Showcase — your reference layout (default)</option>
+  <option value="workshop_showcase" selected>Workshop Showcase — fixed photographic reference (default)</option>
   <option value="ai_original">AI Original — unrestricted brand-safe composition</option>
  </select>
- <small>Only Poster 02 uses your workshop-bench reference (the default). Poster 01 keeps the technical product sheet; Poster 03 remains a separate AI-led product spotlight. The six social and web formats use their own varied native layouts. Genuine product photos, verified facts and price checks remain locked.</small>
+ <small>Poster 02 now uses your actual supplied workshop-and-steel-workbench photograph with fixed information panels and angled footer — not a generic AI recreation. Poster 01 remains the technical product sheet and Poster 03 is independently AI-led. Genuine product photos, verified claims and price checks remain locked.</small>
 </div>
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
@@ -886,7 +886,7 @@ function renderCampaignGallery(data){
        return '01 / Technical reference · clean blue manufacturer-style fact sheet · source-verified application and specifications';
      }
      if(asset.id==='poster_price'&&m.promo_template==='workshop_showcase'){
-       return '02 / Workshop Showcase ONLY · real workshop scene · large original product on bench · verified price and filled information panels';
+       return '02 / Your fixed photo template · actual supplied workshop and steel bench · large genuine product · verified price · three info columns and kit panel';
      }
      return '03 / Product spotlight · independently AI-directed creative composition · '+
        'selling angle: '+String(a.proof_strategy||'verified product benefit').replaceAll('_',' ')+
