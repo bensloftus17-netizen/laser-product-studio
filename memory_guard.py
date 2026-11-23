@@ -29,6 +29,22 @@ def _int_file(path):
     return None
 
 
+def _reclaimable_file_cache():
+    """Linux can reclaim inactive file-cache pages under memory pressure.
+
+    File-backed progressive PNG previews are intentionally stored on disk.
+    Those pages should not be mistaken for live Pillow RGB canvases.
+    """
+    try:
+        for line in Path("/sys/fs/cgroup/memory.stat").read_text(
+                encoding="ascii").splitlines():
+            if line.startswith("inactive_file "):
+                return max(0,int(line.split()[1]))
+    except (OSError,ValueError,IndexError):
+        pass
+    return 0
+
+
 def current_memory():
     """Read container allocation rather than RSS from only one worker.
 
@@ -53,7 +69,8 @@ def current_memory():
                     break
         except (OSError, ValueError, IndexError):
             pass
-    return {"used_bytes":used, "limit_bytes":limit}
+    return {"used_bytes":used, "limit_bytes":limit,
+            "reclaimable_bytes":_reclaimable_file_cache()}
 
 
 def try_release_heap():
@@ -87,8 +104,10 @@ def can_start_heavy(kind):
     used,limit=metrics["used_bytes"],metrics["limit_bytes"]
     if used is None or limit is None:
         return True
-    safe=used+required < limit
+    reclaimable=min(used,max(0,metrics.get("reclaimable_bytes") or 0))
+    working_set=used-reclaimable
+    safe=working_set+required < limit
     if not safe:
-        LOG.warning("Render memory pressure; refusing new %s task: usage=%d MiB limit=%d MiB required_headroom=%d MiB",
-                    kind, used//MIB,limit//MIB,required//MIB)
+        LOG.warning("Render memory pressure; refusing new %s task: cgroup=%d MiB active=%d MiB limit=%d MiB required_headroom=%d MiB",
+                    kind, used//MIB,working_set//MIB,limit//MIB,required//MIB)
     return safe
