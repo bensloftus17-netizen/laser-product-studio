@@ -1108,7 +1108,10 @@ def keyless_discovery(signature,session=requests):
         except (requests.RequestException,ValueError,OSError):
             return None
         return None
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    # Keep all 18 discovery candidates but cap simultaneous HTML parses:
+    # four retailer pages plus a campaign canvas can exceed 512 MiB.
+    # Two workers preserve source coverage without sacrificing comparison.
+    with ThreadPoolExecutor(max_workers=2) as pool:
         found.extend(item for item in pool.map(inspect,candidates) if item)
     warning=(" ".join(warnings) if warnings else None)
     return found,warning
