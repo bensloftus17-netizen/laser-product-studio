@@ -1153,6 +1153,11 @@ def keyless_discovery(signature,session=requests):
             if verified:
                 reference=snapshots.get(url)
                 if reference:
+                    # The live source URL is the exact manufacturer product
+                    # permalink; its independently checked SKU may not be
+                    # repeated in a page h1 or JSON-LD.
+                    if not verified.get("part_number"):
+                        verified["part_number"]=reference["sku"]
                     verified["comparison_relationship"]=reference.get("relationship")
                     # Some manufacturers publish their technical data in an
                     # accompanying manual, not Product JSON-LD. Use only
