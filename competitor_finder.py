@@ -1141,7 +1141,22 @@ def keyless_discovery(signature,session=requests):
     def inspect(url):
         try:
             verified=_get_product_page(url,signature,session)
-            if verified:return verified
+            if verified:
+                reference=snapshots.get(url)
+                if reference:
+                    verified["comparison_relationship"]=reference.get("relationship")
+                    # Some manufacturers publish their technical data in an
+                    # accompanying manual, not Product JSON-LD. Use only
+                    # individually reviewed official specs and retain date.
+                    published=reference.get("verified_specs") or {}
+                    existing=verified.get("verified_specs") or {}
+                    verified["verified_specs"]={**published,**existing}
+                    verified["source_checked_on"]=reference["source_checked_on"]
+                    verified["specs_evidence_note"]=(
+                        "Manufacturer catalogue specifications reviewed "+
+                        reference["source_checked_on"]+
+                        "; verify against linked product documents.")
+                return verified
             # When a free search provider or manufacturer blocks requests,
             # show a clearly dated, sourced catalogue reference instead of
             # falsely reporting zero competitors. Never attach guessed prices.
