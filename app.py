@@ -80,7 +80,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V73 memory protected</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V74 competitor intelligence</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -1612,11 +1612,13 @@ function renderCompetitorReport(result){
  const rows=Array.isArray(result.results)?result.results:[];
  $('competitorTitle').textContent='Competitors for Laser '+result.laser.part;
  $('competitorPanel').hidden=false;
- const confirmed=rows.filter(item=>item.source_type!=='unverified search-index title').length;
- const leads=rows.length-confirmed;
+ const confirmed=rows.filter(item=>item.source_type==='retailer/manufacturer page').length;
+ const catalogue=rows.filter(item=>item.source_type==='manufacturer catalogue reference').length;
+ const leads=rows.length-confirmed-catalogue;
  const photos=rows.filter(item=>String(item.image_url||'').startsWith('https://')).length;
- $('competitorStatus').textContent=confirmed+' source-checked product leads'+
-  (leads?' · '+leads+' search-index leads require verification':'')+
+ $('competitorStatus').textContent=confirmed+' live-checked competitor pages'+
+  (catalogue?' · '+catalogue+' dated manufacturer catalogue references':'')+
+  (leads?' · '+leads+' unverified search leads':'')+
   ' · '+photos+' genuine source-linked photos'+
   ' · checked '+new Date(result.checked_at_utc).toLocaleString('en-GB')+
   (result.cached?' · cached research':' · fresh research');
@@ -1636,6 +1638,7 @@ function renderCompetitorReport(result){
     const imageUrl=String(item.image_url||'');
     const photoTrusted=imageUrl.startsWith('https://');
     const lead=item.source_type==='unverified search-index title';
+    const catalogueRef=item.source_type==='manufacturer catalogue reference';
     const productLink=trusted
       ?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" class="competitor-product-link">'+
         (lead?'Open search lead ↗':'View competitor product ↗')+'</a>'
@@ -1650,6 +1653,9 @@ function renderCompetitorReport(result){
       esc(item.part_number?'Part '+item.part_number:'Part number unconfirmed')+'</small></td>'+
      '<td><b>'+esc(item.title)+'</b><span class="competitor-match">'+
       esc(item.match_status)+'</span><small>'+esc(item.match_evidence)+'</small>'+
+      (catalogueRef?'<small><b>Manufacturer facts last checked '+esc(item.source_checked_on||'date unknown')+
+       ' — NOT live price or stock</b></small>':'')+
+      (item.comparison_relationship?'<small>'+esc(item.comparison_relationship)+'</small>':'')+
       '<div class="competitor-product-action">'+productLink+'</div></td>'+
      '<td><strong>'+esc(competitorPriceLabel(item))+'</strong><small>'+
       esc(item.price_gbp?vat:'No verified GBP quote')+'</small>'+
@@ -1747,7 +1753,11 @@ function displayWhyLaserSheet(sheet){
       ' — '+esc(matches[0].laser)+'</p>':
       '<p>No like-for-like technical advantage established from this listing.</p>';
    return '<article class="why-laser-rival"><strong>'+esc(c.brand)+'</strong>'+
-     '<small>'+esc(c.title)+'</small>'+detail+
+     '<small>'+esc(c.title)+'</small>'+
+     '<small>'+esc(c.comparison_relationship||'Category comparison; check technical fit')+'</small>'+
+     (c.source_checked_on?'<small>Manufacturer facts checked '+esc(c.source_checked_on)+
+      '; current price/stock not verified</small>':'')+
+     detail+
      '<a href="'+esc(c.url)+'" target="_blank" rel="noopener noreferrer">View verified product page ↗</a></article>';
   }).join('')+'</div>':
   '<p class="why-laser-unknown">No competitor product pages verified for this item. This is a Laser-feature draft, not a claim of superiority.</p>';
