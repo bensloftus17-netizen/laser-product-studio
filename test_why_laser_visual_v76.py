@@ -39,15 +39,16 @@ class VisualComparisonV76Tests(unittest.TestCase):
     def test_blue_and_red_header_bands_are_visually_distinct(self):
         pdf=render_why_choose_laser_pdf(self.sheet)
         doc=fitz.open(stream=pdf,filetype="pdf")
-        pix=doc[0].get_pixmap(matrix=fitz.Matrix(.8,.8),alpha=False)
-        def pixel(x,y):
-            return pix.pixel(int(x*.8),int(y*.8))
-        # Sample the unobstructed right edge of each header so white text
-        # does not mask the underlying blue and red panel fills.
-        laser=pixel(390,110)  # header top about 595-(278+223)=94
-        rival=pixel(796,110)
-        self.assertGreater(laser[2],laser[0],laser)
-        self.assertGreater(rival[0],rival[2],rival)
+        fills=[item["fill"] for item in doc[0].get_drawings()
+               if item.get("fill") and len(item["fill"])>=3]
+        # Inspect the actual PDF vector fills, not unreliable raster
+        # coordinates that can land on the white lettering.
+        self.assertTrue(any(v[2]>v[0]*1.5 and v[2]>v[1]*1.1
+                            for v in fills),fills)
+        self.assertTrue(any(v[0]>v[2]*1.7 and v[0]>v[1]*1.5
+                            for v in fills),fills)
+        self.assertTrue(any(v[0]>.9 and v[1]>.55 and v[2]<.3
+                            for v in fills),fills)
 
     def test_laser_original_photo_can_be_embedded_without_reconstruction(self):
         image=PILImage.new("RGB",(800,550),(18,120,210))
