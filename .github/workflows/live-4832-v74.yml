@@ -1,0 +1,24 @@
+name: Live 4832 competitor discovery validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "smoke_live_competitors_v74.py"
+      - "competitor_catalogue.py"
+      - ".github/workflows/live-4832-v74.yml"
+  workflow_dispatch:
+
+jobs:
+  live-manufacturer-comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install lightweight HTTP client
+        run: pip install requests
+      - name: Verify live V74 Render service finds real 4832 alternatives
+        run: python smoke_live_competitors_v74.py
