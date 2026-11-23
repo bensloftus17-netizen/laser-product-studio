@@ -1380,5 +1380,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             # Server-only context; NEVER sent in response/ZIP. Needed for
             # changing a single poster without re-fetching/regenerating AI.
             "editor_context":{"product":product,"genuine_photo":genuine_photo,
+                              "role_photos":{
+                                  role:_poster_photo(index)
+                                  for index,role in enumerate((
+                                      "poster_technical","poster_price","poster_smart"))},
                               "scenes":scenes,"concepts":concepts,
                               "distributor":distributor}}
