@@ -8,6 +8,7 @@ from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
 from typing import Any
 from pathlib import Path
+from memory_guard import can_start_heavy, try_release_heap, current_memory
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import fitz
@@ -2850,7 +2851,21 @@ def find_competitor_products(part):
                 return reply
         if not COMPETITOR_REPORT_BUSY.acquire(blocking=False):
             return jsonify(error='A competitor research request is already running. Please retry shortly.'),429
+        # Competitor HTML/PDF discovery and full-resolution poster rendering
+        # can each use >100 MiB of transient memory. Don't allow both to run
+        # on the same 512 MiB worker at once.
+        if not CAMPAIGN_RENDER_SLOT.acquire(blocking=False):
+            COMPETITOR_REPORT_BUSY.release()
+            response=jsonify(error='Artwork rendering is in progress. Retry competitor research when it finishes.')
+            response.status_code=429
+            response.headers['Retry-After']='30'
+            return response
         try:
+            if not can_start_heavy("research"):
+                response=jsonify(error='Memory is temporarily busy. Please retry competitor research shortly.')
+                response.status_code=503
+                response.headers['Retry-After']='25'
+                return response
             # lookup() independently verifies official UK source facts and
             # manufacturer authenticity. No price or feature can be invented
             # from a scraped competitor search result.
@@ -2880,6 +2895,8 @@ def find_competitor_products(part):
             return reply
         finally:
             COMPETITOR_REPORT_BUSY.release()
+            CAMPAIGN_RENDER_SLOT.release()
+            try_release_heap()
     except LookupErrorPublic as error:
         return jsonify(error=str(error)),404
     except ValueError as error:
@@ -3310,7 +3327,7 @@ def _release_campaign_image_caches():
     from ai_photo_effects import _cutout_png
     inspected_product.cache_clear()
     _cutout_png.cache_clear()
-    gc.collect()
+    try_release_heap()
 
 
 def _evict_pack(entry):
@@ -3395,6 +3412,11 @@ def one_click_campaign(part):
             response.headers['Retry-After']='30'
             return response
         try:
+            if not can_start_heavy("campaign"):
+                response=jsonify(error='Memory pressure on Render. Please retry the campaign when resources are available.')
+                response.status_code=503
+                response.headers['Retry-After']='30'
+                return response
             bundle = _assemble_campaign_bundle(part,body)
             token = _save_campaign_bundle(bundle)
             response = jsonify(token=token, manifest=bundle['manifest'])
@@ -3549,6 +3571,12 @@ def start_mobile_campaign(part):
                 response=jsonify(error='Another full-quality campaign is already generating. The server can handle one at a time; please retry once it finishes.')
                 response.status_code=429
                 response.headers['Retry-After']='45'
+                return response
+            if not can_start_heavy("campaign"):
+                CAMPAIGN_RENDER_SLOT.release()
+                response=jsonify(error='Render is under memory pressure. Please retry the campaign when resources are available.')
+                response.status_code=503
+                response.headers['Retry-After']='30'
                 return response
             job_id=secrets.token_urlsafe(24)
             preview_folder=tempfile.mkdtemp(prefix='laser-progress-')
