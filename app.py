@@ -1911,15 +1911,21 @@ async function buildWhyLaserSheet(){
 }
 // Lift the visual comparison out of the narrower search-column stacking
 // context. It occupies a true full-screen comparison workspace.
-document.body.appendChild($('whyLaserPanel'));
+if(typeof document!=='undefined' && document.body &&
+   typeof document.body.appendChild==='function'){
+ document.body.appendChild($('whyLaserPanel'));
+}
 $('whyLaserClose').addEventListener('click',()=>{
  $('whyLaserPanel').hidden=true;
 });
-document.addEventListener('keydown',event=>{
- if(event.key==='Escape' && !$('whyLaserPanel').hidden){
-  $('whyLaserPanel').hidden=true;
- }
-});
+if(typeof document!=='undefined' &&
+   typeof document.addEventListener==='function'){
+ document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && !$('whyLaserPanel').hidden){
+   $('whyLaserPanel').hidden=true;
+  }
+ });
+}
 $('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
 $('competitorBtn').addEventListener('click',()=>findCompetitors(false));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
