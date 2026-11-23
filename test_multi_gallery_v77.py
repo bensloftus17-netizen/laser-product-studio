@@ -142,6 +142,35 @@ class GalleryV77Tests(unittest.TestCase):
         discard_gallery(SKU)
         self.assertEqual(load_gallery(SKU),[])
 
+    def test_poster_editor_source_images_are_persisted_separately(self):
+        from disk_campaign_store import StoredCampaign
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory(prefix="gallery-edit-") as tmp:
+            folder=Path(tmp)
+            original=photo(0)
+            second=photo(1)
+            third=photo(2)
+            stored=StoredCampaign(folder,{"part":SKU},[])
+            role_photos={
+                "poster_technical":original,
+                "poster_price":second,
+                "poster_smart":third,
+            }
+            stored.save_editor({
+                "product":{"part":SKU,"title":"Verified Laser kit"},
+                "genuine_photo":original,
+                "role_photos":role_photos,
+                "scenes":[None,None,None],
+                "concepts":[{"headline":"Original"} for _ in range(3)],
+                "distributor":None,
+            })
+            recovered=stored["editor_context"]
+            self.assertEqual(recovered["role_photos"],role_photos)
+            self.assertEqual(recovered["genuine_photo"],original)
+            self.assertFalse(any(
+                key.startswith("_") for key in recovered["role_photos"]))
+
     def test_fallback_with_one_manufacturer_image_is_safe(self):
         original=photo(0)
         refs=[{"sha256":hashlib.sha256(original).hexdigest(),
