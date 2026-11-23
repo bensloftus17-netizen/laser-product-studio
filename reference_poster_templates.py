@@ -210,89 +210,14 @@ def _panel(draw, title, value, box, *, label_color=CYAN, role="detail"):
 
 def render_promo_reference(product, official_photo, concept, scene=None,
                            distributor=None, variant=0):
-    """Workshop workbench promotion using reference image three's composition."""
-    if not official_photo or not product.get("title"):
-        raise ValueError("Promo reference requires an official photo and title")
-    canvas = Image.new("RGBA", (W, H), NAVY)
-    used = actual_scene(canvas, scene, (0, 170, W, 1110),
-                        brightness=(.81, .69, .76)[variant % 3], blur=1.3,
-                        focus=("centre", "left", "right")[variant % 3]) if scene else False
-    d = ImageDraw.Draw(canvas, "RGBA")
-    if not used:
-        # Draw perspective workshop architecture if licensed context is absent.
-        d.rectangle((0, 170, W, 1110), fill=(10, 54, 84, 255))
-        for x in (65, 405, 880, 1120):
-            d.rectangle((x, 170, x + 21, 800), fill=(0, 99, 172, 255))
-        for x in (90, 510, 900):
-            d.rounded_rectangle((x, 310, x + 200, 685), radius=12,
-                                fill=(15, 67, 102, 255),
-                                outline=(46, 124, 186, 255), width=4)
-    # Steel workbench and cool-toned lighting, drawn BEHIND genuine product.
-    d.polygon(((0, 820), (W, 735), (W, 1062), (0, 1103)),
-              fill=(105, 138, 166, 243))
-    for index in range(22):
-        y = 840 + 10 * index
-        d.line((0, y + 53, W, y - 29), fill=(177, 204, 221, 69), width=2)
-    d.rectangle((0, 0, W, 174), fill=(2, 16, 31, 255))
-    d.rectangle((0, 173, W, 181), fill=CYAN)
-    brand(d, str(product.get("part") or ""))
-    co_brand(canvas, distributor)
-    d = ImageDraw.Draw(canvas, "RGBA")
-    # Legible title/proposition above the real tool, not an empty photo frame.
-    d.rounded_rectangle((40, 211, 1160, 369), radius=17,
-                        fill=(1, 19, 36, 230),
-                        outline=(11, 161, 237, 222), width=3)
-    _required(d, str(product["title"]).upper(), (66, 229, 1138, 316),
-              maximum=53, minimum=23, max_lines=3, role="headline")
-    _required(d, "WORKSHOP PRODUCT PROMOTION",
-              (67, 322, 1070, 361), maximum=24, minimum=18,
-              max_lines=1, colour=PALE, role="subline")
-    product_photo(canvas, official_photo, (56, 390, 1146, 1010),
-                  scale=(1.0, 1.05, .98)[variant % 3])
-    # Three filled information panels, including a contents box only when
-    # the manufacturer explicitly lists included parts.
-    facts = _verified_facts(product, concept)
-    first = next((x for x in facts if len(x) <= 115), None)
-    second = next((x for x in facts if x != first and len(x) <= 115), None)
-    kit = next((x for x in facts if re.search(
-        r"\b(includes|contains|comprises|supplied with|consists of|kit contents)\b",
-        x, re.I)), None)
-    third = kit or next((x for x in facts if x not in (first, second)
-                         and len(x) <= 115), None)
-    d = ImageDraw.Draw(canvas, "RGBA")
-    d.rectangle((0, 1020, W, 1290), fill=(1, 18, 36, 249))
-    d.line((0, 1020, W, 1020), fill=CYAN, width=5)
-    _panel(d, "KEY FEATURES", first or "Review official specifications",
-           (27, 1041, 402, 1265), role="feature")
-    _panel(d, "WORKSHOP USE" if second else "PRODUCT DETAILS",
-           second or "See manufacturer product listing",
-           (413, 1041, 787, 1265), role="application")
-    _panel(d, "KIT CONTENTS" if kit else "PRODUCT INFORMATION",
-           third or "Refer to the official catalogue",
-           (798, 1041, 1173, 1265), role="contents")
-    # Genuine reviewed UK price, or honest enquiry instead of a fabricated RRP.
-    price = verified_price(product)
-    amount = price.get("amount") or "PRICE ON REQUEST"
-    caption = ((price.get("label") or "UK RRP") + " · " +
-               (price.get("vat") or "VAT STATUS TO CONFIRM")) if price.get("amount") \
-              else "ENQUIRE FOR CURRENT UK PRICE"
-    d.polygon(((38, 1300), (739, 1300), (710, 1410), (38, 1410)),
-              fill=(0, 101, 183, 255))
-    record_area("price", (38, 1300, 739, 1410))
-    _required(d, amount, (64, 1308, 696, 1365), maximum=52, minimum=24,
-              max_lines=1, role="price")
-    _required(d, caption, (64, 1370, 699, 1403), maximum=19, minimum=14,
-              max_lines=1, bold=False, role="price_caption")
-    d.polygon(((758, 1310), (W, 1298), (W, 1411), (726, 1410)),
-              fill=(1, 65, 122, 250))
-    _required(d, "LASER TOOLS", (787, 1338, 1160, 1393),
-              maximum=40, minimum=26, max_lines=1, role="brand")
-    d.rectangle((0, 1420, W, H), fill=(2, 15, 31, 255))
-    d.polygon(((410, 1420), (W, 1420), (W, H), (345, H)),
-              fill=(0, 105, 184, 255))
-    _required(d, "LASER TOOLS", (47, 1438, 405, 1490),
-              maximum=35, minimum=24, max_lines=1, role="brand_footer")
-    _required(d, "DRAFT — VERIFY PRICE AND PRODUCT DETAILS",
-              (470, 1451, 1160, 1491), maximum=18, minimum=14,
-              max_lines=1, role="footer")
-    return _save(canvas)
+    """V71: use the user-supplied workshop photo/reference, NOT generic art.
+
+    Keep the original public function signature and the existing source-safe
+    PIL composition adapters to preserve the poster quality capture, genuine
+    product pixels and price verification across all campaign render paths.
+    """
+    from workshop_reference_locked import render_locked_workshop_promo
+    return render_locked_workshop_promo(
+        product, official_photo, concept, scene, distributor, variant=variant,
+        photo_placer=product_photo,
+        required=_required, source_facts=_verified_facts, save=_save)
