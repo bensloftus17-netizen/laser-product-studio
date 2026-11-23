@@ -61,15 +61,18 @@ class VisualComparisonV76Tests(unittest.TestCase):
 
     def test_verified_competitor_photo_can_appear_in_pdf_without_ai_redraw(self):
         original=PILImage.new("RGB",(450,340),(155,82,53))
+        rival_photo=PILImage.new("RGB",(410,310),(60,110,155))
         out=io.BytesIO()
+        rival_out=io.BytesIO()
         original.save(out,format="JPEG")
+        rival_photo.save(rival_out,format="JPEG")
         revised={**self.sheet,"competitors":[{
             **self.sheet["competitors"][0],
             "image_url":"https://www.drapertools.com/images/22495.jpg",
         }]}
         from why_laser_comparison_poster import _genuine_rival_photo
         with patch("why_laser_comparison_poster._genuine_rival_photo",
-                   return_value=out.getvalue()) as fetch:
+                   return_value=rival_out.getvalue()) as fetch:
             pdf=render_why_choose_laser_pdf(revised,out.getvalue())
         fetch.assert_called_once()
         page=fitz.open(stream=pdf,filetype="pdf")[0]
