@@ -1129,7 +1129,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         warnings.append(
                             "The independent AI critic rejected one or more original "
                             "artboards. Those roles use separate verified-safe "
-                            "layouts, approved by all remaining quality checks.")
+                            "layouts and the remaining deterministic quality checks. "
+                            + ("Manual visual approval is still pending."
+                               if manual_visual_review_pending else
+                               "AI re-review passed."))
             if blocking:
                 detail="; ".join(
                     key+": "+", ".join(sorted(set(codes)))
@@ -1278,9 +1281,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "The QR code (when included) links ONLY to an official product source.\n"
         "Generation: " + mode + "\n"
         + "\n".join(manifest["warnings"]) + "\n"
-        + ("INTERNAL DRAFT ONLY. Manual visual poster review pending.\\n"
+        + ("INTERNAL DRAFT ONLY. Manual visual poster review pending.\n"
            if manual_visual_review_pending else "")
-        + "The ZIP does not publish or schedule any content.\\n"
+        + "The ZIP does not publish or schedule any content.\n"
     )
     # Live server uses a private on-disk ZIP sink. Nine already-compressed
     # PNGs must not be duplicated into a second giant BytesIO buffer while
