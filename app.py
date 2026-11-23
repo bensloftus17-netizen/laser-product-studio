@@ -2734,7 +2734,7 @@ def pdf_render_photo(pdfbytes):
     finally:doc.close()
 
 
-def lookup(part,session=requests,force=False,uk_url=None):
+def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
     part=sku_clean(part)
     if uk_url:
         uk_url=uk_url.strip()
@@ -2744,7 +2744,15 @@ def lookup(part,session=requests,force=False,uk_url=None):
     now=time.time()
     if not force and not uk_url and part in CACHE:
         age_limit=3600 if CACHE[part][2] else 60
-        if now-CACHE[part][0]<age_limit:return CACHE[part][1],CACHE[part][2]
+        if now-CACHE[part][0]<age_limit:
+            cached_product,cached_image=CACHE[part][1],CACHE[part][2]
+            # A lightweight competitor/photo preview must not trigger an
+            # expensive multi-photo scan; only full campaigns request it.
+            if not collect_gallery or (
+                    cached_product.get('gallery_complete') and (
+                        not cached_product.get('photo_gallery_count')
+                        or load_gallery(part))):
+                return cached_product,cached_image
     errors=[]; product=None; image_bytes=None
     # Official UK pages are best for English product wording and genuine GBP RRP.
     uk_candidates=[]
@@ -2851,7 +2859,8 @@ def lookup(part,session=requests,force=False,uk_url=None):
     )
     pdf_image=image_bytes if image_bytes and valid_image(image_bytes) else None
     image_bytes=None
-    gallery=manufacturer_gallery_urls(part,session)
+    gallery=(manufacturer_gallery_urls(part,session)
+             if collect_gallery else [])
     studio=[url for url in gallery if not re.search(r'in.?situ',url,re.I)]
     # Product gallery URLs are already proven by exact-SKU markup and
     # allowlisted manufacturer hosts. Some genuine carousel assets use
@@ -2866,9 +2875,13 @@ def lookup(part,session=requests,force=False,uk_url=None):
     product['photo_source']=None
     photo_options,checked_urls=collect_official_photo_options(
         candidates,
-        lambda url: official_get(url,session,timeout=6),
-        valid_image,manufacturer_image_rank,max_checks=18,workers=2,
-        min_distinct_good=4,distinct_signature=gallery_signature)
+        lambda url: official_get(url,session,timeout=4),
+        valid_image,manufacturer_image_rank,
+        # Avoid two simultaneous 30-megapixel Pillow decodes on 512 MiB
+        # Render Free. A broad photo gallery is only required for a campaign.
+        max_checks=9 if collect_gallery else 4,workers=1,
+        min_distinct_good=3 if collect_gallery else 1,
+        distinct_signature=gallery_signature if collect_gallery else None)
     # If none of the discovered official masters is good enough, look at the
     # ACTUAL official PDF image and a genuine source PDF rendering. This
     # matters for older tools (such as 4554) where /items/large serves an
@@ -2911,24 +2924,30 @@ def lookup(part,session=requests,force=False,uk_url=None):
         product['photo_quality_selection']=report
     # Only genuinely different, passing official manufacturer pixels become
     # alternate heroes. Keep their bytes on disk, not in the RAM product cache.
-    selected_gallery=distinct_gallery(photo_options,selected,max_images=4)
-    if selected_gallery:
+    selected_gallery=(distinct_gallery(photo_options,selected,max_images=4)
+                      if collect_gallery else [])
+    if collect_gallery and selected_gallery:
         product['photo_gallery']=store_gallery(part,selected_gallery)
-    else:
+    elif collect_gallery:
         discard_gallery(part)
         product['photo_gallery']=[]
+    else:
+        # Do not erase an active campaign's on-disk verified gallery just
+        # because someone searched for competitors or opened the preview.
+        product['photo_gallery']=[]
     product['photo_gallery_count']=len(product['photo_gallery'])
+    product['gallery_complete']=bool(collect_gallery)
     # A separate *real* in-use photo gives the promotional advert a unique look.
     APPLICATION_IMAGE_CACHE.pop(part,None)
     product['application_photo_source']=None
     in_use=[url for url in gallery if re.search(r'in.?situ',url,re.I)]
-    if not in_use:
+    if not in_use and collect_gallery:
         in_use=[
             f'https://www.lasertools.co.uk/items/large/{part}_InSitu.jpg',
             f'https://www.lasertools.co.uk/items/large/{part}_Insitu_1.jpg',
             f'https://www.lasertools.co.uk/items/large/{part}_InSitu_A.jpg',
         ]
-    for photo_url in in_use[:3]:
+    for photo_url in in_use[:2]:
         try:
             response=official_get(photo_url,session,timeout=6)
             if valid_image(response.content):
@@ -2954,6 +2973,11 @@ def lookup(part,session=requests,force=False,uk_url=None):
     if not product['features']:
         product['warnings'].append('English feature bullets were not available. Use the official English description instead of translated text.')
     CACHE[part]=(now,product,image_bytes)
+    # Source photo QA creates large RGBA/cutout caches. The caller holds
+    # genuine JPEG/PNG bytes; decoded temporary cutouts are not needed
+    # between separate requests.
+    _release_campaign_image_caches()
+    try_release_heap()
     # Manufacturer photos are encoded but can still be multi-megabyte PNGs;
     # retain at most three recent source records on 512 MiB Render workers.
     # Other SKUs are refetched from the official source on demand.
@@ -3606,7 +3630,8 @@ def _assemble_campaign_bundle(part, body, progress=None):
     promo_template=validate_promo_template(body.get('promo_template'))
     if progress:
         progress("verifying_product")
-    product, image = lookup(part, uk_url=body.get('official_url') or None)
+    product, image = lookup(part, uk_url=body.get('official_url') or None,
+                            collect_gallery=True)
     if not image:
         raise ValueError('A genuine official product photograph is required.')
     product = with_reviewed_price(
