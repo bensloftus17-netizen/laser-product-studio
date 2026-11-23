@@ -75,7 +75,7 @@ def _fact_panels(d, source_facts, required):
     # Right panel preserves reference's bright cyan KIT CONTENTS header if
     # source-backed, otherwise changes that label to PRODUCT INFORMATION.
     d.rectangle((858, 1038, W, 1085), fill=(0, 125, 205, 255))
-    required(d, "KIT CONTENTS" if kit else "PRODUCT INFORMATION",
+    required(d, "KIT CONTENTS" if kit else "PRODUCT DETAILS",
              (874, 1047, 1187, 1082), maximum=25, minimum=16,
              max_lines=1, colour=WHITE, role="panel_label")
     required(d, (kit if kit and len(kit) <= 135 else
@@ -84,7 +84,7 @@ def _fact_panels(d, source_facts, required):
                  "Refer to the official product description for included items."),
              (875, 1103, 1183, 1235),
              maximum=23, minimum=13, max_lines=7,
-             bold=False, colour=PALE, role="contents")
+             bold=False, colour=PALE, role="kit_details")
 
 
 def _logo(d, x, y, width=470):
