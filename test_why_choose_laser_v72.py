@@ -134,7 +134,7 @@ class WhyChooseLaserV72Tests(unittest.TestCase):
         pdf=render_why_choose_laser_pdf(sheet)
         document=fitz.open(stream=pdf,filetype="pdf")
         self.assertGreaterEqual(document.page_count,1)
-        self.assertEqual(round(document[0].rect.width),595)
+        self.assertEqual(round(document[0].rect.width),842)  # V76: A4 landscape side-by-side
         text="\n".join(page.get_text() for page in document)
         self.assertIn("WHY CHOOSE LASER?",text)
         self.assertIn("Six threaded bars included",text)
