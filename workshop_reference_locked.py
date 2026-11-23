@@ -46,9 +46,12 @@ def reference_scene():
 def _fact_panels(d, source_facts, required):
     """Use literal official facts only; select content that fits each panel."""
     all_facts = list(dict.fromkeys(f.strip() for f in source_facts if isinstance(f, str) and f.strip()))
+    # "Applications include Mercedes ..." is a vehicle fitment statement,
+    # NOT a statement of what comes in the tool kit. Do not mislabel it.
     kit = next((f for f in all_facts if re.search(
-        r"\b(includes?|contains?|comprises?|supplied with|kit contents|consists of)\b",
-        f, re.I)), None)
+        r"\b(?:kit|set|package|pack|case|contents|components)\s+"
+        r"(?:includes?|contains?|comprises?)\b|"
+        r"\b(?:supplied with|consists of|kit contents)\b",f,re.I)),None)
     descriptions = [f for f in all_facts if f != kit]
     chosen = []
     for f in sorted(descriptions, key=lambda x: (len(x) > 95, len(x))):
