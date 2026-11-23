@@ -50,26 +50,41 @@ def _rows(draw, text, width, face):
 
 def _draw_fit(draw, text, box, *, maximum=48, minimum=16, max_lines=3,
               colour=WHITE, bold=True, role="text"):
-    text = " ".join(str(text or "").split())
-    if not text:
-        return False
-    x0, y0, x1, y1 = box
-    for size in range(maximum, minimum - 1, -2):
-        face = font(size, "bold" if bold else "regular")
-        rows = _rows(draw, text, x1 - x0 - 2, face)
-        step = round(size * 1.23)
-        if len(rows) > max_lines or len(rows) * step > y1 - y0:
-            continue
-        if any((lambda b: b[0] < x0 or b[1] < y0 or b[2] > x1 or b[3] > y1)(
-            draw.textbbox((x0, y0 + i * step), row, font=face))
-            for i, row in enumerate(rows)):
-            continue
-        for i, row in enumerate(rows):
-            draw.text((x0, y0 + i * step), row, font=face, fill=colour)
-        record_text(text, box, rows, size, role)
+    """Place the complete source text by measuring *actual visible glyphs*.
+
+    Pillow/FreeType font ascenders can extend outside the naive baseline area.
+    Position relative to the measured glyph bounding box, not the baseline:
+    this preserves every character without overflowing the intended box.
+    """
+    text=" ".join(str(text or "").split())
+    if not text:return False
+    x0,y0,x1,y1=box
+    width,height=x1-x0,y1-y0
+    if width<=4 or height<=4:return False
+    for size in range(maximum,minimum-1,-2):
+        face=font(size,"bold" if bold else "regular")
+        rows=_rows(draw,text,width-4,face)
+        if len(rows)>max_lines or not rows:continue
+        glyphs=[draw.textbbox((0,0),line,font=face) for line in rows]
+        if any(b[2]-b[0]>width-4 for b in glyphs):continue
+        step=round(size*1.20)
+        glyph_height=(len(rows)-1)*step+max(b[3]-b[1] for b in glyphs)
+        if glyph_height>height-2:continue
+        positions=[]
+        for i,b in enumerate(glyphs):
+            px=x0+2-b[0]
+            py=y0+1+i*step-b[1]
+            extent=draw.textbbox((px,py),rows[i],font=face)
+            if (extent[0]<x0 or extent[1]<y0 or
+                extent[2]>x1 or extent[3]>y1):
+                break
+            positions.append((px,py))
+        if len(positions)!=len(rows):continue
+        for (px,py),line in zip(positions,rows):
+            draw.text((px,py),line,font=face,fill=colour)
+        record_text(text,box,rows,size,role)
         return True
     return False
-
 
 def _required(draw, text, box, **kwargs):
     if not _draw_fit(draw, text, box, **kwargs):
