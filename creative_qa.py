@@ -95,10 +95,80 @@ def review_finished_artworks(images):
         return {"method":"gemini-visual-critic","reviewed":True,
                 "issues":findings,"warning":None}
     except (RuntimeError,ValueError,KeyError,TypeError,OSError) as exc:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Gemini artwork critic unavailable: %s", str(exc)[:280])
         return {"method":"automated-geometry-only","reviewed":False,
                 "issues":{},"warning":"AI visual critic could not complete: "+
                                      type(exc).__name__+
                                      ". Image geometry and source QA were still checked."}
+
+
+def pending_review_after_outage(quality_reports, distinctness, original_issues,
+                                repaired_roles, failure_warning=None):
+    """Provisional INTERNAL DRAFT only if all independent checks passed.
+
+    Never equate an unavailable external Gemini review with approval. The
+    returned report preserves the earlier visual concerns for a human to
+    examine. Reject known severe product-photo faults, insufficient objective
+    evidence, actual duplicates and unrepaired roles. No claimed AI approval.
+    """
+    if not isinstance(distinctness,dict) or distinctness.get("passed") is not True:
+        return None
+    if not isinstance(original_issues,dict):
+        return None
+    issue_roles={role for role,codes in original_issues.items()
+                 if role in POSTERS and codes}
+    if not issue_roles or not issue_roles.issubset(set(repaired_roles or ())):
+        return None
+    severe={"white_box","white_halo","blurry_product"}
+    for role in POSTERS:
+        report=(quality_reports or {}).get(role) or {}
+        if (report.get("passed") is not True or
+                report.get("text_bounds_verified") is not True or
+                report.get("product_bounds_verified") is not True or
+                report.get("truncated") is True):
+            return None
+        if any(issue in severe for issue in original_issues.get(role,[])):
+            return None
+        if "tiny_product" in original_issues.get(role,[]):
+            fraction=report.get("product_visible_fraction")
+            if not isinstance(fraction,(int,float)) or fraction<.08:
+                return None
+    # A rejected duplicate must have stronger actual pixel evidence than the
+    # default already-enforced distinctness threshold. Never simply ignore a
+    # previously flagged duplicate because Google's review became unavailable.
+    pairs=distinctness.get("pairs") or []
+    for role in issue_roles:
+        if "duplicate_layout" not in original_issues.get(role,[]):
+            continue
+        related=[p for p in pairs if isinstance(p,dict) and
+                 role in (p.get("left"),p.get("right"))]
+        if len(related)!=2:
+            return None
+        if any(not isinstance(p.get("difference"),(int,float))
+               or not isinstance(p.get("perceptual_hash_distance"),int)
+               or p["difference"]<.09
+               or (p["perceptual_hash_distance"]<8 and p["difference"]<.18)
+               for p in related):
+            return None
+    concerns={role:list(original_issues.get(role) or [])
+              for role in POSTERS}
+    return {
+        "method":"deterministic-checks-manual-visual-review-pending",
+        "reviewed":False,
+        "manual_review_required":True,
+        "review_status":"pending_human_visual_review",
+        "issues":concerns,
+        "original_visual_issues":concerns,
+        "repaired_roles":sorted(issue_roles),
+        "warning":("The external AI re-review was unavailable. All three "
+                   "draft posters passed independent source-image, measured "
+                   "text, product placement and pixel-distinctness checks, "
+                   "but earlier AI visual concerns need human review. "
+                   "DO NOT PUBLISH until someone approves the artwork. "
+                   + str(failure_warning or "")[:180]).strip(),
+    }
 
 
 def _independent_reference_distinctness(role, quality_reports, distinctness):
