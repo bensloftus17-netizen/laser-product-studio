@@ -1103,21 +1103,30 @@ def keyless_discovery(signature,session=requests):
     if signature["type"]=="inspection camera":
         urls.extend(INSPECTION_CAMERA_SEEDS)
     urls.extend(CATEGORY_SEEDS.get(signature["type"],()))
-    try:
-        hits,feed_errors=rss_search(signature,session)
-        urls.extend(row["url"] for row in hits)
-        if feed_errors:
-            warnings.append("Some public search requests failed; results may be incomplete.")
-    except (requests.RequestException,ValueError,RuntimeError) as exc:
-        # Do not throw out a verified source simply because a free RSS search
-        # provider has blocked or changed its feed.
+    if len(snapshots)>=3:
+        # First inspect four known official product pages. Avoid burning the
+        # worker's memory and 60-second request budget on blocked RSS/HTML
+        # engines when the tool category already has comparable manufacturers.
+        # Google Shopping (when configured) is still searched separately.
         hits=[]
-        warnings.append("Public RSS feed unavailable; trying normal search results and approved catalogue leads.")
-    if len({r["url"] for r in hits if safe_url(r.get("url"))})<10:
-        extra=html_search(signature,session)
-        if extra:
-            hits.extend(extra)
-            warnings.append("Public search HTML also supplied competitor leads.")
+        warnings.append(
+            "Manufacturer catalogue-first discovery used for this tool family. "
+            "Broader live UK Shopping searches require a configured search provider.")
+    else:
+        try:
+            hits,feed_errors=rss_search(signature,session)
+            urls.extend(row["url"] for row in hits)
+            if feed_errors:
+                warnings.append("Some public search requests failed; results may be incomplete.")
+        except (requests.RequestException,ValueError,RuntimeError):
+            hits=[]
+            warnings.append(
+                "Public RSS feed unavailable; trying normal search results and approved catalogue leads.")
+        if len({r["url"] for r in hits if safe_url(r.get("url"))})<10:
+            extra=html_search(signature,session)
+            if extra:
+                hits.extend(extra)
+                warnings.append("Public search HTML also supplied competitor leads.")
     # Prioritise hits that already describe the correct product class before
     # spending the bounded page budget; preserve original search order.
     indexed=sorted(hits,key=lambda r:(
