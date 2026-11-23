@@ -8,6 +8,9 @@ from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
 from typing import Any
 from pathlib import Path
+from official_photo_gallery import (
+    gallery_urls_from_html, distinct_gallery, store_gallery,
+    load_gallery, discard_gallery, _signature as gallery_signature)
 from memory_guard import can_start_heavy, try_release_heap, current_memory
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -2448,6 +2451,10 @@ def select_bullets(soup):
     return candidates[0][:8]
 
 def parse_html(content,part,url):
+    # JSON-LD Product images and lazy-loaded gallery URLs must be extracted
+    # BEFORE removing scripts/navigation for textual feature parsing.
+    verified_gallery=gallery_urls_from_html(
+        content,url,part,authorized_url)
     soup=BeautifulSoup(content.decode('utf-8','replace') if isinstance(content,bytes) else content,'html.parser')
     for t in soup(['script','style','header','footer','nav','noscript']):t.decompose()
     text=soup.get_text('\n',strip=True)
@@ -2491,7 +2498,7 @@ def parse_html(content,part,url):
         if authorized_url(u) and (part in src or 'XLarge' in src):image_urls.append(u)
     specs=english_only_specs(specs)
     if not features and not specs: raise LookupErrorPublic('The product page contains insufficient technical information.')
-    return dict(part=part,title=title,description=desc,features=features,specs=specs,price=rrp,source=url,image_candidates=list(dict.fromkeys(image_urls)),source_type='Official Laser/Tool Connection product page')
+    return dict(part=part,title=title,description=desc,features=features,specs=specs,price=rrp,source=url,image_candidates=list(dict.fromkeys(verified_gallery+image_urls)),source_type='Official Laser/Tool Connection product page')
 
 def parse_pis_pdf(pdfbytes,part,url):
     d=fitz.open(stream=pdfbytes,filetype='pdf')
@@ -2634,6 +2641,11 @@ def manufacturer_gallery_urls(part,session=requests):
                  f'https://lasertools.toolconnection.co.uk/Product/{part}']:
         try:
             response=official_get(page,session,timeout=6)
+            # Include exact-SKU JSON-LD Product arrays, image carousels,
+            # responsive srcsets and genuine detail/alternate images.
+            for discovered in gallery_urls_from_html(
+                    response.content,response.url,part,authorized_url):
+                matches.append((discovered,1200))
             soup=BeautifulSoup(response.content,'html.parser')
             for node in soup.find_all(['a','img','source']):
                 sources=[]
@@ -2662,7 +2674,8 @@ def manufacturer_gallery_urls(part,session=requests):
                     basename=urlparse(url).path.rsplit('/',1)[-1]
                     if exact.fullmatch(basename):
                         matches.append((url,resolution))
-            if matches:break
+            # Check both official manufacturer galleries; the second may
+            # contain a different angle rather than just the same packshot.
         except Exception:pass
     # Deterministically check full-resolution srcset options ahead of tiny
     # thumbnails. Still quality-check every official image's actual pixels.
@@ -2834,7 +2847,8 @@ def lookup(part,session=requests,force=False,uk_url=None):
     photo_options,checked_urls=collect_official_photo_options(
         candidates,
         lambda url: official_get(url,session,timeout=6),
-        valid_image,manufacturer_image_rank,max_checks=12,workers=2)
+        valid_image,manufacturer_image_rank,max_checks=18,workers=2,
+        min_distinct_good=4,distinct_signature=gallery_signature)
     # If none of the discovered official masters is good enough, look at the
     # ACTUAL official PDF image and a genuine source PDF rendering. This
     # matters for older tools (such as 4554) where /items/large serves an
@@ -2875,6 +2889,15 @@ def lookup(part,session=requests,force=False,uk_url=None):
         # Preserve the established public fields for existing clients.
         report['candidates_checked']=len(photo_options)
         product['photo_quality_selection']=report
+    # Only genuinely different, passing official manufacturer pixels become
+    # alternate heroes. Keep their bytes on disk, not in the RAM product cache.
+    selected_gallery=distinct_gallery(photo_options,selected,max_images=4)
+    if selected_gallery:
+        product['photo_gallery']=store_gallery(part,selected_gallery)
+    else:
+        discard_gallery(part)
+        product['photo_gallery']=[]
+    product['photo_gallery_count']=len(product['photo_gallery'])
     # A separate *real* in-use photo gives the promotional advert a unique look.
     APPLICATION_IMAGE_CACHE.pop(part,None)
     product['application_photo_source']=None
@@ -2918,6 +2941,7 @@ def lookup(part,session=requests,force=False,uk_url=None):
         oldest=next(iter(CACHE))
         CACHE.pop(oldest,None)
         APPLICATION_IMAGE_CACHE.pop(oldest,None)
+        discard_gallery(oldest)
     for older in list(APPLICATION_IMAGE_CACHE):
         if older not in CACHE:
             APPLICATION_IMAGE_CACHE.pop(older,None)
@@ -3576,11 +3600,13 @@ def _assemble_campaign_bundle(part, body, progress=None):
         else None)
     if progress is not None:
         return build_campaign(product, image, distributor,
-                              application_photo=official_context, progress=progress,
+                              application_photo=official_context,
+                              gallery_images=load_gallery(part), progress=progress,
                               promo_template=promo_template,
                               spill_archive=True)
     return build_campaign(product, image, distributor,
                           application_photo=official_context,
+                          gallery_images=load_gallery(part),
                           promo_template=promo_template,
                           spill_archive=True)
 
