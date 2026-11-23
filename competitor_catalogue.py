@@ -13,6 +13,44 @@ from copy import deepcopy
 
 CHECKED_DATE = "2026-11-23"
 REFERENCES = {
+    # Independently checked official manufacturer pages, 23 Nov 2026.
+    # These international sources establish competing pneumatic scraper
+    # products, NOT UK stock, prices or interchangeable accessories.
+    "pneumatic gasket scraper": [
+        {
+            "brand": "Astro Pneumatic",
+            "sku": "1750K",
+            "title": "Astro Pneumatic Air Scraper Kit - Includes 4 Specialty Blades (1750K)",
+            "url": "https://www.astrotools.com/product/air-scraper-kit-includes-4-specialty-blades/",
+            "verified_specs": {
+                "Included blades": "4 specialty blades",
+                "Air consumption": "3 CFM",
+                "Maximum air pressure": "90 psi",
+                "Sound level": "93 dB(A)",
+                "Vibration": "9 m/s²",
+                "Air inlet": "1/4 in",
+            },
+            "method": "Pneumatic scraper kit",
+            "relationship": "Related air-powered gasket/paint scraper; verify blade fit and use",
+            "source_checked_on": CHECKED_DATE,
+        },
+        {
+            "brand": "Beswell",
+            "sku": "BW-CH06",
+            "title": "Beswell Straight Air Gasket Scraper (BW-CH06)",
+            "url": "https://beswellpowertools.com/products/straight-air-gasket-scraper",
+            "verified_specs": {
+                "Blows per minute": "4000",
+                "Operating pressure": "90 psi",
+                "Air inlet": "1/4 in",
+                "Tool length": "248 mm",
+                "Tool weight": "0.7 kg",
+            },
+            "method": "Pneumatic straight gasket scraper",
+            "relationship": "Related air-powered gasket scraper; accessories and application unverified",
+            "source_checked_on": CHECKED_DATE,
+        },
+    ],
     "brake bleeder": [
         {
             "brand": "Draper",
