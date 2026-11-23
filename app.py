@@ -42,7 +42,7 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v75-why-laser-cache-fix">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v76-comparison-reference">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -1909,8 +1909,16 @@ async function buildWhyLaserSheet(){
    'That older search lost its evidence when Render restarted. Click Refresh prices to load a new, restart-safe sheet. '+(error.message||'');
  }finally{btn.disabled=false;}
 }
+// Lift the visual comparison out of the narrower search-column stacking
+// context. It occupies a true full-screen comparison workspace.
+document.body.appendChild($('whyLaserPanel'));
 $('whyLaserClose').addEventListener('click',()=>{
  $('whyLaserPanel').hidden=true;
+});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape' && !$('whyLaserPanel').hidden){
+  $('whyLaserPanel').hidden=true;
+ }
 });
 $('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
 $('competitorBtn').addEventListener('click',()=>findCompetitors(false));
