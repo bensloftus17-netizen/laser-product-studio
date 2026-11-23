@@ -2421,10 +2421,18 @@ def valid_image(blob):
     We detect that failure without rejecting long, vertical tools such as lamps.
     """
     try:
-        im=Image.open(io.BytesIO(blob));im.load()
-        if not (min(im.size)>=80 and max(im.size)>=300 and 50000<=im.width*im.height<=30_000_000):return False
-        im=ImageOps.exif_transpose(im).convert('RGB')
-        im.thumbnail((350,350),Image.Resampling.LANCZOS)
+        with Image.open(io.BytesIO(blob)) as source:
+            w,h=source.size
+            if not (min(w,h)>=80 and max(w,h)>=300 and
+                    50000<=w*h<=30_000_000):
+                return False
+            # A 30-megapixel original can use >120 MiB merely by decoding
+            # into RGB. Inspect at 350px, using JPEG draft *before* decoding.
+            # This doesn't alter the genuine source bytes used by posters.
+            if source.format in ('JPEG','MPO'):
+                source.draft('RGB',(700,700))
+            source.thumbnail((350,350),Image.Resampling.LANCZOS)
+            im=ImageOps.exif_transpose(source).convert('RGB')
         w,h=im.size
         colors=[im.getpixel((x,y)) for x,y in ((0,0),(w-1,0),(0,h-1),(w-1,h-1))]
         # Photo with a near-white studio background: measure actual content.
