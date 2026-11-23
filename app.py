@@ -42,7 +42,7 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v72-why-laser">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v75-why-laser-cache-fix">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -80,7 +80,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V74 competitor intelligence</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V75 restart-safe sales sheets</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -1601,13 +1601,57 @@ function showOfficialHero(part){
 }
 
 let competitorShownPart=null, competitorBusy=false;
+let whyLaserBrowserPack=null, whyLaserPdfObjectUrl=null;
+function clearWhyLaserBrowserPack(){
+ whyLaserBrowserPack=null;
+ if(whyLaserPdfObjectUrl){
+  URL.revokeObjectURL(whyLaserPdfObjectUrl);
+  whyLaserPdfObjectUrl=null;
+ }
+ $('whyLaserPdf').hidden=true;
+}
+function showWhyLaserEvidencePack(pack,part){
+ if(!pack || !pack.sheet || pack.sheet.part!==part)return false;
+ displayWhyLaserSheet(pack.sheet);
+ const link=$('whyLaserPdf');
+ if(pack.pdf_base64 && typeof pack.pdf_base64==='string'){
+  try{
+   if(whyLaserPdfObjectUrl) URL.revokeObjectURL(whyLaserPdfObjectUrl);
+   const raw=atob(pack.pdf_base64);
+   const bytes=new Uint8Array(raw.length);
+   for(let index=0;index<raw.length;index++)bytes[index]=raw.charCodeAt(index);
+   if(bytes.length<5 || raw.slice(0,5)!=='%PDF-'){
+    throw new Error('Invalid PDF bytes');
+   }
+   whyLaserPdfObjectUrl=URL.createObjectURL(
+     new Blob([bytes],{type:'application/pdf'}));
+   link.href=whyLaserPdfObjectUrl;
+   link.download='LASER_'+part+'_Why_Choose_Laser.pdf';
+   link.hidden=false;
+   $('whyLaserStatus').textContent=
+    'Source-checked draft ready. The PDF can be downloaded even if Render restarts. Human approval required.';
+   return true;
+  }catch(error){
+   console.warn('Local comparison PDF could not be prepared',error);
+  }
+ }
+ link.hidden=true;
+ $('whyLaserStatus').textContent='Verified comparison ready for review. PDF export unavailable for this search; refresh competitor research to retry.';
+ return true;
+}
 const competitorPriceLabel = item => item.price_gbp
  ? '£'+Number(item.price_gbp).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})
  : item.brand==='Snap-on'?'UK price not publicly verified':'Price not verified';
 function renderCompetitorReport(result){
+ clearWhyLaserBrowserPack();
+ // Preserve a source-checked snapshot with the visible results, not in the
+ // Render worker's volatile cache. Never ask the server for it again just
+ // because the user clicked this button after the instance slept.
+ const inline=result.why_laser_pack;
+ whyLaserBrowserPack=inline && inline.sheet &&
+     inline.sheet.part===result.laser.part ? inline : null;
  $('whyLaserBtn').disabled=false;
  $('whyLaserPanel').hidden=true;
- $('whyLaserPdf').hidden=true;
  const container=$('competitorResults'),stats=$('competitorStats');
  const rows=Array.isArray(result.results)?result.results:[];
  $('competitorTitle').textContent='Competitors for Laser '+result.laser.part;
@@ -1688,9 +1732,9 @@ async function findCompetitors(force=false){
  if(heroPhotoDebounce!==null)clearTimeout(heroPhotoDebounce);
  showOfficialHero(part);
  competitorBusy=true;
+ clearWhyLaserBrowserPack();
  $('whyLaserBtn').disabled=true;
  $('whyLaserPanel').hidden=true;
- $('whyLaserPdf').hidden=true;
  const btn=$('competitorBtn'),refresh=$('competitorRefresh');
  btn.disabled=true;refresh.disabled=true;
  $('competitorPanel').hidden=false;
@@ -1784,6 +1828,13 @@ async function buildWhyLaserSheet(){
  const btn=$('whyLaserBtn');
  btn.disabled=true;
  try{
+  // Source-checked evidence and signed-off review status came directly from
+  // the original competitor response; still works after Render restarts.
+  if(whyLaserBrowserPack && showWhyLaserEvidencePack(whyLaserBrowserPack,part)){
+   return;
+  }
+  // Compatibility path for older search results that did not carry an inline
+  // evidence pack. This may be missing if Render has restarted meanwhile.
   const response=await fetch('/api/competitors/'+encodeURIComponent(part)+'/why-laser',
      {cache:'no-store',headers:{Accept:'application/json'}});
   const sheet=await readApiJson(response);
@@ -1794,7 +1845,8 @@ async function buildWhyLaserSheet(){
   $('whyLaserPdf').download='LASER_'+part+'_Why_Choose_Laser.pdf';
   $('whyLaserPdf').hidden=false;
  }catch(error){
-  $('whyLaserStatus').textContent=error.message||'Sales evidence is unavailable.';
+  $('whyLaserStatus').textContent=
+   'That older search lost its evidence when Render restarted. Click Refresh prices to load a new, restart-safe sheet. '+(error.message||'');
  }finally{btn.disabled=false;}
 }
 $('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
@@ -1807,7 +1859,7 @@ $('part').addEventListener('input',()=>{
   competitorShownPart=null;
   $('whyLaserBtn').disabled=true;
   $('whyLaserPanel').hidden=true;
-  $('whyLaserPdf').hidden=true;
+  clearWhyLaserBrowserPack();
  }
  // Never keep showing another product's image when changing part number.
  $('heroProductPhoto').hidden=true;
