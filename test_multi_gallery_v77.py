@@ -148,8 +148,10 @@ class GalleryV77Tests(unittest.TestCase):
                "source_url":"https://www.lasertools.co.uk/items/XLarge/9395.jpg",
                "type":"packshot"}]
         from test_campaign_hub import CampaignHubTests
+        CampaignHubTests.setUpClass()
         product={**CampaignHubTests.product,"part":SKU,"photo_gallery":refs,
-                 "photo_source":refs[0]["source_url"]}
+                 "photo_source":refs[0]["source_url"],
+                 "source":"https://www.toolconnection.co.uk/products/cars-vans/9395-kit"}
         expected_photo_for_role={}
         sampled_png=CampaignHubTests.sample_poster()
         def choose(render,role,source_blob,*args,**kwargs):
@@ -168,13 +170,15 @@ class GalleryV77Tests(unittest.TestCase):
 
     def test_three_posters_get_three_different_verified_hero_photos(self):
         from test_campaign_hub import CampaignHubTests
+        CampaignHubTests.setUpClass()
         blobs=[photo(i) for i in (0,1,2,3)]
         refs=[{"sha256":hashlib.sha256(blob).hexdigest(),
                "source_url":f"https://www.lasertools.co.uk/items/XLarge/9395_{i}.jpg",
                "type":"alternate" if i else "packshot"}
               for i,blob in enumerate(blobs)]
         product={**CampaignHubTests.product,"part":SKU,"photo_gallery":refs,
-                 "photo_source":refs[0]["source_url"]}
+                 "photo_source":refs[0]["source_url"],
+                 "source":"https://www.toolconnection.co.uk/products/cars-vans/9395-kit"}
         seen={}
         formats={}
         png=CampaignHubTests.sample_poster()
