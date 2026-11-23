@@ -886,7 +886,7 @@ function renderCampaignGallery(data){
        return '01 / Technical reference · clean blue manufacturer-style fact sheet · source-verified application and specifications';
      }
      if(asset.id==='poster_price'&&m.promo_template==='workshop_showcase'){
-       return '02 / Your fixed photo template · actual supplied workshop and steel bench · large genuine product · verified price · three info columns and kit panel';
+       return 'Template: Workshop Showcase · original supplied workshop and steel bench · fixed price poster · genuine product photo · verified content panels';
      }
      return '03 / Product spotlight · independently AI-directed creative composition · '+
        'selling angle: '+String(a.proof_strategy||'verified product benefit').replaceAll('_',' ')+
