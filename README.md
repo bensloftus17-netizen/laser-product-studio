@@ -1,3 +1,47 @@
+## V72 — Why Choose Laser? source-backed sales sheet
+
+The existing **Find Competitors & UK Prices** panel now includes **Why Choose
+Laser? Sheet**. Enter any Laser part number, run Competitor Finder, and click
+the new button to preview and download a branded, printable A4 PDF for that
+specific product. No AI-authored comparative superiority claims are accepted.
+
+The sheet:
+- Lists up to five key product-specific **Laser facts** taken exclusively
+  from the official manufacturer record. It never invents materials,
+  capabilities, vehicle applications or kit contents.
+- Shows up to four source-verified competitor products with genuine links.
+  Matching published specifications are compared only when **both** the Laser
+  product and the competitor's live JSON-LD Product additionalProperty provide
+  an attribute. Explicit differences are described as *published differences*,
+  not automatically as performance advantages.
+- Clearly distinguishes unverified technical comparisons from meaningful
+  evidence. Search-index leads and unconfirmed Shopping specifications are
+  not promoted to published product facts.
+- Does **not** imply a product is superior merely because another manufacturer
+  has not published a detail. Laser official RRPs are not compared as
+  equivalent to UK retailers' advertised prices; used prices and VAT differences
+  are not mixed.
+- Uses original Laser product photography, where a compact official preview
+  can be safely obtained from the already verified lookup. The PDF retains
+  clickable product sources, a research timestamp, and **INTERNAL DRAFT —
+  NOT APPROVED FOR CUSTOMER DISTRIBUTION**.
+- Reuses the 20-minute, per-part competitor research cache. PDF export never
+  starts a fresh, mismatched competitor search or invents sources.
+  If the cache expired or an official source is missing, the user must search
+  again instead of receiving an ungrounded sheet.
+
+Test with:
+
+\`\`\`sh
+python -m unittest -v test_why_choose_laser_v72.py test_competitor_finder_v49.py
+\`\`\`
+
+CI: \`.github/workflows/why-laser-regression.yml\`.
+No published supplier superiority, warranty, fitment or price claim is
+certified without independent technical and legal approval.
+
+---
+
 ## V69 — One workshop promo template, genuinely different supporting artwork
 
 The user-supplied blank workshop/workbench reference is reserved exclusively
