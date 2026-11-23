@@ -12,6 +12,8 @@ import re
 from xml.sax.saxutils import escape
 
 from PIL import Image as PILImage
+import requests
+from competitor_finder import safe_image_url
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
@@ -108,6 +110,55 @@ def image_or_placeholder(c,data,x,y,w,h,caption):
     draw_text(c,caption,x+13,y+h/2-20,w-26,44,
               size=10,bold=True,colour=MUTED)
     return False
+
+
+def _genuine_rival_photo(rival):
+    """Optionally embed the exact product-page image, never generated art.
+
+    This is deliberately small and fail-soft on Render Free. The URL must
+    have passed the competitor source allowlist and match this product page.
+    No redirects to untrusted hosts, no arbitrary user URL, and no more than
+    800 KiB of downloaded content. SVGs and huge decoded photographs are
+    rejected instead of filling 512 MiB RAM.
+    """
+    url=rival.get("image_url")
+    source=rival.get("url")
+    if not isinstance(url,str) or safe_image_url(url,source)!=url:
+        return None
+    try:
+        with requests.get(url,timeout=(2.0,3.0),stream=True,
+                          allow_redirects=False,
+                          headers={"Accept":"image/jpeg,image/png,image/webp"}) as resp:
+            if resp.status_code!=200:
+                return None
+            mime=resp.headers.get("content-type","").split(";",1)[0].lower()
+            if mime not in ("image/jpeg","image/png","image/webp"):
+                return None
+            if int(resp.headers.get("content-length","0") or 0)>800_000:
+                return None
+            chunks=[]
+            total=0
+            for chunk in resp.iter_content(32768):
+                total+=len(chunk)
+                if total>800_000:
+                    return None
+                chunks.append(chunk)
+        with PILImage.open(io.BytesIO(b"".join(chunks))) as image:
+            w,h=image.size
+            if w*h>6_000_000 or min(w,h)<100:
+                return None
+            if image.format in ("JPEG","MPO"):
+                image.draft("RGB",(640,640))
+            image.thumbnail((640,460),PILImage.Resampling.LANCZOS)
+            original=image.convert("RGBA")
+            # White paper is part of the output, not part of product pixels.
+            canvas=PILImage.new("RGB",original.size,"white")
+            canvas.paste(original,mask=original.getchannel("A"))
+            dst=io.BytesIO()
+            canvas.save(dst,format="JPEG",quality=84,optimize=True)
+            return dst.getvalue() if dst.tell()<220_000 else None
+    except (requests.RequestException,OSError,ValueError,TypeError):
+        return None
 
 
 def _bullet(c,value,x,y,width,colour,maxheight=34):
@@ -275,6 +326,12 @@ def render_visual_comparison_pdf(sheet,photo_bytes=None):
     c.setTitle("Why Choose Laser? "+clean(sheet.get("part"),18)+" — visual comparison")
     c.setAuthor("Laser Product Studio — Internal review draft")
     laser_url=sheet.get("official_source")
+    # Fetch at most two exact manufacturer/retailer product photographs.
+    # Avoid turning a 4-page comparison into four extra network stalls.
+    rival_photos={}
+    for candidate in rivals[:2]:
+        if candidate.get("image_url"):
+            rival_photos[candidate.get("url")]=_genuine_rival_photo(candidate)
     for idx,rival in enumerate(rivals[:4],1):
         c.setFillColor(PAPER)
         c.rect(0,0,PW,PH,stroke=0,fill=1)
@@ -305,7 +362,7 @@ def render_visual_comparison_pdf(sheet,photo_bytes=None):
               # Competitor photos are only permitted if bytes are independently
               # source-verified; absent inputs are never AI-created or copied
               # from another similar-looking tool.
-              rival.get("verified_photo_bytes"),
+              rival_photos.get(rival.get("url")),
               rival.get("url"),
               "COMPETITOR PHOTO NOT VERIFIED")
         with_name={**rival,"_laser_part":sheet.get("part")}
