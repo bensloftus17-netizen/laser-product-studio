@@ -1239,7 +1239,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
              "third_angle":concept.get("third_angle"),
              "layout":("Laser technical reference · structured product sheet"
                        if index==0 else
-                       "Laser workshop reference · price promotion"
+                       "Workshop Showcase · user photographic reference · price promotion"
                        if index==1 and promo_template=="workshop_showcase" else
                        "Verified-safe recovery" if quality_reports[
                           ("poster_technical","poster_price","poster_smart")[index]
