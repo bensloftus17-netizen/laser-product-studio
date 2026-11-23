@@ -15,12 +15,18 @@ def inspect_asset(blob):
     issues=[]
     warnings=[]
     try:
-        image=ImageOps.exif_transpose(Image.open(io.BytesIO(blob))).convert("RGB")
-        image.load()
+        with Image.open(io.BytesIO(blob)) as raw:
+            w,h=raw.size
+            # QA only inspects structure at 420px. Never decode 30MP into
+            # several full-resolution RGB images to calculate an edge score.
+            if raw.format in ("JPEG", "MPO"):
+                raw.draft("RGB", (900, 900))
+            raw.thumbnail((900,900),Image.Resampling.LANCZOS)
+            image=ImageOps.exif_transpose(raw).convert("RGB")
+            image.load()
     except (ValueError, OSError, TypeError):
         return {"passed":False,"issues":["Unreadable manufacturer product photo"],
                 "warnings":[],"size":[0,0],"edge_strength":0}
-    w,h=image.size
     # Materially smaller photos lose tool detail on a 1200x1500 poster.
     if min(w,h)<400 or w*h<210_000:
         issues.append("Source product image is too small for professional poster artwork")
