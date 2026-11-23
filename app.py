@@ -83,7 +83,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V76 visual comparison sheets</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V77 official photo galleries</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
