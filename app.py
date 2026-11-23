@@ -80,7 +80,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V75 restart-safe sales sheets</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V76 visual comparison sheets</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -109,8 +109,9 @@ V7_HOME_PAGE = r'''
  <div id="competitorResults" class="competitor-results"></div>
  <div id="competitorSources" class="competitor-sources"></div>
  <section id="whyLaserPanel" class="why-laser-panel" hidden aria-label="Why Choose Laser sales evidence sheet">
-  <div class="why-laser-heading"><div><span class="sectioncap">SOURCE-CHECKED SALES EVIDENCE</span><h4>WHY CHOOSE LASER?</h4></div>
-  <span>INTERNAL DRAFT · APPROVAL REQUIRED</span></div>
+  <div class="why-laser-heading"><div><span class="sectioncap">PRODUCT VS COMPETITOR · VERIFIED EVIDENCE</span><h4>WHY CHOOSE LASER?</h4></div>
+  <span>INTERNAL DRAFT · APPROVAL REQUIRED</span>
+  <button type="button" id="whyLaserClose" class="why-compare-close" aria-label="Close comparison sheet">Close ×</button></div>
   <p id="whyLaserStatus" role="status" aria-live="polite"></p>
   <div id="whyLaserContent"></div>
  </section>
@@ -1773,48 +1774,106 @@ $('competitorResults').addEventListener('error',event=>{
  cell.innerHTML='<span class="competitor-no-photo">Source photo unavailable</span>';
 },true);
 function displayWhyLaserSheet(sheet){
- const targets=$('whyLaserContent'), part=sheet.part;
- const facts=Array.isArray(sheet.strengths)?sheet.strengths:[];
- const rivals=Array.isArray(sheet.competitors)?sheet.competitors:[];
- const official=String(sheet.official_source||'');
- const officialLink=official.startsWith('https://')
-  ?'<a href="'+esc(official)+'" target="_blank" rel="noopener noreferrer">Official Laser listing ↗</a>'
-  :'Official source unavailable';
- const feats=facts.length?
-  '<ol class="why-laser-strengths">'+facts.map(x=>
-    '<li>'+esc(x.text)+'</li>').join('')+'</ol>':
-  '<p class="why-laser-unknown">No verified Laser features were available. Do not invent selling points.</p>';
- const compared=rivals.length?
-  '<div class="why-laser-rivals">'+rivals.map(c=>{
-   const diffs=Array.isArray(c.published_differences)?c.published_differences:[];
-   const matches=Array.isArray(c.shared_published_specs)?c.shared_published_specs:[];
-   const detail=diffs.length
-    ?diffs.map(d=>'<p><b>'+esc(d.attribute)+'</b>: Laser '+esc(d.laser)+
-      ' · '+esc(c.brand)+' '+esc(d.competitor)+
-      '<small>Documented difference; does not establish better performance.</small></p>').join('')
-    :matches.length?
-      '<p>Shared published specification: '+esc(matches[0].attribute)+
-      ' — '+esc(matches[0].laser)+'</p>':
-      '<p>No like-for-like technical advantage established from this listing.</p>';
-   return '<article class="why-laser-rival"><strong>'+esc(c.brand)+'</strong>'+
-     '<small>'+esc(c.title)+'</small>'+
-     '<small>'+esc(c.comparison_relationship||'Category comparison; check technical fit')+'</small>'+
-     (c.source_checked_on?'<small>Manufacturer facts checked '+esc(c.source_checked_on)+
-      '; current price/stock not verified</small>':'')+
-     detail+
-     '<a href="'+esc(c.url)+'" target="_blank" rel="noopener noreferrer">View verified product page ↗</a></article>';
-  }).join('')+'</div>':
-  '<p class="why-laser-unknown">No competitor product pages verified for this item. This is a Laser-feature draft, not a claim of superiority.</p>';
- targets.innerHTML=
-  '<div class="why-laser-summary"><b>Laser '+esc(part)+' · '+esc(sheet.title)+'</b>'+
-  '<span>'+esc(sheet.status)+'</span></div>'+
-  '<div class="why-laser-columns"><section><h5>Verified Laser selling points</h5>'+
-  feats+officialLink+'</section><section><h5>Competitors checked</h5>'+
-  compared+'</section></div>'+
-  '<p class="why-laser-caution">'+esc(sheet.caution)+' '+esc(sheet.pricing_note)+'</p>'+
-  '<small class="why-laser-date">Evidence checked '+esc(sheet.research_checked_at_utc)+
-  ' · Human approval required before customer use.</small>';
+ // Reference-inspired comparison layout: blue Laser / red competitor,
+ // big genuine photo zones, source-backed specification grid and gold
+ // conclusion. Every competitor receives its own visual comparison page.
+ const target=$('whyLaserContent'),part=String(sheet.part||'');
+ const facts=(Array.isArray(sheet.strengths)?sheet.strengths:[])
+  .filter(x=>x&&x.verified===true&&x.text).slice(0,5);
+ const rivals=(Array.isArray(sheet.competitors)&&sheet.competitors.length)
+  ?sheet.competitors:[{
+    brand:'No verified competitor',part_number:'',title:'Technical evidence unavailable',
+    published_differences:[],shared_published_specs:[],
+    comparison_relationship:'No matched product page: no superiority claim possible',
+    url:'',image_url:null
+  }];
+ const image=whyLaserBrowserPack&&whyLaserBrowserPack.photo_base64
+    ?'data:image/jpeg;base64,'+whyLaserBrowserPack.photo_base64
+    :'/api/photo/'+encodeURIComponent(part);
+ const link=(url,label)=>{
+  const trusted=typeof url==='string'&&url.startsWith('https://');
+  return trusted?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a>':
+    '<span class="why-compare-no-link">Source link not verified</span>';
+ };
+ const laserFacts=facts.length?facts.slice(0,4).map(f=>
+   '<li>'+esc(f.text)+'</li>').join(''):
+   '<li>Official manufacturer features need verification.</li>';
+ target.innerHTML='<div class="why-compare-stack">'+rivals.slice(0,4).map((r,index)=>{
+  const changes=(Array.isArray(r.published_differences)?r.published_differences:[]).slice(0,3);
+  const shared=(Array.isArray(r.shared_published_specs)?r.shared_published_specs:[]).slice(0,3);
+  const comparisons=[
+   ...changes.map(x=>({...x,kind:'Documented difference'})),
+   ...shared.map(x=>({...x,kind:'Shared published specification'}))
+  ].slice(0,4);
+  const tableRows=comparisons.length?comparisons.map(x=>
+   '<tr><th>'+esc(x.attribute)+'</th><td>'+esc(x.laser)+'</td>'+
+   '<td>'+esc(x.competitor)+'</td></tr>').join(''):
+   '<tr><th>Technical comparison</th><td>See official features above</td>'+
+   '<td>Matching specifications not verified</td></tr>';
+  const rivalFacts=[r.comparison_relationship||'Comparable product category',
+    ...changes.map(x=>x.attribute+': '+x.competitor),
+    ...shared.map(x=>x.attribute+': '+x.competitor)];
+  if(!comparisons.length){
+    rivalFacts.push('No proven like-for-like technical advantage');
+  }
+  const rivalPhoto=r.image_url&&String(r.image_url).startsWith('https://')
+   ?'<img src="'+esc(r.image_url)+'" alt="'+esc(r.brand+' '+r.part_number)+'" loading="lazy">'+
+    '<small>Original competitor product listing photograph</small>':
+    '<div class="why-compare-photo-missing">Genuine competitor photograph unavailable</div>';
+  let takeaway='';
+  if(changes.length){
+   const first=changes[0];
+   takeaway='Published '+first.attribute+' differs: Laser '+first.laser+
+    '; '+r.brand+' '+first.competitor+'. A specification difference alone does not prove better performance.';
+  }else if(shared.length){
+   const first=shared[0];
+   takeaway='Both sources list '+first.attribute+' as '+first.laser+
+    '. Laser features are independently listed above; superiority is not established.';
+  }else{
+   takeaway=(facts.length?'Laser officially lists '+facts[0].text+'. ':'')+
+     'No defensible technical superiority claim has yet been verified against this product.';
+  }
+  const verifiedRivalLink=link(r.url,'View '+(r.brand||'competitor')+' source');
+  const officialLink=link(sheet.official_source,'View official Laser source');
+  return '<article class="why-compare-page">'+
+   '<div class="why-compare-title"><h3>Laser Tools '+esc(part)+' vs '+
+      esc(r.brand||'Competitor')+' '+esc(r.part_number||'')+'</h3>'+
+    '<p>'+esc(sheet.title)+' · Published product evidence comparison</p></div>'+
+   '<div class="why-compare-dual">'+
+    '<section class="why-compare-card why-compare-laser">'+
+      '<h4>Laser Tools '+esc(part)+'</h4>'+
+      '<div class="why-compare-card-inner">'+
+        '<figure class="why-compare-photo"><img src="'+esc(image)+'" alt="Official Laser '+esc(part)+' product" loading="lazy">'+
+        '<small>Official Laser Tools product photo</small></figure>'+
+        '<div class="why-compare-claims"><strong>'+esc(sheet.title)+'</strong>'+
+          '<ul>'+laserFacts+'</ul></div>'+
+      '</div><footer>'+officialLink+'</footer>'+
+    '</section>'+
+    '<section class="why-compare-card why-compare-rival">'+
+      '<h4>'+esc(r.brand||'Competitor')+' '+esc(r.part_number||'')+'</h4>'+
+      '<div class="why-compare-card-inner">'+
+        '<figure class="why-compare-photo">'+rivalPhoto+'</figure>'+
+        '<div class="why-compare-claims"><strong>'+esc(r.title||'Source-checked comparison')+'</strong>'+
+          '<ul>'+rivalFacts.slice(0,4).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'+
+      '</div><footer>'+verifiedRivalLink+'</footer>'+
+    '</section>'+
+   '</div>'+
+   '<div class="why-compare-table"><table><thead><tr><th>Comparison</th>'+
+    '<th>Laser Tools '+esc(part)+'</th><th>'+esc(r.brand||'Competitor')+
+    ' '+esc(r.part_number||'')+'</th></tr></thead><tbody>'+
+    tableRows+'</tbody></table></div>'+
+   '<div class="why-compare-takeaway"><span aria-hidden="true">✓</span><p><strong>Key takeaway:</strong> '+
+    esc(takeaway)+'</p></div>'+
+   '<footer class="why-compare-evidence">'+
+    '<span>Research checked '+esc(sheet.research_checked_at_utc)+
+    (r.source_checked_on?' · Manufacturer details checked '+esc(r.source_checked_on):'')+'</span>'+
+    '<span>Price comparison excluded: different or unverified pricing bases</span>'+
+    '<strong>INTERNAL DRAFT · NOT APPROVED FOR CUSTOMER DISTRIBUTION</strong>'+
+   '</footer>'+
+  '</article>';
+ }).join('')+'</div>';
 }
+
 async function buildWhyLaserSheet(){
  const part=$('part').value.trim().toUpperCase();
  $('whyLaserPanel').hidden=false;
@@ -1849,6 +1908,9 @@ async function buildWhyLaserSheet(){
    'That older search lost its evidence when Render restarted. Click Refresh prices to load a new, restart-safe sheet. '+(error.message||'');
  }finally{btn.disabled=false;}
 }
+$('whyLaserClose').addEventListener('click',()=>{
+ $('whyLaserPanel').hidden=true;
+});
 $('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
 $('competitorBtn').addEventListener('click',()=>findCompetitors(false));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
