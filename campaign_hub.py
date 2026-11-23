@@ -36,7 +36,7 @@ from campaign_art_quality import choose_best, campaign_consistency, photo_releva
 from creative_director import distinct_briefs
 from creative_families import (
     diversify_concepts, choose_format_parents, copy_diversity,
-    DEFAULT_FAMILY, FORMAT_PARENTS,
+    choose_native_visuals, DEFAULT_FAMILY, FORMAT_PARENTS,
 )
 from creative_expression import (
     express_background, format_palette, DEFAULT_FORMAT_PALETTE,
@@ -832,6 +832,10 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
     format_canvases={}
     palette_choices={}
     used_format_palettes=[]
+    used_native_families=[]
+    used_native_treatments=[]
+    native_family_choices={}
+    native_treatment_choices={}
     failed_formats=[]
     for key in FORMAT_ORDER:
         _emit("rendering",key)
@@ -843,6 +847,18 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         parent_headline=parent.get("headline") or product.get("title")
         parent_proof=parent.get("selling_point") or proof
         brief=validate_format_canvas(key,supplied_formats.get(key),len(format_facts))
+        # Parent role governs verified source facts, but must not copy the
+        # original poster's composition into a different native format.
+        # Retain original AI choices when distinct; repair repeats with six
+        # format-specific brand-safe visual families and treatments.
+        native_family,native_treatment=choose_native_visuals(
+            key,brief.get("creative_family") if brief else None,
+            brief.get("visual_treatment") if brief else None,
+            used_native_families,used_native_treatments)
+        used_native_families.append(native_family)
+        used_native_treatments.append(native_treatment)
+        native_family_choices[key]=native_family
+        native_treatment_choices[key]=native_treatment
         # Gemini may choose an original palette for every native format.
         # If it omitted colour or repeated the same one everywhere, use a
         # truthful differentiated brand-safe alternative rather than six
@@ -856,7 +872,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             # Inherit a *different* source-backed campaign angle; keep the
             # model's independently authored native-format geometry intact.
             brief={**brief,"headline_role":parent_role,
-                   "scene_role":parent_role,"creative_family":parent_family}
+                   "scene_role":parent_role,
+                   "creative_family":native_family,
+                   "visual_treatment":native_treatment}
             if parent_proof in format_facts:
                 brief["proof_feature_index"]=format_facts.index(parent_proof)
         try:
@@ -874,22 +892,22 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 image_assets[key]=_native_graphic(
                     product,genuine_photo,distributor,key,parent_proof,
                     scene=scenes[scene_idx],visual_plan=creative_plan,
-                    creative_family=parent_family,headline=parent_headline,
-                    creative_palette=palette)
+                    creative_family=native_family,headline=parent_headline,
+                    creative_palette=palette,visual_treatment=native_treatment)
                 format_reports[key]={
                     "render_engine":"verified-legacy-layout","passed":None,
-                    "parent_role":parent_role,"creative_family":parent_family,
-                    "creative_palette":palette,"visual_treatment":"bold_geometry",
+                    "parent_role":parent_role,"creative_family":native_family,
+                    "creative_palette":palette,
+                    "visual_treatment":native_treatment,
                     "warning":"AI did not return an approved native-format canvas; "
                               "older renderer used. Manual artwork review required."}
                 if mode=="gemini-assisted":
                     warnings.append("No safe AI original layout for "+key+
                                     "; the existing format layout was used.")
             format_reports[key]["parent_role"]=parent_role
-            format_reports[key]["creative_family"]=parent_family
+            format_reports[key]["creative_family"]=native_family
             format_reports[key]["creative_palette"]=palette
-            format_reports[key]["visual_treatment"]=(
-                brief["visual_treatment"] if brief else "bold_geometry")
+            format_reports[key]["visual_treatment"]=native_treatment
             # Individual files become visible only after their normal image
             # gate succeeds (the AI format renderer already checks two
             # variants). We do not resize, remove QA or shorten Gemini work.
@@ -911,16 +929,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         product,genuine_photo,distributor,key,
                         parent_proof if parent_proof else safe_fact,
                         scene=scenes[scene_idx],visual_plan=creative_plan,
-                        creative_family=parent_family,headline=parent_headline,
-                        creative_palette=palette)
+                        creative_family=native_family,headline=parent_headline,
+                        creative_palette=palette,visual_treatment=native_treatment)
                     report=quality_check_safe_native(native,key,source_gate)
                     if not report["passed"]:
                         raise ValueError("; ".join(report["issues"]))
                     report["recovered_from"]=str(exc)[:200]
                     report["parent_role"]=parent_role
-                    report["creative_family"]=parent_family
+                    report["creative_family"]=native_family
                     report["creative_palette"]=palette
-                    report["visual_treatment"]="bold_geometry"
+                    report["visual_treatment"]=native_treatment
                     image_assets[key]=native
                     format_reports[key]=report
                     warnings.append(
@@ -938,6 +956,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     failed_formats.append((key,str(exc)[:220]))
                 _emit("failed",key,report={"issues":[failed_formats[-1][1]]})
     creative_plan["format_palettes"]=palette_choices
+    creative_plan["native_format_families"]=native_family_choices
+    creative_plan["native_format_treatments"]=native_treatment_choices
     _emit("reviewing_posters")
     # Inspect actual poster pixels and diversity before producing the ZIP.
     distinctness=check_distinctness(image_assets,concepts)
