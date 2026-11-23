@@ -804,6 +804,22 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             preferred_variant=concepts[2]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[2]["relevance_warning"]})
         _emit("quality_checking","poster_smart")
+    # V69 role lock: exactly ONE of the three primary posters uses the
+    # workshop/workbench reference. The technical sheet and AI-selected
+    # benefit poster must not accidentally reuse its sales composition.
+    poster_engines={
+        key:quality_reports[key].get("render_engine","")
+        for key in ("poster_technical","poster_price","poster_smart")}
+    workshop_roles=[key for key,engine in poster_engines.items()
+                    if engine=="laser-workshop-promo-reference"]
+    if promo_template=="workshop_showcase" and workshop_roles!=["poster_price"]:
+        raise ValueError(
+            "Campaign poster mapping rejected: the approved workshop "
+            "reference must be used only for price promotion.")
+    if promo_template!="workshop_showcase" and workshop_roles:
+        raise ValueError("Workshop reference appeared without being selected.")
+    if poster_engines["poster_technical"]!="laser-technical-reference":
+        raise ValueError("Technical poster reference layout was not retained.")
     # Format art is independently checked. Publish the six approved social,
     # web and email graphics even if a poster's later vision review fails.
     # This does not make a failed poster or a partial ZIP downloadable.
@@ -956,6 +972,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     failed_formats.append((key,str(exc)[:220]))
                 _emit("failed",key,report={"issues":[failed_formats[-1][1]]})
     creative_plan["format_palettes"]=palette_choices
+    creative_plan["poster_role_layouts"]=poster_engines
     creative_plan["native_format_families"]=native_family_choices
     creative_plan["native_format_treatments"]=native_treatment_choices
     _emit("reviewing_posters")
