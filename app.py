@@ -237,7 +237,7 @@ V7_HOME_PAGE = r'''
 <h4>Three posters · Story · Social · Banners</h4><p id="campaignAssetCount" class="campaign-count" role="status" aria-live="polite"></p><p class="share-lead">Share an image directly from the website — no need to save it to Files first. Your phone's share sheet lets you choose an installed app.</p><div class="campaign-asset-grid" id="campaignAssets"></div><p class="share-help">Tap <b>Share to apps</b> and select WhatsApp, Instagram, Facebook or another compatible option in your phone's share sheet. App availability and supported formats vary. Suggested captions are in the Copy Editor.</p>
 
 <section class="campaign-poster-editor" id="campaignPosterEditor" hidden aria-label="Edit selected poster">
- <div class="poster-edit-heading"><div><span class="sectioncap">EDIT VERIFIED CAMPAIGN POSTER</span><h4 id="posterEditTitle">Edit one poster</h4><p>Manufacturer photo, part number and verified price remain locked.</p></div><button type="button" id="posterEditClose" class="ai-secondary">Close</button></div>
+ <div class="poster-edit-heading"><div><span class="sectioncap">EDIT VERIFIED CAMPAIGN POSTER</span><h4 id="posterEditTitle">Edit one poster</h4><p>Choose from verified manufacturer photos; part number, source facts and RRP remain protected.</p></div><button type="button" id="posterEditClose" class="ai-secondary">Close</button></div>
  <div class="poster-edit-layout">
   <div class="poster-edit-visual">
    <img id="posterEditPreview" alt="Selected full-quality Laser poster; click the controls below to edit it" loading="lazy">
