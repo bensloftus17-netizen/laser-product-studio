@@ -1122,7 +1122,7 @@ function retainCompletedCampaignZIP(jobId,token,part){
    if(head[0]!==80||head[1]!==75||![3,5,7].includes(head[2]))
      throw Error('The server did not return a valid ZIP');
    if(campaignLocalJob!==jobId||campaignData?.token!==token||
-      (campaignData.manifest.poster_revision||0)!==revision)return;
+      (campaignData.manifest?.poster_revision||0)!==revision)return;
    const local=URL.createObjectURL(blob);
    campaignLocalZIP={token,url:local};
    const link=$('campaignDownload'),share=$('campaignShareZip');
