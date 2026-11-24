@@ -1580,3 +1580,80 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .why-compare-page{break-after:page;box-shadow:none;border:0;padding:0}
  .why-compare-close,.why-laser-heading{display:none!important}
 }
+
+
+/* V80 / verified, in-place artwork editor. Four CSS-scaled source thumbnails
+   are served directly from disk; no decoded photo copies remain on Render. */
+.campaign-poster-editor .poster-edit-layout{
+ display:grid;grid-template-columns:minmax(245px,.72fr) minmax(0,1.28fr);
+ align-items:start;gap:18px;margin-top:16px;
+}
+.campaign-poster-editor .poster-edit-visual{
+ min-width:0;padding:13px;border:1px solid #d6e5f0;background:#f4f9fd;
+ border-radius:12px;display:grid;gap:10px
+}
+.campaign-poster-editor #posterEditPreview{
+ width:100%;max-width:310px;max-height:375px;object-fit:contain;
+ margin:auto;display:block;background:#dcecf7;border-radius:8px;
+}
+.campaign-poster-editor .poster-edit-hotspots{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px
+}
+.campaign-poster-editor .poster-edit-hotspots button{
+ padding:9px 7px;border-radius:7px;border:1px solid #bdd8e9;
+ background:#fff;color:#0d517c;font-size:11px;font-weight:750
+}
+.campaign-poster-editor .poster-edit-hotspots button:hover{
+ background:#e4f3fd;border-color:#72b4df
+}
+.campaign-poster-editor .poster-edit-visual>small{
+ color:#52728a;font-size:10px;line-height:1.5
+}
+.campaign-poster-editor .poster-edit-controls{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:11px;min-width:0
+}
+.campaign-poster-editor .poster-edit-controls>label{min-width:0}
+.campaign-poster-editor .poster-photo-field{
+ grid-column:1/-1;min-width:0;background:#f8fbff;
+ padding:12px;border:1px solid #c6dceb;border-radius:9px
+}
+.campaign-poster-editor .poster-photo-field legend{
+ color:#0a406b;font-weight:820;font-size:12px;padding:0 5px
+}
+.campaign-poster-editor .poster-photo-field>small{
+ display:block;color:#5f7b92;font-size:10px;margin-top:9px
+}
+.campaign-poster-editor .poster-photo-choices{
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+ gap:9px
+}
+.campaign-poster-editor .poster-photo-option{
+ display:grid;gap:5px;place-items:center;min-width:0;
+ background:#fff;border:2px solid #d8e7f0;border-radius:9px;
+ padding:8px 6px;text-align:center;cursor:pointer
+}
+.campaign-poster-editor .poster-photo-option:has(input:checked){
+ border-color:#0875bf;background:#e4f5ff;
+ box-shadow:0 0 0 2px #0875bf23
+}
+.campaign-poster-editor .poster-photo-option input{
+ justify-self:start;accent-color:#0676b8
+}
+.campaign-poster-editor .poster-photo-option img{
+ width:100%;height:90px;object-fit:contain
+}
+.campaign-poster-editor .poster-photo-option small{
+ color:#315775;font-size:10px;line-height:1.3
+}
+.campaign-poster-editor .poster-edit-price-options:not([hidden]){
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ grid-column:1/-1;gap:11px
+}
+.campaign-poster-editor .poster-edit-price-options[hidden]{display:none!important}
+@media(max-width:840px){
+ .campaign-poster-editor .poster-edit-layout{grid-template-columns:1fr}
+ .campaign-poster-editor .poster-edit-visual{max-width:500px;margin:auto;width:100%}
+ .campaign-poster-editor .poster-edit-controls{grid-template-columns:1fr}
+ .campaign-poster-editor .poster-edit-price-options:not([hidden]){grid-template-columns:1fr}
+}
