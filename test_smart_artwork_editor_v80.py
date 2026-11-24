@@ -243,8 +243,58 @@ class V80ProductStudioTests(unittest.TestCase):
                         "posterEditPriceStyle","posterEditHeadlineSize",
                         "posterEditSave","posterEditFeature","posterEditVariant"):
             self.assertIn('id="'+control+'"',page)
-        self.assertIn("campaign_poster_edit.js?v=80",page)
+        self.assertIn("campaign_poster_edit.js?v=81",page)
         self.assertIn("v80-visual-editor",page.lower())
+
+
+    def test_v81_campaign_survives_worker_index_loss_and_fifth_campaign(self):
+        from campaign_hub import FOLDERS
+        with tempfile.TemporaryDirectory() as temp, \
+             patch.object(studio,"CAMPAIGN_PACK_ROOT",Path(temp)), \
+             patch.object(studio,"CAMPAIGN_PACKS",{}):
+            tokens=[]
+            for _ in range(5):
+                bundle,photos=fixture()
+                tokens.append(studio._save_campaign_bundle(bundle))
+            token=tokens[0]
+            self.assertIsNotNone(studio._get_campaign_pack(token))
+            studio.CAMPAIGN_PACKS.clear()
+            client=studio.app.test_client()
+            self.assertEqual(client.get("/api/campaign/manifest/"+token).status_code,200)
+            self.assertEqual(client.get("/api/campaign/photos/"+token+"/1").data,photos[1])
+            updated=image("#2982ad")
+            def validated(render,role,photo,**kwargs):
+                self.assertEqual(photo,photos[1])
+                return updated,{"passed":True,"variation":0,"score":94}
+            with patch.object(studio,"can_start_heavy",return_value=True), \
+                 patch("poster_live_edit.choose_best",side_effect=validated), \
+                 patch("poster_live_edit.require_good_asset",return_value={"passed":True}), \
+                 patch("campaign_hub._summary_pdf",return_value=b"%PDF-1.4\\n"):
+                response=client.post("/api/campaign/edit/"+token+"/poster_technical",json={
+                    "headline":"Ratchet Set 4pc","feature_index":-1,
+                    "layout_variant":0,"photo_index":1})
+                self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+                studio.CAMPAIGN_PACKS.clear()
+                second=client.post("/api/campaign/edit/"+token+"/poster_technical",json={
+                    "headline":"Ratchet Set 4pc","feature_index":-1,"layout_variant":0})
+                self.assertEqual(second.status_code,200,second.get_data(as_text=True))
+                self.assertEqual(second.get_json()["revision"],2)
+            studio.CAMPAIGN_PACKS.clear()
+            self.assertEqual(client.get("/api/campaign/assets/"+token+"/poster_technical").data,updated)
+            with ZipFile(io.BytesIO(client.get("/api/campaign/download/"+token).data)) as archive:
+                self.assertEqual(archive.read(FOLDERS["poster_technical"]),updated)
+                self.assertEqual(json.loads(archive.read("Campaign_Manifest.json"))["poster_revision"],2)
+
+    def test_v81_active_campaign_refreshes_expiry_without_loading_zip(self):
+        with tempfile.TemporaryDirectory() as temp, \
+             patch.object(studio,"CAMPAIGN_PACK_ROOT",Path(temp)), \
+             patch.object(studio,"CAMPAIGN_PACKS",{}):
+            bundle,_=fixture()
+            token=studio._save_campaign_bundle(bundle)
+            studio.CAMPAIGN_PACKS[token]["expires"]=time.time()+60
+            self.assertIsNotNone(studio._get_campaign_pack(token))
+            self.assertGreater(studio.CAMPAIGN_PACKS[token]["expires"],time.time()+3600)
+            self.assertIsNone(studio._get_campaign_pack("x"*32))
 
 
 if __name__=="__main__":
