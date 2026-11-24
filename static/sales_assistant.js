@@ -1,4 +1,4 @@
-/* V86 sales assistant: bounded text only, no artwork downloads. */
+/* V88 sales assistant: bounded text only, no artwork downloads. */
 (() => {
  'use strict';
  const get=id=>document.getElementById(id);
@@ -16,20 +16,22 @@
  function clear(){out.replaceChildren();out.hidden=true;copy.hidden=true;briefing='';}
  get('salesPart').addEventListener('input',clear);
  get('salesAudience').addEventListener('change',clear);
+ get('salesOfficialUrl').addEventListener('input',clear);
  button.addEventListener('click',async()=>{
   if(button.disabled)return;
   const part=(get('salesPart').value.trim()||get('part').value.trim()).toUpperCase();
   const audience=get('salesAudience').value;
+  const official_url=get('salesOfficialUrl').value.trim();
   if(!/^[A-Z0-9.-]{3,16}$/.test(part)){status.textContent='Enter a valid Laser part number.';return;}
   get('salesPart').value=part;clear();button.disabled=true;
   status.textContent='Retrieving verified product facts and preparing sales guidance…';
   try{
    const response=await fetch('/api/sales-assistant/'+encodeURIComponent(part),{
     method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
-    body:JSON.stringify({audience})
+    body:JSON.stringify(official_url?{audience,official_url}:{audience})
    });
    const data=await readApiJson(response);
-   if(get('salesPart').value.trim().toUpperCase()!==part||get('salesAudience').value!==audience){
+   if(get('salesPart').value.trim().toUpperCase()!==part||get('salesAudience').value!==audience||get('salesOfficialUrl').value.trim()!==official_url){
     status.textContent='Selection changed. Build a briefing for the current selection.';return;
    }
    const groups=[
