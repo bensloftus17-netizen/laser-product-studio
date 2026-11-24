@@ -92,6 +92,7 @@ class StoredCampaign(MutableMapping):
 
     def __setitem__(self,key,value):
         if key=="manifest":
+            _atomic_file(self.folder/"manifest.json",json.dumps(value,ensure_ascii=False,default=str).encode("utf-8"))
             self._manifest=value
             return
         if key=="archive" and isinstance(value,bytes):
@@ -187,13 +188,21 @@ class StoredCampaign(MutableMapping):
         shutil.rmtree(self.folder,ignore_errors=True)
 
 
-def store_campaign(bundle,*,root=None):
+def store_campaign(bundle,*,root=None,token=None):
     """Spill an approved campaign to disk, without keeping duplicate bytes.
 
     Never replace an in-memory approved pack until every required file has
     been written successfully. Invalid or missing PNGs fail closed.
     """
-    directory=Path(tempfile.mkdtemp(prefix="laser-studio-pack-",dir=root))
+    if token is not None:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{24,64}",token):
+            raise ValueError("Invalid campaign token")
+        base=Path(root)
+        base.mkdir(mode=0o700,parents=True,exist_ok=True)
+        directory=base/token
+        directory.mkdir(mode=0o700)
+    else:
+        directory=Path(tempfile.mkdtemp(prefix="laser-studio-pack-",dir=root))
     try:
         (directory/"images").mkdir()
         images=bundle["images"]
@@ -214,7 +223,23 @@ def store_campaign(bundle,*,root=None):
                 raise ValueError("Approved campaign ZIP is missing or invalid")
             _atomic_file(stored.archive_path,archive)
         stored.save_editor(bundle.get("editor_context"))
+        stored["manifest"]=bundle["manifest"]
         return stored
     except Exception:
         shutil.rmtree(directory,ignore_errors=True)
         raise
+
+
+def reopen_campaign(root,token):
+    """Recover private disk-backed packs without loading image or ZIP bytes."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{24,64}",token):
+        return None
+    folder=Path(root)/token
+    try:
+        manifest=json.loads((folder/"manifest.json").read_text(encoding="utf-8"))
+        names=[p.stem for p in (folder/"images").glob("*.png") if KEY.fullmatch(p.stem)]
+        if not names or not (folder/"campaign.zip").is_file():
+            return None
+        return StoredCampaign(folder,manifest,names)
+    except (OSError,ValueError):
+        return None
