@@ -52,9 +52,32 @@ class SalesAssistantTests(unittest.TestCase):
             self.assertEqual(r.get_json()["part"],"9395")
             self.assertEqual(client.post("/api/sales-assistant/9395",json={"audience":"unknown"}).status_code,400)
             self.assertEqual(client.post("/api/sales-assistant/9395",json={"audience":"fleet","price":"£1"}).status_code,400)
+    def test_v87_8899_cold_lookup_uses_verified_record_without_artwork(self):
+        with patch.object(studio,"CACHE",{}), patch.object(studio,"official_get",side_effect=studio.LookupErrorPublic("Source unavailable")), patch.object(studio,"lookup",side_effect=AssertionError("No artwork lookup")), patch.dict("os.environ",{"GEMINI_API_KEY":""}):
+            response=studio.app.test_client().post("/api/sales-assistant/8899",json={"audience":"dealer"})
+        self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+        data=response.get_json()
+        self.assertEqual(data["part"],"8899")
+        self.assertTrue(data["selling_points"])
+        self.assertIn("ball joint",data["title"].lower())
+        self.assertIn("8899",data["source"])
+
+    def test_v87_pdf_text_only_skips_image_extraction(self):
+        import fitz
+        doc=fitz.open()
+        page=doc.new_page()
+        page.insert_text((60,70),"8899\\nBall Joint Separator for JLR\\nAdditional Information\\n- Heavy-duty scissor type separator.")
+        data=doc.tobytes()
+        doc.close()
+        with patch.object(studio.Image,"open",side_effect=AssertionError("No images may be opened")):
+            record,photo=studio.parse_pis_pdf(data,"8899","https://www.lasertools.co.uk/pis/8899_PIS.pdf",include_photo=False)
+        self.assertIsNone(photo)
+        self.assertEqual(record["part"],"8899")
+        self.assertTrue(record["features"])
+
     def test_ui(self):
         self.assertIn('id="salesAssistant"',studio.V7_HOME_PAGE)
-        self.assertIn("sales_assistant.js?v=85",studio.V7_HOME_PAGE)
+        self.assertIn("sales_assistant.js?v=87",studio.V7_HOME_PAGE)
 
 if __name__=="__main__":
     unittest.main()
