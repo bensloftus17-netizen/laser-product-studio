@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
+import shutil
+import tempfile
+from pathlib import Path
 from copy import deepcopy
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from campaign_art_quality import choose_best
 from campaign_design_v80 import recovery_variants
+from disk_campaign_store import StoredCampaign
 from asset_quality import require_good_asset
 from promo_art_direction import PRICE_STYLES,HEADLINE_SIZES
 from campaign_role_posters import technical_poster,smart_poster
@@ -35,6 +40,41 @@ def verified_title_excerpt(official_title,headline):
     if not found:
         raise ValueError("The headline must be copied from the verified manufacturer product name. Use the Copy Editor for draft marketing wording.")
     return found.group(0)
+
+
+def _stream_revision_zip(source,destination,updates):
+    """Repack one approved PNG into an existing ZIP using <=64KiB buffers.
+
+    Render Free's 512 MiB worker must not materialise the entire previous
+    campaign ZIP and another full ZIP simultaneously on a single-poster edit.
+    Every existing non-edited graphic remains byte-for-byte identical.
+    """
+    dest=Path(destination)
+    fd,tmp=tempfile.mkstemp(prefix=".campaign-edit-",suffix=".zip",
+                            dir=str(dest.parent))
+    os.close(fd)
+    remaining=dict(updates)
+    try:
+        with ZipFile(source,"r") as old, ZipFile(tmp,"w",
+                  compression=ZIP_DEFLATED) as revised:
+            for member in old.infolist():
+                name=member.filename
+                if name in remaining:
+                    revised.writestr(member,remaining.pop(name))
+                elif member.is_dir():
+                    revised.writestr(member,b"")
+                else:
+                    with old.open(member,"r") as reader,\
+                         revised.open(member,"w") as writer:
+                        shutil.copyfileobj(reader,writer,64*1024)
+            for name,payload in remaining.items():
+                revised.writestr(name,payload)
+        if not Path(tmp).is_file() or Path(tmp).stat().st_size<64:
+            raise ValueError("Revised campaign ZIP was not prepared")
+        return Path(tmp)
+    except Exception:
+        Path(tmp).unlink(missing_ok=True)
+        raise
 
 
 def edit_campaign_poster(bundle,asset_id,body):
@@ -264,17 +304,27 @@ def edit_campaign_poster(bundle,asset_id,body):
         "Campaign_Manifest.json":json.dumps(manifest,indent=2,ensure_ascii=False),
         "05_Product_Info/Campaign_Summary.pdf":summary,
     }
-    archive=io.BytesIO()
-    with ZipFile(io.BytesIO(bundle["archive"]),"r") as old, \
-         ZipFile(archive,"w",compression=ZIP_DEFLATED) as new:
-        for name in old.namelist():
-            new.writestr(name,new_data.pop(name,old.read(name)))
-        for name,data in new_data.items():
-            new.writestr(name,data)
-    # Commit only once every artifact is ready.
-    bundle["images"][asset_id]=new_image
-    bundle["manifest"]=manifest
-    bundle["archive"]=archive.getvalue()
+    if isinstance(bundle,StoredCampaign):
+        prepared=_stream_revision_zip(
+            bundle.archive_path,bundle.archive_path,new_data)
+        try:
+            bundle["images"][asset_id]=new_image
+            bundle["manifest"]=manifest
+            os.replace(prepared,bundle.archive_path)
+        finally:
+            prepared.unlink(missing_ok=True)
+    else:
+        archive=io.BytesIO()
+        with ZipFile(io.BytesIO(bundle["archive"]),"r") as old, \
+             ZipFile(archive,"w",compression=ZIP_DEFLATED) as new:
+            for name in old.namelist():
+                new.writestr(name,new_data.pop(name,old.read(name)))
+            for name,data in new_data.items():
+                new.writestr(name,data)
+        bundle["images"][asset_id]=new_image
+        bundle["manifest"]=manifest
+        bundle["archive"]=archive.getvalue()
+    # Save the exact source photo for future edits; no background generation.
     source["concepts"]=source_concepts
     source.setdefault("role_photos",{})[asset_id]=photo
     if hasattr(bundle,"save_editor"):
