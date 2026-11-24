@@ -152,6 +152,48 @@ class V80ProductStudioTests(unittest.TestCase):
         with ZipFile(io.BytesIO(bundle["archive"])) as archive:
             self.assertEqual(archive.read(FOLDERS["poster_price"]),bundle["images"]["poster_price"])
 
+    def test_disk_stored_poster_edit_streams_zip_and_preserves_other_assets(self):
+        bundle,photos=fixture()
+        from disk_campaign_store import _atomic_file
+        from campaign_hub import FOLDERS
+        with tempfile.TemporaryDirectory(prefix="v80-zip-") as folder:
+            stored=StoredCampaign(Path(folder),bundle["manifest"],[])
+            (Path(folder)/"images").mkdir()
+            for role,payload in bundle["images"].items():
+                stored["images"][role]=payload
+            _atomic_file(stored.archive_path,bundle["archive"])
+            stored.save_editor(bundle["editor_context"])
+            unchanged=stored["images"]["poster_smart"]
+            def validated(render,role,photo,**kwargs):
+                self.assertEqual(photo,photos[1])
+                return image("#1b85b1"),{"passed":True,"variation":0,"score":94}
+            # Streamed edit must NEVER call the in-memory campaign archive
+            # getter. Temporarily reject that access and exercise a real ZIP.
+            original_get=StoredCampaign.__getitem__
+            def guard(instance,key):
+                if key=="archive":
+                    raise AssertionError("Edited a disk-backed campaign by materialising full ZIP in RAM")
+                return original_get(instance,key)
+            with patch.object(StoredCampaign,"__getitem__",guard),\
+                 patch("poster_live_edit.choose_best",side_effect=validated),\
+                 patch("poster_live_edit.require_good_asset",
+                       return_value={"passed":True}),\
+                 patch("campaign_hub._summary_pdf",
+                       return_value=b"%PDF-1.4\n"):
+                result=edit_campaign_poster(stored,"poster_technical",{
+                    "headline":"Ratchet Set 4pc","feature_index":-1,
+                    "layout_variant":0,"photo_index":1})
+            self.assertEqual(result["revision"],1)
+            self.assertEqual(stored["images"]["poster_smart"],unchanged)
+            self.assertEqual(stored.gallery_photo(1),photos[1])
+            self.assertEqual(stored["editor_context"]["role_photos"]["poster_technical"],photos[1])
+            with ZipFile(stored.archive_path) as zipped:
+                self.assertEqual(zipped.read(FOLDERS["poster_technical"]),
+                                 stored["images"]["poster_technical"])
+                self.assertEqual(zipped.read(FOLDERS["poster_smart"]),unchanged)
+                self.assertEqual(
+                    json.loads(zipped.read("Campaign_Manifest.json"))["poster_revision"],1)
+
     def test_invalid_or_forged_photo_selection_never_changes_bundle(self):
         for bad in (True,-1,4,88,"1"):
             bundle,_=fixture()
