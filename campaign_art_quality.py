@@ -128,7 +128,8 @@ def visual_review(data:bytes,role:str,*,source_info=None,text_status=None):
 
 
 def choose_best(render,role,source_blob,variants=(0,1,2),
-                *,preferred_variant=None,scene_relevance=None):
+                *,preferred_variant=None,scene_relevance=None,
+                early_exit=False):
     """Render three different safe candidate compositions and select best.
 
     Best-of-N is about real layout/photography treatment; each candidate
@@ -171,6 +172,12 @@ def choose_best(render,role,source_blob,variants=(0,1,2),
             winning is None or audit["score"]>winning[1]["score"]
         ):
             winning=(payload,audit)
+        # Targeted one-poster editing is a bounded, sequential correction
+        # process: accept the first fully QA-approved composition rather
+        # than rendering additional 1200x1500 PNGs that cannot improve a
+        # requested edit enough to justify Render Free memory pressure.
+        if early_exit and winning is not None:
+            break
     if winning is None:
         failed=list(dict.fromkeys(
             issue for audit in reports for issue in audit.get("issues",[])))
