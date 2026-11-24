@@ -80,8 +80,8 @@ def product_photo(canvas, blob, bounds, *, scale=1.0):
     info=inspected_product(blob)
     image=info["rgba"].copy()
     w,h=max(1,x1-x0),max(1,y1-y0)
-    limit_w=max(1,round(w*.94*scale))
-    limit_h=max(1,round(h*.94*scale))
+    limit_w=max(1,round(w*.94*min(scale,1.0)))
+    limit_h=max(1,round(h*.94*min(scale,1.0)))
     ratio=min(limit_w/max(1,image.width),limit_h/max(1,image.height))
     image=image.resize((max(1,int(image.width*ratio)),
                         max(1,int(image.height*ratio))),Image.Resampling.LANCZOS)
