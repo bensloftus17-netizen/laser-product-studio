@@ -109,13 +109,55 @@ def edit_campaign_poster(bundle,asset_id,body):
             direction["headline_size"]=requested_headline_size
         art["art_direction"]=direction
         updated["visual_plan"]=art
+        if updated.get("creative_canvas"):
+            brief=deepcopy(updated["creative_canvas"])
+            if requested_price_style:
+                brief["price_style"]=requested_price_style
+            if requested_headline_size:
+                brief["headline_style"]={
+                    "small":"compact","normal":"editorial",
+                    "large":"massive"}[requested_headline_size]
+            updated["creative_canvas"]=brief
     updated["features"]=(
         [fact]+[item for item in features if item!=fact][:2]
         if fact and role=="technical_application" else
         [fact] if fact and role=="product_selected" else []
     )
     scene=source["scenes"][idx]
-    if updated.get("creative_canvas"):
+    promo_template=(bundle["manifest"].get("promo_template") or "workshop_showcase")
+    # The two user-approved reference posters must NEVER silently turn into
+    # generic AI templates when staff edits their text or manufacturer angle.
+    # They continue using exactly the same reference renderers as the builder.
+    if role=="technical_application" or (
+            role=="price_promo" and promo_template=="workshop_showcase"):
+        from reference_poster_templates import render_technical_reference
+        from workshop_promo_template import render_workshop_showcase
+        if role=="price_promo" and (
+                requested_price_style is not None or
+                requested_headline_size is not None):
+            raise ValueError(
+                "Price layout controls are unavailable on the locked Workshop Showcase template. "
+                "Use the three tested layout variations.")
+        renderer=(render_technical_reference if role=="technical_application"
+                  else render_workshop_showcase)
+        def render(variant):
+            with capture() as geometry:
+                png=renderer(product,photo,updated,scene,distributor,variant=variant)
+            return png,{
+                "truncated":any(t["truncated"] for t in geometry.texts),
+                "out_of_bounds":any(
+                    t["box"][0]<0 or t["box"][1]<0 or
+                    t["box"][2]>1200 or t["box"][3]>1500
+                    for t in geometry.texts),
+                "missing_headline":not any(
+                    t.get("role")=="headline" for t in geometry.texts),
+                "text_bounds_verified":bool(geometry.texts),
+                "product_bounds_verified":bool(geometry.products),
+                "product_visible_fraction":max(
+                    (p.get("visible_fraction",0) for p in geometry.products),
+                    default=None),
+            }
+    elif updated.get("creative_canvas"):
         # Preserve an AI-authored composition when a single poster is edited.
         # Switching to the old templates would silently discard the creative
         # director's actual design decisions.
@@ -183,6 +225,12 @@ def edit_campaign_poster(bundle,asset_id,body):
     actual_layout=quality["variation"]
     quality["auto_repaired"]=actual_layout!=layout
     quality["requested_layout"]=layout
+    quality["render_engine"]=(
+        "laser-technical-reference" if role=="technical_application" else
+        "laser-workshop-promo-reference" if (
+            role=="price_promo" and promo_template=="workshop_showcase")
+        else (bundle["manifest"].get("artwork_quality",{}).get(asset_id,{})
+              .get("render_engine") or "verified-layout-editor"))
     # Work on new objects and only update the in-memory pack after rendering
     # succeeds and the ZIP/PDF are both valid.
     manifest=deepcopy(bundle["manifest"])
