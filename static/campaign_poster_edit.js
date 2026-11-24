@@ -119,7 +119,14 @@
         layout_variant:Number(get('posterEditVariant').value),
       };
       const chosen=selectedPhotoIndex();
-      if(chosen!==null)edits.photo_index=chosen;
+      const candidate=(campaignData.manifest.poster_photo_choices||[])
+        .find(item=>item.index===chosen);
+      const currentHash=campaignData.manifest.artwork_photo_sources?.[assetId]?.sha256;
+      // Re-selecting the current photo should not force an unnecessary
+      // source decode/QA on the 512 MiB worker.
+      if(chosen!==null && candidate && candidate.sha256!==currentHash){
+        edits.photo_index=chosen;
+      }
       if(assetId==='poster_price'){
         edits.price_style=get('posterEditPriceStyle').value;
         edits.headline_size=get('posterEditHeadlineSize').value;
