@@ -83,7 +83,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V77 official photo galleries</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V80 smarter artwork and editor</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -3966,6 +3966,42 @@ def progressive_campaign_asset(job_id, asset_id):
         as_attachment=request.args.get('download')=='1',
         download_name='LASER_'+part+'_'+asset_id+'.png')
     response.headers['Cache-Control']='no-store, private'
+    return response
+
+
+@app.get('/api/campaign/photos/<token>/<int:photo_index>')
+def campaign_verified_photo(token, photo_index):
+    """Open a selected exact-SKU gallery photo directly from private disk.
+
+    Token auth + bounded index; NO server-side Pillow decoding or new image
+    thumbnails. The browser scales the original JPEG/PNG with CSS.
+    """
+    if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',token):
+        return jsonify(error='Invalid or expired campaign link.'),404
+    with CAMPAIGN_PACK_LOCK:
+        entry=CAMPAIGN_PACKS.get(token)
+        if not entry or entry['expires']<time.time():
+            return jsonify(error='Campaign expired.'),404
+        bundle=entry['bundle']
+        if not isinstance(bundle,StoredCampaign):
+            return jsonify(error='Photo picker unavailable for this campaign.'),404
+        try:
+            path=bundle.gallery_path(photo_index)
+        except ValueError:
+            return jsonify(error='No verified source image at this index.'),404
+        with path.open('rb') as stream:
+            signature=stream.read(12)
+        if signature.startswith(b'\xff\xd8\xff'):
+            mime='image/jpeg'
+        elif signature.startswith(b'\x89PNG\r\n\x1a\n'):
+            mime='image/png'
+        elif signature.startswith(b'RIFF') and signature[8:12]==b'WEBP':
+            mime='image/webp'
+        else:
+            return jsonify(error='Manufacturer source image is invalid.'),422
+    response=send_file(path,mimetype=mime,conditional=True)
+    response.headers['Cache-Control']='private, max-age=300'
+    response.headers['X-Content-Type-Options']='nosniff'
     return response
 
 
