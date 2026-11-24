@@ -32,6 +32,37 @@ class StandardPosterCutoutTests(unittest.TestCase):
             "price":"£144.16 excluding VAT"
         }
 
+    def test_v83_disconnected_silver_kit_parts_survive_cutout(self):
+        photo=Image.new("RGB",(600,420),"white")
+        d=ImageDraw.Draw(photo)
+        d.rectangle((180,90,420,300),fill=(40,45,50))
+        # Separate pale metal washers and narrow rods are not white paper.
+        d.ellipse((60,310,130,380),fill=(211,211,211))
+        d.ellipse((78,328,112,362),fill="white")
+        d.rectangle((470,110,481,290),fill=(224,224,224))
+        data=io.BytesIO();photo.save(data,format="PNG")
+        cut,ok=manufacturer_cutout(data.getvalue())
+        self.assertTrue(ok)
+        alpha=cut.getchannel("A")
+        for tone in (211,224):
+            count=sum(1 for pixel in cut.getdata()
+                      if pixel[:3]==(tone,tone,tone) and pixel[3]>=220)
+            self.assertGreater(count,100,"A separate silver component was erased")
+        self.assertLess(alpha.getextrema()[0],10)
+
+    def test_v83_maximum_zoom_and_offsets_do_not_clip_product(self):
+        from ai_photo_effects import compose_product
+        from poster_quality import capture
+        tool=Image.new("RGBA",(240,160),(0,0,0,0))
+        ImageDraw.Draw(tool).rectangle((3,3,236,156),fill="#456789")
+        blob=io.BytesIO();tool.save(blob,format="PNG")
+        canvas=Image.new("RGBA",(400,400),"#123456")
+        with capture() as geometry:
+            compose_product(canvas,blob.getvalue(),(60,70,340,330),
+                editor={"product_scale":160,"product_x":100,"product_y":-100,
+                        "display_mode":"cutout"})
+        self.assertAlmostEqual(geometry.products[0]["visible_fraction"],1.0,places=4)
+
     def test_standard_uses_exact_same_cutout_as_ai(self):
         raw=poster.manufacturer_photo(self.blob)
         actual,worked=poster.isolated_photo(raw,self.blob)
