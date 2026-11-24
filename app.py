@@ -36,7 +36,7 @@ from promo_art_direction import normalise_art_direction, editor_preferences, sce
 from promo_selling_points import focus_concept
 from promo_copy import compose_promotional_copy, normalise_copy_direction
 from campaign_hub import build_campaign
-from disk_campaign_store import store_campaign, StoredCampaign, _atomic_file
+from disk_campaign_store import store_campaign, StoredCampaign, _atomic_file, reopen_campaign
 from copy_rewriter import rewrite_copy, SUPPORTED_MODES, AUDIENCES
 from competitor_finder import research_competitors, report_csv
 from why_choose_laser import (
@@ -83,7 +83,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V80 smarter artwork and editor</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V81 campaign recovery and editor</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -2071,7 +2071,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/campaign_poster_edit.js?v=80"></script></body></html>
+</script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
 
 '''
 
@@ -3638,7 +3638,69 @@ def edit_ai_promo(part):
 # from downloading other distributor drafts; expiry bounds memory on free Render.
 CAMPAIGN_PACKS = {}
 CAMPAIGN_PACK_LOCK = threading.Lock()
-CAMPAIGN_PACK_TTL = 45 * 60
+CAMPAIGN_PACK_TTL = 24 * 60 * 60
+CAMPAIGN_PACK_ROOT = Path(tempfile.gettempdir()) / "laser-studio-v81-packs"
+CAMPAIGN_PACK_DISK_LIMIT = 1024 * 1024 * 1024
+
+def _prune_campaign_disk(protected=None):
+    # Expire idle drafts and enforce a disk budget, not a four-draft RAM cap.
+    if not CAMPAIGN_PACK_ROOT.is_dir():
+        return
+    now=time.time()
+    entries=[]
+    for folder in CAMPAIGN_PACK_ROOT.iterdir():
+        if not folder.is_dir() or not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',folder.name):
+            continue
+        try:
+            stamp=folder.stat().st_mtime
+            size=sum(p.stat().st_size for p in folder.rglob('*') if p.is_file())
+        except OSError:
+            continue
+        if folder.name!=protected and now-stamp>CAMPAIGN_PACK_TTL:
+            CAMPAIGN_PACKS.pop(folder.name,None)
+            shutil.rmtree(folder,ignore_errors=True)
+        else:
+            entries.append((stamp,size,folder))
+    total=sum(size for _,size,_ in entries)
+    for _,size,folder in sorted(entries):
+        if total<=CAMPAIGN_PACK_DISK_LIMIT:
+            break
+        if folder.name==protected:
+            continue
+        CAMPAIGN_PACKS.pop(folder.name,None)
+        shutil.rmtree(folder,ignore_errors=True)
+        total-=size
+
+def _campaign_pack_locked(token):
+    # Caller holds CAMPAIGN_PACK_LOCK. Reopen even after worker restart.
+    entry=CAMPAIGN_PACKS.get(token)
+    now=time.time()
+    if entry and entry['expires']<now:
+        _evict_pack(CAMPAIGN_PACKS.pop(token))
+        entry=None
+    if entry is None:
+        folder=CAMPAIGN_PACK_ROOT/token
+        try:
+            if now-folder.stat().st_mtime>CAMPAIGN_PACK_TTL:
+                shutil.rmtree(folder,ignore_errors=True)
+                return None
+        except OSError:
+            return None
+        bundle=reopen_campaign(CAMPAIGN_PACK_ROOT,token)
+        if bundle is None:
+            return None
+        entry={'bundle':bundle,'expires':now+CAMPAIGN_PACK_TTL}
+        CAMPAIGN_PACKS[token]=entry
+    entry['expires']=now+CAMPAIGN_PACK_TTL
+    bundle=entry['bundle']
+    if isinstance(bundle,StoredCampaign):
+        import os
+        try:
+            os.utime(bundle.folder,None)
+        except OSError:
+            CAMPAIGN_PACKS.pop(token,None)
+            return None
+    return bundle
 # One expensive Pillow render at a time across mobile, desktop and poster
 # revision; the existing mobile-only active-job check missed desktop POSTs.
 CAMPAIGN_RENDER_SLOT=threading.BoundedSemaphore(1)
@@ -3664,12 +3726,7 @@ def _get_campaign_pack(token):
     if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}', token):
         return None
     with CAMPAIGN_PACK_LOCK:
-        now = time.time()
-        for key in list(CAMPAIGN_PACKS):
-            if CAMPAIGN_PACKS[key]['expires'] < now:
-                _evict_pack(CAMPAIGN_PACKS.pop(key))
-        entry = CAMPAIGN_PACKS.get(token)
-        return entry['bundle'] if entry and entry['expires'] >= now else None
+        return _campaign_pack_locked(token)
 
 
 def _assemble_campaign_bundle(part, body, progress=None):
@@ -3707,16 +3764,15 @@ def _assemble_campaign_bundle(part, body, progress=None):
 def _save_campaign_bundle(bundle):
     # No heavy PNG, ZIP or editor photo arrays are retained across requests.
     # A private temporary directory is deleted on token eviction/expiry.
-    stored=store_campaign(bundle)
     token=secrets.token_urlsafe(24)
+    stored=store_campaign(bundle,root=CAMPAIGN_PACK_ROOT,token=token)
     with CAMPAIGN_PACK_LOCK:
         now=time.time()
         for key in list(CAMPAIGN_PACKS):
             if CAMPAIGN_PACKS[key]['expires'] < now:
                 _evict_pack(CAMPAIGN_PACKS.pop(key))
-        while len(CAMPAIGN_PACKS)>=4:
-            _evict_pack(CAMPAIGN_PACKS.pop(next(iter(CAMPAIGN_PACKS))))
         CAMPAIGN_PACKS[token]={'expires':now+CAMPAIGN_PACK_TTL,'bundle':stored}
+        _prune_campaign_disk(protected=token)
     return token
 
 
@@ -4004,10 +4060,9 @@ def campaign_verified_photo(token, photo_index):
     if not re.fullmatch(r'[A-Za-z0-9_-]{24,64}',token):
         return jsonify(error='Invalid or expired campaign link.'),404
     with CAMPAIGN_PACK_LOCK:
-        entry=CAMPAIGN_PACKS.get(token)
-        if not entry or entry['expires']<time.time():
-            return jsonify(error='Campaign expired.'),404
-        bundle=entry['bundle']
+        bundle=_campaign_pack_locked(token)
+        if bundle is None:
+            return jsonify(error='Campaign no longer available on the server.'),404
         if not isinstance(bundle,StoredCampaign):
             return jsonify(error='Photo picker unavailable for this campaign.'),404
         try:
@@ -4041,10 +4096,9 @@ def edit_campaign_asset(token, asset_id):
     try:
         from poster_live_edit import edit_campaign_poster
         with CAMPAIGN_PACK_LOCK:
-            entry=CAMPAIGN_PACKS.get(token)
-            if not entry or entry['expires'] < time.time():
-                return jsonify(error='Campaign expired. Please build a new campaign.'),404
-            bundle=entry['bundle']
+            bundle=_campaign_pack_locked(token)
+            if bundle is None:
+                return jsonify(error='Campaign no longer available on the server. It may have been removed during a hosting restart.'),404
             if not CAMPAIGN_RENDER_SLOT.acquire(blocking=False):
                 response=jsonify(error='Another full-quality artwork job is running. Retry your edit when it finishes.')
                 response.status_code=429
