@@ -65,6 +65,14 @@
       option.value=String(index);option.textContent=fact;menu.append(option);
     });
     menu.value=String(features.indexOf(angle.selling_point));
+    const layoutLabels={
+      poster_technical:['Technical datasheet','Alternative technical','Compact technical'],
+      poster_price:['Bold promotion','Price spotlight','Product hero'],
+      poster_smart:['Editorial spotlight','Workshop focus','Benefit-led layout'],
+    };
+    [...get('posterEditVariant').options].forEach((option,index)=>{
+      option.textContent=layoutLabels[id][index]||('Layout '+(index+1));
+    });
     get('posterEditVariant').value=String(
       angle.layout_variant??manifest.artwork_quality?.[id]?.variation??0);
     const direction=manifest.creative_plan?.creative_decisions?.[ids[id]]?.art_direction||{};
