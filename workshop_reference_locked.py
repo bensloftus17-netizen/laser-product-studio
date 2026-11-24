@@ -139,13 +139,13 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
     # product-title block from the old generic poster generator.
     d.rounded_rectangle((42, 303, 1156, 420), radius=8,
                         fill=(0, 15, 29, 214), outline=(14, 143, 213, 210), width=2)
-    required(d, str(product["title"]).upper(), (67, 321, 1139, 406),
+    required(d, str(concept.get("edited_headline") or product["title"]).upper(), (67, 321, 1139, 406),
              maximum=52, minimum=21, max_lines=3,
              role="headline")
     # Hero floats ABOVE the steel workbench and BELOW the photograph's title.
     # Placement uses the manufacturer image unchanged (apart from resize).
     photo_placer(canvas,official_photo,(75, 438, 1120, 1012),
-                 scale=(1.0, 1.04, .96)[variant%3])
+                 scale=(1.0, .90, .96)[variant%3])
     d=ImageDraw.Draw(canvas, "RGBA")
     # Lower information bays reproduce the user reference's 3-column grid
     # plus separate right-hand kit/product information bay.

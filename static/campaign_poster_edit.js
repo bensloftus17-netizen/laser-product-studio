@@ -9,6 +9,7 @@
   const panel=get('campaignPosterEditor'),gallery=get('campaignAssets');
   if(!panel||!gallery)return;
   let selected=null;
+  let selectedToken=null;
   const setStatus=message=>{get('posterEditStatus').textContent=message;};
   function selectedPhotoIndex(){
     const checked=get('posterEditPhotoPicker').querySelector('input[name="poster_source_photo"]:checked');
@@ -25,8 +26,7 @@
       root.append(notice);
       return;
     }
-    let defaultIndex=options.findIndex(row=>row.sha256===current);
-    if(defaultIndex<0)defaultIndex=0;
+    const defaultIndex=options.find(row=>row.sha256===current)?.index;
     for(const entry of options){
       if(!Number.isInteger(entry.index)||entry.index<0||entry.index>=4)continue;
       const label=document.createElement('label');
@@ -48,14 +48,19 @@
     }
   }
   function open(id){
-    if(!campaignData||!Object.prototype.hasOwnProperty.call(ids,id))return;
+    if(!campaignData||get('posterEditSave').disabled||
+       !Object.prototype.hasOwnProperty.call(ids,id))return;
     const manifest=campaignData.manifest,token=campaignData.token;
     const angle=manifest.angles?.[ids[id]];
     if(!angle)return;
     const features=manifest.poster_editor?.verified_features||[];
     selected=id;
+    selectedToken=token;
     get('posterEditTitle').textContent='Edit '+angle.name;
-    get('posterEditHeadline').value=angle.headline||manifest.title;
+    const workshop=(manifest.promo_template||'workshop_showcase')==='workshop_showcase';
+    const reference=id==='poster_technical'||(id==='poster_price'&&workshop);
+    get('posterEditHeadline').value=reference?(angle.edited_headline||manifest.title):
+      (angle.headline||manifest.title);
     const menu=get('posterEditFeature');
     menu.replaceChildren();
     const none=document.createElement('option');
@@ -77,7 +82,7 @@
       angle.layout_variant??manifest.artwork_quality?.[id]?.variation??0);
     const direction=manifest.creative_plan?.creative_decisions?.[ids[id]]?.art_direction||{};
     const priceVisible=id==='poster_price' &&
-      manifest.promo_template!=='workshop_showcase';
+      !workshop;
     get('posterEditPriceOptions').hidden=!priceVisible;
     if(priceVisible){
       const preferred=String(angle.price_style||direction.price_style||'panel');
@@ -116,7 +121,8 @@
     get('posterEditPreview').removeAttribute('src');
   });
   get('posterEditSave').addEventListener('click',async()=>{
-    if(!campaignData||!selected)return;
+    if(!campaignData||!selected||campaignData.token!==selectedToken)return;
+    const campaign=campaignData;
     const assetId=selected,token=campaignData.token;
     const button=get('posterEditSave');
     button.disabled=true;
@@ -137,7 +143,7 @@
         edits.photo_index=chosen;
       }
       if(assetId==='poster_price'&&
-         campaignData.manifest.promo_template!=='workshop_showcase'){
+         (campaignData.manifest.promo_template||'workshop_showcase')!=='workshop_showcase'){
         edits.price_style=get('posterEditPriceStyle').value;
         edits.headline_size=get('posterEditHeadlineSize').value;
       }
@@ -146,13 +152,13 @@
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify(edits),
         });
-      const result=await response.json();
-      if(!response.ok)throw Error(result.error||'Unable to edit poster.');
+      const result=await readApiJson(response);
+      if(campaignData!==campaign)return;
       const manifest=result.manifest;
       campaignData.manifest=manifest;
       const angle=manifest.angles[ids[assetId]];
       get('posterEditVariant').value=String(angle.layout_variant??edits.layout_variant);
-      const box=get('campaignAngles').children[ids[assetId]];
+      const box=get('campaignAngles')?.children[ids[assetId]];
       if(box){
         const heading=box.querySelector('b'),detail=box.querySelector('p');
         if(heading)heading.textContent=angle.headline;
@@ -179,7 +185,8 @@
       get('posterEditPreview').src=updated;
       // Invalidate any old per-tab copy of this PNG so reopening the editor
       // doesn't resurrect a previous revision after Render restarts.
-      if(typeof campaignLocalPNGs!=='undefined'&&campaignLocalPNGs.has(assetId)){
+      campaignLocalPending.delete(assetId);
+      if(campaignLocalPNGs.has(assetId)){
         const stale=campaignLocalPNGs.get(assetId);
         if(typeof stale==='string'&&stale.startsWith('blob:'))URL.revokeObjectURL(stale);
         campaignLocalPNGs.delete(assetId);
@@ -202,7 +209,7 @@
       setStatus((repaired?'Layout automatically adjusted to keep all text readable. ':'')+
         'Updated this poster and the campaign ZIP. The other eight graphics and copy drafts are unchanged.');
     }catch(error){
-      setStatus(error.message||'Poster could not be updated. Your original remains unchanged.');
+      if(campaignData===campaign)setStatus(error.message||'Poster could not be updated.');
     }finally{
       button.disabled=false;
     }

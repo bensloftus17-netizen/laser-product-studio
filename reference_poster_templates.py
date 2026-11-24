@@ -165,7 +165,7 @@ def render_technical_reference(product, official_photo, concept, scene=None,
     co_brand(canvas, distributor)
     d = ImageDraw.Draw(canvas, "RGBA")
     d.rectangle((0, 181, W, 383), fill=WHITE)
-    title = " ".join(str(product["title"]).split()).upper()
+    title = " ".join(str(concept.get("edited_headline") or product["title"]).split()).upper()
     _required(d, title, (51, 200, 1150, 310), maximum=65, minimum=25,
               max_lines=3, colour=DEEP, role="headline")
     facts = _verified_facts(product, concept)
@@ -190,7 +190,7 @@ def render_technical_reference(product, official_photo, concept, scene=None,
                   bold=True, role="proof")
     hero_top = 516 if intro else 440
     product_photo(canvas, official_photo, (45, hero_top, 1155, 1022),
-                  scale=(0.99, 1.04, 1.0)[variant % 3])
+                  scale=(0.99, 0.91, 0.95)[variant % 3])
     # Clear factual information section, not generic boxes around tiny text.
     d = ImageDraw.Draw(canvas, "RGBA")
     d.rectangle((0, 1035, W, H), fill=(0, 77, 144, 255))

@@ -114,10 +114,15 @@ def edit_campaign_poster(bundle,asset_id,body):
     distributor=source["distributor"]
     idx,role=ASSETS[asset_id]
     current=source["concepts"][idx]
+    promo_template=bundle["manifest"].get("promo_template") or "workshop_showcase"
+    reference_layout=(role=="technical_application" or
+                      (role=="price_promo" and promo_template=="workshop_showcase"))
     # A generated and QA-checked headline is already part of this trusted
     # campaign. Do not reject it just because staff change a photo or layout.
     # Only genuinely new wording must pass source validation.
     existing=" ".join(str(current.get("headline") or "").split())
+    if reference_layout:
+        existing=" ".join(str(current.get("edited_headline") or product["title"]).split())
     proposed=" ".join(str(body.get("headline",existing) or "").split())
     features=verified_candidates(product)[:24]
     if existing and proposed==existing:
@@ -138,6 +143,8 @@ def edit_campaign_poster(bundle,asset_id,body):
         raise ValueError("Choose one of the three validated poster compositions.")
     updated=deepcopy(current)
     updated["headline"]=headline
+    if reference_layout:
+        updated["edited_headline"]=headline
     updated["selling_point"]=fact
     updated["subline"]=fact or headline
     updated["variant"]=layout
@@ -176,12 +183,10 @@ def edit_campaign_poster(bundle,asset_id,body):
         [fact] if fact and role=="product_selected" else []
     )
     scene=source["scenes"][idx]
-    promo_template=(bundle["manifest"].get("promo_template") or "workshop_showcase")
     # The two user-approved reference posters must NEVER silently turn into
     # generic AI templates when staff edits their text or manufacturer angle.
     # They continue using exactly the same reference renderers as the builder.
-    if role=="technical_application" or (
-            role=="price_promo" and promo_template=="workshop_showcase"):
+    if reference_layout:
         from reference_poster_templates import render_technical_reference
         from workshop_promo_template import render_workshop_showcase
         if role=="price_promo" and (
@@ -236,7 +241,7 @@ def edit_campaign_poster(bundle,asset_id,body):
         controls=art.get("art_direction") or {}
         def render(variant):
             detail={}
-            png=render_promo(updated,photo,product,distributor,editor={
+            png=render_promo({**updated,"variant":variant},photo,product,distributor,editor={
                 "background":"context","_scene_bytes":scene,
                 "_scene_style":{"crop":(.45,.52),"darkness":.29,
                                 "blur":2.2,"colour":.84},
@@ -254,7 +259,7 @@ def edit_campaign_poster(bundle,asset_id,body):
         renderer=technical_poster if idx==0 else smart_poster
         def render(variant):
             with capture() as geometry:
-                png=renderer(product,photo,updated,scene,distributor)
+                png=renderer(product,photo,{**updated,"variant":variant},scene,distributor)
             return png,{
                 "truncated":any(t["truncated"] for t in geometry.texts),
                 "out_of_bounds":any(
@@ -275,6 +280,7 @@ def edit_campaign_poster(bundle,asset_id,body):
         render,role,photo,variants=recovery_variants(layout),
         preferred_variant=layout,early_exit=True)
     actual_layout=quality["variation"]
+    updated["variant"]=actual_layout
     quality["auto_repaired"]=actual_layout!=layout
     quality["requested_layout"]=layout
     quality["render_engine"]=(
@@ -288,6 +294,8 @@ def edit_campaign_poster(bundle,asset_id,body):
     manifest=deepcopy(bundle["manifest"])
     angle=manifest["angles"][idx]
     angle["headline"]=headline
+    if reference_layout:
+        angle["edited_headline"]=headline
     angle["selling_point"]=fact
     angle["layout_variant"]=actual_layout
     if role=="price_promo" and promo_template!="workshop_showcase":

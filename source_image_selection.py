@@ -45,7 +45,7 @@ def collect_official_photo_options(urls, fetch, valid, rank, *,
         checked.extend(batch)
         found.extend(result for result in results if result)
         for item in results:
-            if not item or not item[3].get("passed"):
+            if not item or not item[3].get("passed") or item[3].get("possible_source_crop"):
                 continue
             if min(item[3].get("size") or (0,0))<650:
                 continue
@@ -76,7 +76,7 @@ def best_manufacturer_photo(options):
     if not options:
         return None
     return max(options,key=lambda item:(
-        bool(item[3].get("passed")),item[0],
+        bool(item[3].get("passed")),not item[3].get("possible_source_crop"),item[0],
         min(item[3].get("size") or [0,0])
     ))
 

@@ -22,7 +22,7 @@ from langdetect import detect_langs, DetectorFactory, LangDetectException
 from english_numeric_specs import (translate_known_numeric_labels,
                                    normalise_numeric_spec_row, RAW_GERMAN_TECH)
 DetectorFactory.seed = 0
-from flask import Flask, request, jsonify, send_file, render_template_string
+from flask import Flask, request, jsonify, send_file, render_template_string, url_for
 
 from poster import create_posters, create_fact_sheet_pdf, create_marketing_copy, render_hero, render_technical, render_price, technical_layout_mode
 from brand_assets import BRAND_LABELS, get_brand_image
@@ -576,7 +576,7 @@ function refreshWorkspaceHeading(product){
  if(product&&product.part){
   const image=$('heroProductPhoto');
   image.hidden=false;
-  image.src='/api/photo/'+encodeURIComponent(product.part);
+  image.src=activePhoto||'/api/photo/'+encodeURIComponent(product.part);
  }
 }
 function showCopyEmpty(){
@@ -999,6 +999,8 @@ $('campaignAssets').addEventListener('load',event=>{
  const card=event.target.closest('.campaign-asset');
  const status=card&&card.querySelector('[data-load-state]');
  if(status)status.textContent='Preview loaded';
+ const retry=card&&card.querySelector('[data-retry-asset]');
+ if(retry)retry.hidden=true;
 },true);
 $('campaignAssets').addEventListener('error',event=>{
  if(event.target.tagName!=='IMG')return;
@@ -1018,8 +1020,9 @@ $('campaignAssets').addEventListener('click',event=>{
  control.hidden=true;
  const state=card.querySelector('[data-load-state]');
  if(state)state.textContent='Retrying preview…';
- const base=img.src.split('?')[0];
- img.src=base+'?retry='+Date.now();
+ const url=new URL(img.src);
+ url.searchParams.set('retry',Date.now());
+ img.src=url.href;
 });
 
 
@@ -1089,7 +1092,7 @@ function retainVerifiedCampaignPNG(jobId,id,remoteUrl){
    return response.blob();
   }).then(blob=>{
    if(blob.type!=='image/png'||blob.size<12)throw Error('Invalid verified PNG');
-   if(campaignLocalJob!==jobId)return;
+   if(campaignLocalJob!==jobId||campaignLocalPending.get(id)!==task)return;
    const local=URL.createObjectURL(blob);
    campaignLocalPNGs.set(id,local);
    applyLocalCampaignPNG(id,local);
@@ -1097,7 +1100,7 @@ function retainVerifiedCampaignPNG(jobId,id,remoteUrl){
    // The gallery's normal retry control can request the image again.
    // Do not show expired links as successfully cached.
   }).finally(()=>{
-   if(campaignLocalJob===jobId)campaignLocalPending.delete(id);
+   if(campaignLocalPending.get(id)===task)campaignLocalPending.delete(id);
   });
  campaignLocalPending.set(id,task);
 }
@@ -1105,7 +1108,8 @@ function retainCompletedCampaignZIP(jobId,token,part){
  if(typeof fetch!=='function'||typeof URL==='undefined'||
     typeof URL.createObjectURL!=='function'||campaignLocalJob!==jobId)return;
  if(campaignLocalZIP&&campaignLocalZIP.token===token)return;
- const remote='/api/campaign/download/'+encodeURIComponent(token);
+ const revision=campaignData?.manifest?.poster_revision||0;
+ const remote='/api/campaign/download/'+encodeURIComponent(token)+'?revision='+revision;
  // Fetch only when ALL nine assets have passed QA and server has a finished
  // ZIP. This is a temporary local browser-tab copy, not a server substitute.
  fetch(remote,{cache:'no-store',headers:{Accept:'application/zip'}})
@@ -1117,6 +1121,8 @@ function retainCompletedCampaignZIP(jobId,token,part){
    const head=new Uint8Array(await blob.slice(0,4).arrayBuffer());
    if(head[0]!==80||head[1]!==75||![3,5,7].includes(head[2]))
      throw Error('The server did not return a valid ZIP');
+   if(campaignLocalJob!==jobId||campaignData?.token!==token||
+      (campaignData.manifest.poster_revision||0)!==revision)return;
    const local=URL.createObjectURL(blob);
    campaignLocalZIP={token,url:local};
    const link=$('campaignDownload'),share=$('campaignShareZip');
@@ -1353,6 +1359,8 @@ $('campaignResume').addEventListener('click',resumeLastMobileCampaign);
 updateCampaignRecovery();
 
 function showCampaign(data){
+ const editor=$('campaignPosterEditor');
+ if(editor&&campaignData?.token!==data.token)editor.hidden=true;
  campaignData=data;
  renderCampaignGallery(data);
  const m=data.manifest;
@@ -2097,7 +2105,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/sales_assistant.js?v=88"></script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
+</script><script src="/static/sales_assistant.js?v=88"></script><script src="/static/campaign_poster_edit.js?v=89"></script></body></html>
 
 '''
 
@@ -2645,6 +2653,8 @@ def parse_pis_pdf(pdfbytes,part,url,*,include_photo=True):
     finally:
         d.close()
 
+BROWSER_PHOTO_MIMES = {"image/jpeg","image/png","image/webp","image/gif"}
+
 def valid_image(blob):
     """Reject blank/broken crops as well as undersized manufacturer photos.
 
@@ -2654,6 +2664,8 @@ def valid_image(blob):
     """
     try:
         with Image.open(io.BytesIO(blob)) as source:
+            if Image.MIME.get(source.format) not in BROWSER_PHOTO_MIMES:
+                return False
             w,h=source.size
             if not (min(w,h)>=80 and max(w,h)>=300 and
                     50000<=w*h<=30_000_000):
@@ -2980,7 +2992,7 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False,*
     # usable, more detailed source photograph.
     if not any(x[3].get('passed') for x in photo_options):
         if pdf_image:
-            score,report=manufacturer_image_rank(pdf_image)
+            score,report=_bounded_photo_rank(pdf_image)
             photo_options.append((
                 score,pdf_image,
                 'https://www.lasertools.co.uk/pis/'+part+'_PIS.pdf#pdf-photo-embedded',
@@ -2998,7 +3010,7 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False,*
                     sources.append(('rendered',pdf_render_photo(pdf_response.content)))
                 for label,data in sources:
                     if data and valid_image(data):
-                        score,report=manufacturer_image_rank(data)
+                        score,report=_bounded_photo_rank(data)
                         photo_options.append((
                             score,data,pdf_response.url+'#pdf-photo-'+label,report))
                 if any(x[3].get('passed') for x in photo_options):
@@ -3057,6 +3069,8 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False,*
     product['lookup_status']='Live official UK/English manufacturer source'
     product['warnings']=[]
     if not image_bytes:product['warnings'].append('No verified manufacturer photo available.')
+    if selected and selected[3].get('possible_source_crop'):
+        product['warnings'].append('A component reaches the manufacturer photo edge. Check the complete kit before publishing.')
     if product.get('price_status','').startswith('Official UK RRP independently checked'):
         product['warnings'].append('RRP was checked on 13 Nov 2026; confirm it is still current before publishing.')
     if not product.get('price'):
@@ -3357,7 +3371,9 @@ def product_lookup(part):
                           if key!="source_raw_features"},
                        'technical_layout':technical_layout_mode(product),
                        'marketing_direction':strategy_for(product)}
-        return jsonify(product=public_record,photo_url=f'/api/photo/{part}?design=v19' if image else None)
+        preview_url=url_for('photo',part=product['part'],
+                            uk_url=request.args.get('uk_url') or None) if image else None
+        return jsonify(product=public_record,photo_url=preview_url)
     except LookupErrorPublic as e:return jsonify(error=str(e)),404
     except requests.RequestException:return jsonify(error='Official Laser website could not be reached. Please retry.'),502
     except Exception:
@@ -4149,14 +4165,16 @@ def campaign_verified_photo(token, photo_index):
             return jsonify(error='Photo picker unavailable for this campaign.'),404
         try:
             path=bundle.gallery_path(photo_index)
-        except ValueError:
+            with path.open('rb') as stream:
+                signature=stream.read(12)
+        except (ValueError, OSError):
             return jsonify(error='No verified source image at this index.'),404
-        with path.open('rb') as stream:
-            signature=stream.read(12)
         if signature.startswith(b'\xff\xd8\xff'):
             mime='image/jpeg'
         elif signature.startswith(b'\x89PNG\r\n\x1a\n'):
             mime='image/png'
+        elif signature.startswith((b'GIF87a',b'GIF89a')):
+            mime='image/gif'
         elif signature.startswith(b'RIFF') and signature[8:12]==b'WEBP':
             mime='image/webp'
         else:
@@ -4264,11 +4282,31 @@ def preview_campaign_asset(token, asset_id):
 @app.get('/api/photo/<part>')
 def photo(part):
     try:
-        _,image=lookup(part)
-        if not image:return jsonify(error='No verified image found'),404
-        im=Image.open(io.BytesIO(image));out=io.BytesIO();im.convert('RGB').save(out,'PNG');out.seek(0)
-        return send_file(out,mimetype='image/png',download_name=f'LASER_{part}.png')
-    except LookupErrorPublic:return jsonify(error='Photo unavailable'),404
+        part=sku_clean(part)
+        cached=CACHE.get(part)
+        if cached and cached[2] and time.time()-cached[0]<3600:
+            image=cached[2]
+        else:
+            _,image=lookup(part,uk_url=request.args.get('uk_url') or None)
+        if not image:
+            return jsonify(error='No verified image found'),404
+        # Inspect the header without decoding or re-encoding the packshot.
+        # The browser can display the original and honour its EXIF orientation.
+        stream=io.BytesIO(image)
+        with Image.open(stream) as source:
+            mime=Image.MIME.get(source.format)
+        if mime not in BROWSER_PHOTO_MIMES:
+            return jsonify(error='Product image format unavailable'),422
+        stream.seek(0)
+        response=send_file(stream,mimetype=mime,download_name='LASER_'+part)
+        response.headers['X-Content-Type-Options']='nosniff'
+        return response
+    except LookupErrorPublic:
+        return jsonify(error='Photo unavailable'),404
+    except requests.RequestException:
+        return jsonify(error='Manufacturer photo temporarily unavailable'),502
+    except (OSError,ValueError):
+        return jsonify(error='Product image could not be read'),422
 
 @app.post('/api/generate/<part>')
 def generate(part):

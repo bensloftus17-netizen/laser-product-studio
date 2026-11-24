@@ -11,6 +11,25 @@ from PIL import Image, ImageFilter, ImageOps, ImageStat
 from campaign_art_quality import inspected_product
 
 
+def _foreground_reaches_frame(image):
+    """Flag a continuous tool edge on studio packshots or transparent cutouts."""
+    w,h=image.size
+    corners=[image.getpixel(point) for point in ((0,0),(w-1,0),(0,h-1),(w-1,h-1))]
+    transparent=any(pixel[3]<32 for pixel in corners)
+    if not transparent and not all(min(pixel[:3])>=240 for pixel in corners):
+        return False
+    for axis,length,edges in ((0,w,(0,h-1)),(1,h,(0,w-1))):
+        for edge in edges:
+            run=0
+            for offset in range(length):
+                pixel=image.getpixel((offset,edge) if axis==0 else (edge,offset))
+                foreground=pixel[3]>=224 if transparent else min(pixel[:3])<215
+                run=run+1 if foreground else 0
+                if run>=max(6,round(length*.02)):
+                    return True
+    return False
+
+
 def inspect_asset(blob):
     issues=[]
     warnings=[]
@@ -22,7 +41,7 @@ def inspect_asset(blob):
             if raw.format in ("JPEG", "MPO"):
                 raw.draft("RGB", (900, 900))
             raw.thumbnail((900,900),Image.Resampling.LANCZOS)
-            image=ImageOps.exif_transpose(raw).convert("RGB")
+            image=ImageOps.exif_transpose(raw).convert("RGBA")
             image.load()
     except (ValueError, OSError, TypeError):
         return {"passed":False,"issues":["Unreadable manufacturer product photo"],
@@ -32,7 +51,10 @@ def inspect_asset(blob):
         issues.append("Source product image is too small for professional poster artwork")
     elif min(w,h)<650:
         warnings.append("Source photo is below ideal print resolution; review at full size")
-    thumbnail=image.copy()
+    possible_source_crop=_foreground_reaches_frame(image)
+    if possible_source_crop:
+        warnings.append("A component reaches the manufacturer image edge; check for source cropping")
+    thumbnail=image
     thumbnail.thumbnail((420,420),Image.Resampling.LANCZOS)
     edges=thumbnail.convert("L").filter(ImageFilter.FIND_EDGES)
     strength=round(ImageStat.Stat(edges).stddev[0],2)
@@ -75,6 +97,7 @@ def inspect_asset(blob):
         "size":[w,h],
         "edge_strength":strength,
         "isolated":bool(info.get("isolated")),
+        "possible_source_crop":possible_source_crop,
         "manufacturer_pixels_untouched":True,
     }
 
