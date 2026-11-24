@@ -297,5 +297,27 @@ class V80ProductStudioTests(unittest.TestCase):
             self.assertIsNone(studio._get_campaign_pack("x"*32))
 
 
+
+    def test_v82_generated_feature_headline_does_not_block_photo_only_edit(self):
+        bundle,photos=fixture()
+        generated="Set of four ratchets"
+        bundle["editor_context"]["concepts"][2]["headline"]=generated
+        bundle["manifest"]["angles"][2]["headline"]=generated
+        token=secrets.token_urlsafe(24)
+        with tempfile.TemporaryDirectory() as temp, patch.object(studio,"CAMPAIGN_PACK_ROOT",Path(temp)), patch.object(studio,"CAMPAIGN_PACKS",{}):
+            token=studio._save_campaign_bundle(bundle)
+            client=studio.app.test_client()
+            def validate(render,role,photo,**kwargs):
+                self.assertEqual(photo,photos[1])
+                return image("#2982ad"),{"passed":True,"variation":1,"score":94}
+            with patch.object(studio,"can_start_heavy",return_value=True), patch("poster_live_edit.choose_best",side_effect=validate), patch("poster_live_edit.require_good_asset",return_value={"passed":True}), patch("campaign_hub._summary_pdf",return_value=b"%PDF-1.4"):
+                edits={"headline":generated,"feature_index":0,"layout_variant":1,"photo_index":1}
+                response=client.post("/api/campaign/edit/"+token+"/poster_smart",json=edits)
+                self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+                self.assertEqual(response.get_json()["manifest"]["angles"][2]["headline"],generated)
+                edits["headline"]="Guaranteed 500 percent better"
+                rejected=client.post("/api/campaign/edit/"+token+"/poster_smart",json=edits)
+                self.assertEqual(rejected.status_code,400)
+
 if __name__=="__main__":
     unittest.main()
