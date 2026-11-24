@@ -108,11 +108,8 @@ class StoredCampaign(MutableMapping):
     def __len__(self):
         return 4
 
-    def gallery_photo(self,index):
-        """Read exactly one QA-approved manufacturer image from private disk.
-
-        The editor never decodes an entire four-photo gallery in RAM.
-        """
+    def gallery_path(self,index):
+        """Validated path for one short-lived source image, never a public URL."""
         if type(index) is not int or index<0 or index>=4:
             raise ValueError("Invalid manufacturer photo index")
         choices=self._manifest.get("poster_photo_choices") or []
@@ -121,7 +118,11 @@ class StoredCampaign(MutableMapping):
         path=self.folder/("gallery_"+str(index)+".bin")
         if not path.is_file() or path.stat().st_size>5_000_000:
             raise ValueError("Verified manufacturer photo unavailable")
-        return path.read_bytes()
+        return path
+
+    def gallery_photo(self,index):
+        """Read only the selected compressed photo, never the entire gallery."""
+        return self.gallery_path(index).read_bytes()
 
     def _read_editor(self):
         path=self.folder/"editor.json"
