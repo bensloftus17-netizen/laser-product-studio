@@ -10,6 +10,7 @@ from __future__ import annotations
 from itertools import combinations
 from creative_families import FAMILIES as CREATIVE_FAMILIES, DEFAULT_FAMILY, FAMILY_MODES, FAMILY_MOOD
 from creative_expression import normalise_expression
+from promo_art_direction import PRICE_STYLES
 
 ROLES=("technical_application","price_promo","product_selected")
 ZONES=("headline","product","proof","price")
@@ -126,6 +127,8 @@ def validate_brief(raw,role):
         "mood":choice("mood",MOODS,"editorial"),
         "motif":choice("motif",MOTIFS,"none"),
         "headline_style":choice("headline_style",HEADLINE_STYLES,"massive"),
+        "price_style":choice("price_style",PRICE_STYLES,"panel")
+                       if role=="price_promo" else "panel",
         "photo_focus":choice("photo_focus",FOCUSES,"centre"),
         "accent":choice("accent",ACCENTS,"#13B5EC"),
         "creative_family":chosen_family,
