@@ -185,10 +185,19 @@
         campaignLocalPNGs.delete(assetId);
       }
       const zip=get('campaignShareZip');
+      const zipUrl='/api/campaign/download/'+encodeURIComponent(token)+'?revision='+encodeURIComponent(result.revision);
+      if(typeof campaignLocalZIP!=='undefined'&&campaignLocalZIP&&campaignLocalZIP.token===token){
+        URL.revokeObjectURL(campaignLocalZIP.url);
+        campaignLocalZIP=null;
+      }
+      const download=get('campaignDownload');
+      if(download)download.href=zipUrl;
       if(zip){
         preparedShareFiles.delete(zip);delete zip.dataset.shareLoading;
+        zip.dataset.shareUrl=zipUrl;
         prepareShareButton(zip);
       }
+      buildPhotoPicker(manifest,token,assetId);
       const repaired=result.quality?.auto_repaired;
       setStatus((repaired?'Layout automatically adjusted to keep all text readable. ':'')+
         'Updated this poster and the campaign ZIP. The other eight graphics and copy drafts are unchanged.');
