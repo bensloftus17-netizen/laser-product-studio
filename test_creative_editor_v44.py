@@ -142,7 +142,11 @@ class CampaignCreativeUpgradeTests(unittest.TestCase):
                 "license_url":"https://www.pexels.com/license/"}
         mock_report={"passed":True,"score":89,"variation":1,"candidates_checked":3,
                      "rejected_candidates":0,"warnings":[]}
-        with patch("campaign_hub.choose_best",return_value=(dummy_poster(),mock_report)), \
+        # Each poster has an independent verified QA result. Sharing one
+        # mutable dict made later role labels overwrite the technical poster's
+        # render_engine and broke V69 reference-role checks in this legacy test.
+        with patch("campaign_hub.choose_best",
+                   side_effect=lambda *args,**kwargs:(dummy_poster(),dict(mock_report))), \
              patch("campaign_hub.find_scene",return_value=(dummy_poster(),source)), \
              patch("campaign_hub.render_promo",return_value=dummy_poster()):
             return build_campaign(self.ratchet,self.photo,use_gemini=False)
