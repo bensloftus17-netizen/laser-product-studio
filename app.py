@@ -97,7 +97,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V87 Sales Assistant lookup recovery</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V88 Shared catalogue lookup</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -178,6 +178,7 @@ V7_HOME_PAGE = r'''
  <div class="sales-controls">
   <div><label for="salesPart">Laser part number</label><input id="salesPart" maxlength="16" placeholder="e.g. 9395" autocomplete="off"></div>
   <div><label for="salesAudience">Customer type</label><select id="salesAudience"><option value="workshop">Independent workshop</option><option value="distributor">Tool distributor</option><option value="fleet">Fleet maintenance</option><option value="van">Mobile tool van</option><option value="dealer">Main dealership</option></select></div>
+  <div><label for="salesOfficialUrl">Official product URL (optional)</label><input id="salesOfficialUrl" type="url" maxlength="2048" placeholder="Only if product is hard to find"></div>
   <button type="button" id="salesBuild">Build sales briefing</button>
   <button type="button" id="salesCopy" class="secondary" hidden>Copy briefing</button>
  </div>
@@ -2096,7 +2097,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/sales_assistant.js?v=87"></script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
+</script><script src="/static/sales_assistant.js?v=88"></script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
 
 '''
 
@@ -2803,7 +2804,7 @@ def _serialized_lookup(func):
 
 
 @_serialized_lookup
-def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
+def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False,*,text_only=False):
     part=sku_clean(part)
     if uk_url:
         uk_url=uk_url.strip()
@@ -2817,7 +2818,7 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
             cached_product,cached_image=CACHE[part][1],CACHE[part][2]
             # A lightweight competitor/photo preview must not trigger an
             # expensive multi-photo scan; only full campaigns request it.
-            if not collect_gallery or (
+            if text_only or not collect_gallery or (
                     cached_product.get('gallery_complete') and (
                         not cached_product.get('photo_gallery_count')
                         or load_gallery(part))):
@@ -2848,7 +2849,7 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
             try:
                 r=official_get(url,session)
                 if 'pdf' in r.headers.get('Content-Type','').lower() or r.content.startswith(b'%PDF'):
-                    candidate,image_bytes=parse_pis_pdf(r.content,part,r.url)
+                    candidate,image_bytes=(parse_pis_pdf(r.content,part,r.url,include_photo=False) if text_only else parse_pis_pdf(r.content,part,r.url))
                 else:candidate=parse_html(r.content,part,r.url)
                 # Product information sheets may mix English headings with
                 # short German specification lines. Normalise those verified
@@ -2868,7 +2869,7 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
         for url in [f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',f'https://lasertools.co.uk/pis/{part}_PIS.pdf']:
             try:
                 r=official_get(url,session,content_types=['pdf'])
-                sheet,photo=parse_pis_pdf(r.content,part,r.url)
+                sheet,photo=(parse_pis_pdf(r.content,part,r.url,include_photo=False) if text_only else parse_pis_pdf(r.content,part,r.url))
                 sheet=normalise_product_language(sheet)
                 if is_french(sheet['title']+' '+sheet['description']):continue
                 if not sheet.get('features') and not sheet.get('specs'):continue
@@ -2879,6 +2880,14 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
                 if image_bytes is None:image_bytes=photo
                 break
             except Exception as e:errors.append(str(e)[:180])
+    if not product and text_only and part in VERIFIED_UK_FACTS:
+        reference=VERIFIED_UK_FACTS[part]
+        slug=urlparse(reference['source']).path.rsplit('/',1)[-1]
+        prefix=part.lower()+'-'
+        if slug.lower().startswith(prefix):
+            product={'part':part,'title':slug[len(prefix):].replace('-',' ').title(),
+                     'source':reference['source'],'description':'','features':[],
+                     'specs':{},'price':None,'source_type':'Previously verified manufacturer record'}
     if not product:
         raise LookupErrorPublic('Could not retrieve an English-language official Laser product record. No product text or prices have been fabricated.')
     product=normalise_product_language(product)
@@ -2916,6 +2925,10 @@ def lookup(part,session=requests,force=False,uk_url=None,collect_gallery=False):
     elif product.get('price') and not product.get('price_source'):
         product['price_source']=product.get('source')
         product['price_status']='Live official UK product page'
+    if text_only:
+        # Exit before any photo download, gallery search, image QA or artwork.
+        # Do not insert an image-less entry into the shared artwork cache.
+        return apply_official_taxonomy(product),None
     # Genuine manufacturer image selection: always try more than the first
     # three catalogue thumbnails, and consider the original manufacturer PIS
     # PDF if no official JPEG/PNG passes the independent poster preflight.
@@ -3421,87 +3434,16 @@ def ai_recommendations(part):
 # One text-only lookup/brief at a time. Never use the artwork renderer here.
 SALES_BRIEF_SLOT=threading.BoundedSemaphore(1)
 
-def _sales_product_record(part):
-    """Official HTML, text-only PDF and previously verified exact-SKU facts."""
-    with LOOKUP_SERIAL_LOCK:
-        cached=CACHE.get(part)
-        if cached and time.time()-cached[0]<3600:
-            return normalise_product_language(dict(cached[1]))
-        indexed=OFFICIAL_UK_PRODUCTS.get(part) or catalogue_url_for_part(part)
-        discovered=indexed or search_official_uk_product(part,requests)
-        urls=[discovered,f'https://www.lasertools.co.uk/product/{part}',
-              f'https://lasertools.toolconnection.co.uk/product/{part}']
-        record=None
-        for url in dict.fromkeys(x for x in urls if x):
-            try:
-                response=official_get(url,requests,timeout=6)
-                if response.content.startswith(b'%PDF'):
-                    candidate,_=parse_pis_pdf(response.content,part,response.url,include_photo=False)
-                else:
-                    candidate=parse_html(response.content,part,response.url)
-                candidate=normalise_product_language(candidate)
-                if not candidate.get('title') or is_french(candidate['title']+' '+candidate.get('description','')):
-                    continue
-                if record is None:
-                    record=candidate
-                if candidate.get('features') or candidate.get('specs'):
-                    record=candidate
-                    break
-            except Exception as exc:
-                app.logger.info('Sales source unavailable for %s: %s',part,type(exc).__name__)
-        if record is None or not record.get('features'):
-            for url in (f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
-                        f'https://lasertools.co.uk/pis/{part}_PIS.pdf'):
-                try:
-                    response=official_get(url,requests,content_types=['pdf'],timeout=6)
-                    sheet,_=parse_pis_pdf(response.content,part,response.url,include_photo=False)
-                    sheet=normalise_product_language(sheet)
-                    if is_french(sheet['title']+' '+sheet.get('description','')):
-                        continue
-                    if not (sheet.get('features') or sheet.get('specs')):
-                        continue
-                    if record is None:
-                        record=sheet
-                    else:
-                        record['features']=record.get('features') or sheet['features']
-                        record['specs']={**sheet.get('specs',{}),**record.get('specs',{})}
-                    break
-                except Exception as exc:
-                    app.logger.info('Sales PDF unavailable for %s: %s',part,type(exc).__name__)
-        verified=VERIFIED_UK_FACTS.get(part)
-        # An independently checked exact-SKU manufacturer record remains
-        # usable when the site is temporarily unavailable. Label its age.
-        if verified:
-            if record is None:
-                slug=urlparse(verified['source']).path.rsplit('/',1)[-1]
-                prefix=part.lower()+'-'
-                if not slug.lower().startswith(prefix):
-                    raise LookupErrorPublic('Previously verified product identity is unavailable.')
-                record={'part':part,'title':slug[len(prefix):].replace('-',' ').title(),
-                        'source':verified['source'],'description':'',
-                        'features':[],'specs':{},'price':None,
-                        'source_type':'Previously verified manufacturer record'}
-            if not record.get('features'):
-                record['features']=list(verified['features'])
-                record['source_raw_features']=list(verified['features'])
-                record['features_status']='Official UK facts checked '+verified['verified_on']
-            if not record.get('specs'):
-                record['specs']=dict(verified['specs'])
-        if record is None:
-            raise LookupErrorPublic('Official product information is temporarily unavailable. No product details have been invented.')
-        record=normalise_product_language(record)
-        if not record.get('price') and part in VERIFIED_UK_RRP:
-            record['price'],record['price_source']=VERIFIED_UK_RRP[part]
-            record['price_status']='Previously verified UK RRP; recheck before quoting.'
-        elif record.get('price'):
-            record.setdefault('price_status','Official manufacturer price; confirm before quoting.')
-        return apply_official_taxonomy(record)
+def _sales_product_record(part,official_url=None):
+    """Use the catalogue-wide campaign lookup, with its image stage disabled."""
+    product,_=lookup(part,uk_url=official_url,text_only=True)
+    return product
 
 @app.post('/api/sales-assistant/<part>')
 def sales_assistant_brief(part):
     from sales_assistant import build_sales_brief,AUDIENCES as SALES_AUDIENCES
     body=request.get_json(silent=True)
-    if not isinstance(body,dict) or set(body)-{'audience'}:
+    if not isinstance(body,dict) or set(body)-{'audience','official_url'}:
         return jsonify(error='Invalid sales briefing request.'),400
     audience=body.get('audience','workshop')
     if not isinstance(audience,str) or audience not in SALES_AUDIENCES:
@@ -3510,7 +3452,10 @@ def sales_assistant_brief(part):
         return jsonify(error='Another sales briefing is being prepared. Please retry.'),429
     try:
         part=sku_clean(part)
-        product=_sales_product_record(part)
+        official_url=body.get('official_url')
+        if official_url is not None and (not isinstance(official_url,str) or len(official_url)>2048):
+            return jsonify(error='Enter a valid official product URL.'),400
+        product=_sales_product_record(part,official_url) if official_url else _sales_product_record(part)
         response=jsonify(build_sales_brief(product,audience))
         response.headers['Cache-Control']='private, no-store'
         return response
