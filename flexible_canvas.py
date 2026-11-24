@@ -282,7 +282,27 @@ def render_creative_canvas(product,official_photo,concept,scene=None,
 
     if concept.get("campaign_role")=="price_promo":
         rect=_box(zones["price"])
-        d.rounded_rectangle(rect,radius=18,fill=(8,45,75,245),outline=accent,width=4)
+        # Existing bounded creative modes change the price treatment without
+        # changing UK RRP/ VAT, moving the verified words, or adding another
+        # image-rendering pipeline.
+        price_style=brief.get("price_style","panel")
+        if price_style=="plaque":
+            d.rectangle(rect,fill=(4,32,57,250),outline=accent,width=6)
+            d.rectangle((rect[0],rect[1],rect[0]+12,rect[3]),fill=accent)
+        elif price_style=="sticker":
+            d.rounded_rectangle(rect,radius=36,fill=(7,50,82,252),
+                                outline=accent,width=9)
+        elif price_style=="tag":
+            d.rounded_rectangle(rect,radius=9,fill=(4,35,58,249),
+                                outline=accent,width=5)
+            d.ellipse((rect[0]+12,rect[1]+12,rect[0]+28,rect[1]+28),
+                      fill=accent)
+        elif price_style=="banner":
+            d.rectangle(rect,fill=(5,37,65,252),outline=accent,width=4)
+            d.rectangle((rect[0],rect[1],rect[2],rect[1]+10),fill=accent)
+        else:
+            d.rounded_rectangle(rect,radius=18,fill=(8,45,75,245),
+                                outline=accent,width=4)
         record_area("price",rect)
         x0,y0,x1,y1=rect
         p=verified_price(product)
