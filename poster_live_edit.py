@@ -114,9 +114,21 @@ def edit_campaign_poster(bundle,asset_id,body):
     distributor=source["distributor"]
     idx,role=ASSETS[asset_id]
     current=source["concepts"][idx]
-    headline=verified_title_excerpt(
-        product.get("title"),body.get("headline",current.get("headline")))
+    # A generated and QA-checked headline is already part of this trusted
+    # campaign. Do not reject it just because staff change a photo or layout.
+    # Only genuinely new wording must pass source validation.
+    existing=" ".join(str(current.get("headline") or "").split())
+    proposed=" ".join(str(body.get("headline",existing) or "").split())
     features=verified_candidates(product)[:24]
+    if existing and proposed==existing:
+        headline=existing
+        headline_source="existing approved campaign headline"
+    elif proposed and any(proposed==" ".join(str(f).split()) for f in features):
+        headline=proposed
+        headline_source="manufacturer verified feature"
+    else:
+        headline=verified_title_excerpt(product.get("title"),proposed)
+        headline_source="manufacturer title excerpt"
     feature_index=body.get("feature_index")
     if type(feature_index) is not int or feature_index<(-1) or feature_index>=len(features):
         raise ValueError("Choose a feature from the official manufacturer record.")
@@ -290,7 +302,7 @@ def edit_campaign_poster(bundle,asset_id,body):
             k:chosen[k] for k in ("source_url","type","sha256") if k in chosen}
     manifest["poster_revision"]=int(manifest.get("poster_revision",0))+1
     edits=manifest.setdefault("poster_edits",[])
-    edits.append({"asset_id":asset_id,"headline_source":"manufacturer title excerpt",
+    edits.append({"asset_id":asset_id,"headline_source":headline_source,
                   "photo_index":photo_index,"auto_repaired":quality["auto_repaired"],
                   "feature_source":"manufacturer feature" if fact else "no feature selected",
                   "review_required":True})
