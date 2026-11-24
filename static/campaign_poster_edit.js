@@ -68,14 +68,15 @@
     get('posterEditVariant').value=String(
       angle.layout_variant??manifest.artwork_quality?.[id]?.variation??0);
     const direction=manifest.creative_plan?.creative_decisions?.[ids[id]]?.art_direction||{};
-    const priceVisible=id==='poster_price';
+    const priceVisible=id==='poster_price' &&
+      manifest.promo_template!=='workshop_showcase';
     get('posterEditPriceOptions').hidden=!priceVisible;
     if(priceVisible){
-      const preferred=String(direction.price_style||'panel');
+      const preferred=String(angle.price_style||direction.price_style||'panel');
       get('posterEditPriceStyle').value=
         [...get('posterEditPriceStyle').options].some(x=>x.value===preferred)?
           preferred:'panel';
-      const size=String(direction.headline_size||'normal');
+      const size=String(angle.headline_size||direction.headline_size||'normal');
       get('posterEditHeadlineSize').value=['small','normal','large'].includes(size)?
         size:'normal';
     }
@@ -127,7 +128,8 @@
       if(chosen!==null && candidate && candidate.sha256!==currentHash){
         edits.photo_index=chosen;
       }
-      if(assetId==='poster_price'){
+      if(assetId==='poster_price'&&
+         campaignData.manifest.promo_template!=='workshop_showcase'){
         edits.price_style=get('posterEditPriceStyle').value;
         edits.headline_size=get('posterEditHeadlineSize').value;
       }
