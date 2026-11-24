@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "campaign_design_v80.py"
+      - "creative_director.py"
+      - "flexible_canvas.py"
       - "campaign_director.py"
       - "campaign_hub.py"
       - "campaign_art_quality.py"
@@ -14,6 +16,7 @@ on:
       - "static/campaign_poster_edit.js"
       - "static/styles.css"
       - "test_smart_artwork_editor_v80.py"
+      - "test_creative_editor_v44.py"
       - ".github/workflows/studio-v80.yml"
   workflow_dispatch:
 
@@ -29,7 +32,7 @@ jobs:
       - name: Install app requirements
         run: python -m pip install -r requirements.txt
       - name: Compile altered modules
-        run: python -m py_compile app.py campaign_design_v80.py campaign_director.py campaign_hub.py campaign_art_quality.py poster_live_edit.py disk_campaign_store.py
+        run: python -m py_compile app.py creative_director.py flexible_canvas.py campaign_design_v80.py campaign_director.py campaign_hub.py campaign_art_quality.py poster_live_edit.py disk_campaign_store.py
       - name: Validate client scripts
         run: |
           node --check static/campaign_poster_edit.js
