@@ -35,8 +35,8 @@ def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
     lo=ImageChops.darker(ImageChops.darker(channels[0],channels[1]),channels[2])
     hi=ImageChops.lighter(ImageChops.lighter(channels[0],channels[1]),channels[2])
     pale=ImageChops.multiply(
-        lo.point(lambda v:255 if v>=219 else 0),
-        ImageChops.subtract(hi,lo).point(lambda v:255 if v<=43 else 0))
+        lo.point(lambda v:255 if v>=248 else 0),
+        ImageChops.subtract(hi,lo).point(lambda v:255 if v<=9 else 0))
     alpha=rgba.getchannel("A")
     pale=ImageChops.multiply(pale,alpha.point(lambda v:255 if v>210 else 0))
     # Remove tiny disconnected logo glyphs/noise from component search, while
@@ -86,15 +86,15 @@ def _clear_enclosed_paper(rgba: Image.Image) -> Image.Image:
             # shading, texture and substantially higher local variation.
             if area<w*h*.02 or min(means)<248 or max(spread)>9:
                 continue
-        elif min(means)<237 or max(means)-min(means)>23 or max(spread)>16:
+        elif min(means)<249 or max(means)-min(means)>7 or max(spread)>5:
             continue
         eligible=ImageChops.lighter(eligible,region)
     if eligible.getbbox() is None:
         return rgba
     # A pixel-thin dilate erases baked-in JPEG white edges. Slight antialias
     # softens the mask without changing opaque steel or LASER typography.
-    eligible=eligible.filter(ImageFilter.MaxFilter(3)).filter(
-        ImageFilter.GaussianBlur(.6))
+    eligible=ImageChops.multiply(eligible.filter(ImageFilter.MaxFilter(3)),pale).filter(
+        ImageFilter.GaussianBlur(.45))
     alpha=ImageChops.subtract(alpha,eligible)
     rgba.putalpha(alpha)
     return rgba
@@ -119,7 +119,7 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
         if bbox:
             rgba = rgba.crop(bbox)
         buf = io.BytesIO()
-        rgba=_clear_enclosed_paper(rgba)
+        # Respect the manufacturer-provided alpha; never re-segment the tool.
         rgba.save(buf, format="PNG")
         return buf.getvalue(), True
 
@@ -133,9 +133,22 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     # A pixel qualifies as background only if it is BOTH light and neutral.
     neutral = ImageChops.subtract(maximum, minimum).point(
         lambda value: 255 if value <= 28 else 0)
-    light = minimum.point(lambda value: 255 if value >= 235 else 0)
-    candidates = ImageChops.multiply(neutral, light)
-    w, h = candidates.size
+    w,h=rgb.size
+    # Match the actual paper colour, not a generic "bright metal" threshold.
+    # On white studio backgrounds this deliberately leaves silver highlights
+    # opaque, even if they are connected to the outer background.
+    corners=[rgb.getpixel(pt) for pt in ((0,0),(w-1,0),(0,h-1),(w-1,h-1))]
+    paper=tuple(sorted(c[i] for c in corners)[2] for i in range(3))
+    if min(paper)<235 or max(paper)-min(paper)>12:
+        buf=io.BytesIO()
+        rgba.save(buf,format="PNG")
+        return buf.getvalue(),False
+    light=minimum.point(lambda v:255 if v>=max(244,min(paper)-5) else 0)
+    matches=Image.new("L",(w,h),255)
+    for channel,level in zip(channels,paper):
+        matches=ImageChops.multiply(matches,channel.point(
+            lambda v:255 if abs(v-level)<=5 else 0))
+    candidates=ImageChops.multiply(ImageChops.multiply(neutral,light),matches)
 
     # Starting at multiple border locations removes *only* background
     # connected to the photographic edge. Internal white plastic, badges,
@@ -213,7 +226,7 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
             continue
         from PIL import ImageStat
         mean = ImageStat.Stat(rgb, mask=region).mean
-        if any(abs(mean[i]-reference[i]) > 37 for i in range(3)):
+        if any(abs(mean[i]-reference[i]) > 5 for i in range(3)) or max(ImageStat.Stat(rgb,mask=region).stddev)>5:
             continue
         exterior = ImageChops.lighter(exterior, region)
         interior_candidates = ImageChops.subtract(interior_candidates, region)
@@ -226,7 +239,7 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     expanded_background = connected_background.filter(ImageFilter.MaxFilter(3))
     # Do not erode narrow metal parts or pale steel washers at the paper edge.
     expanded_background = ImageChops.multiply(expanded_background,
-        minimum.point(lambda p: 255 if p >= 229 else 0))
+        matches)
     alpha = ImageOps.invert(expanded_background).filter(
         ImageFilter.GaussianBlur(.55))
     foreground = ImageChops.darker(alpha, orig_a)
@@ -258,7 +271,8 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     pad = max(5, int(min(w, h) * .016))
     rgba = rgba.crop((max(0, bounds[0]-pad), max(0, bounds[1]-pad),
                       min(w, bounds[2]+pad), min(h, bounds[3]+pad)))
-    rgba=_clear_enclosed_paper(rgba)
+    # The paper-matched mask above is final; a second broad brightness
+    # pass would erase reflective faces of genuine components.
     buf = io.BytesIO()
     rgba.save(buf, format="PNG", optimize=True)
     return buf.getvalue(), True
