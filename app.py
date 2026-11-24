@@ -238,12 +238,37 @@ V7_HOME_PAGE = r'''
 
 <section class="campaign-poster-editor" id="campaignPosterEditor" hidden aria-label="Edit selected poster">
  <div class="poster-edit-heading"><div><span class="sectioncap">EDIT VERIFIED CAMPAIGN POSTER</span><h4 id="posterEditTitle">Edit one poster</h4><p>Manufacturer photo, part number and verified price remain locked.</p></div><button type="button" id="posterEditClose" class="ai-secondary">Close</button></div>
- <div class="poster-edit-controls">
-  <label for="posterEditHeadline">Headline (official product name)<input id="posterEditHeadline" maxlength="120" autocomplete="off"></label>
-  <label for="posterEditFeature">Manufacturer-verified featured fact<select id="posterEditFeature"></select></label>
-  <label for="posterEditVariant">Layout variation<select id="posterEditVariant"><option value="0">Layout 1</option><option value="1">Layout 2</option><option value="2">Layout 3</option></select></label>
+ <div class="poster-edit-layout">
+  <div class="poster-edit-visual">
+   <img id="posterEditPreview" alt="Selected full-quality Laser poster; click the controls below to edit it" loading="lazy">
+   <div class="poster-edit-hotspots" aria-label="Edit a specific poster element">
+    <button type="button" data-editor-focus="posterEditHeadline">Headline</button>
+    <button type="button" data-editor-focus="posterEditPhotoPicker">Product photo</button>
+    <button type="button" data-editor-focus="posterEditFeature">Selling point</button>
+    <button type="button" data-editor-focus="posterEditVariant">Layout</button>
+   </div>
+   <small>The source product photo and verified selling points are preserved. Save to re-render only this poster.</small>
+  </div>
+  <div class="poster-edit-controls">
+   <label for="posterEditHeadline">Headline (official product name)<input id="posterEditHeadline" maxlength="120" autocomplete="off"></label>
+   <label for="posterEditFeature">Manufacturer-verified featured fact<select id="posterEditFeature"></select></label>
+   <label for="posterEditVariant">Layout variation<select id="posterEditVariant"><option value="0">Layout 1</option><option value="1">Layout 2</option><option value="2">Layout 3</option></select></label>
+   <fieldset class="poster-photo-field"><legend>Choose a genuine Laser product photo</legend>
+    <div id="posterEditPhotoPicker" class="poster-photo-choices" role="radiogroup" aria-label="Verified product photograph"></div>
+    <small>Only manufacturer images from this exact part number. Each image passes the original quality checks.</small>
+   </fieldset>
+   <div id="posterEditPriceOptions" class="poster-edit-price-options" hidden>
+    <label for="posterEditPriceStyle">Price presentation<select id="posterEditPriceStyle">
+     <option value="panel">Price panel</option><option value="plaque">Price plaque</option><option value="sticker">Price sticker</option>
+     <option value="tag">Price tag</option><option value="banner">Price banner</option>
+    </select></label>
+    <label for="posterEditHeadlineSize">Headline styling<select id="posterEditHeadlineSize">
+     <option value="normal">Standard</option><option value="large">Bold &amp; large</option><option value="small">Compact</option>
+    </select></label>
+   </div>
+  </div>
  </div>
- <p class="poster-edit-disclaimer">Use an exact excerpt of the official title and select a genuine manufacturer fact. This updates only the chosen poster and its version in the downloadable ZIP. Existing Copy Editor drafts are unchanged.</p>
+ <p class="poster-edit-disclaimer">Select a genuine manufacturer image and a verified fact. Layout errors are automatically corrected using existing approved arrangements. Only the selected poster and ZIP are updated; review the draft before publication.</p>
  <div class="poster-edit-actions"><button type="button" class="primary" id="posterEditSave">Update this poster</button><span id="posterEditStatus" role="status" aria-live="polite"></span></div>
 </section>
 <section class="campaign-social-ideas" id="campaignSocialIdeas" hidden aria-label="Instagram Story and social suggestions">
