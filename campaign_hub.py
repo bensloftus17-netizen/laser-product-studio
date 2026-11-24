@@ -519,6 +519,11 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         "type":item.get("type"),"sha256":digest}
         return {"source_url":product.get("photo_source"),
                 "type":"original official hero","sha256":digest}
+    photo_choices=[{
+        "index":i,**_photo_source(blob),
+        "label":("Main product image" if i==0 else
+                 "Official alternate "+str(i))
+        } for i,blob in enumerate(role_photos)]
     photo_assignments={
         role:_photo_source(_poster_photo(index))
         for index,role in enumerate(("poster_technical","poster_price","poster_smart"))}
@@ -1244,6 +1249,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "ai_format_canvases": format_canvases,
         "product_photo_quality":asset_report,
         "official_photo_gallery":product.get("photo_gallery") or [],
+        "poster_photo_choices":photo_choices,
         "artwork_photo_sources":photo_assignments,
         "creative_critic":{
             "method":critic["method"],"reviewed":critic["reviewed"],
@@ -1384,5 +1390,9 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                                   role:_poster_photo(index)
                                   for index,role in enumerate((
                                       "poster_technical","poster_price","poster_smart"))},
+                              # Server-only original photograph gallery, persisted
+                              # on private disk; the public manifest has only
+                              # bounded source metadata and photo indices.
+                              "gallery_photos":role_photos,
                               "scenes":scenes,"concepts":concepts,
                               "distributor":distributor}}
