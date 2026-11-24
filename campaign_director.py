@@ -22,6 +22,7 @@ from official_taxonomy import category_from_product_url
 from promo_scene_library import classify_product
 from promo_selling_points import choose_feature
 from promo_art_direction import normalise_art_direction
+from campaign_design_v80 import creative_recipe
 from creative_director import validate_brief
 from creative_families import sanitize_contract,source_supported_headline
 from product_evidence_ranker import choose_verified_fact, verified_candidates
@@ -221,7 +222,12 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
         variation,seed=_variation(product,role,category)
         model_art=proposed_art[role].get("art_direction") if isinstance(
             proposed_art[role],dict) else None
-        art=normalise_art_direction(model_art,family_map[i],variation)
+        category_recipe=creative_recipe(category,role,product.get("part"))
+        # Gemini keeps creative freedom, but every fallback now starts with
+        # category-appropriate, role-distinct art direction rather than three
+        # copies of generic packshot placement.
+        art=normalise_art_direction(
+            {**category_recipe,**(model_art or {})},family_map[i],variation)
         if model_art and isinstance(model_art,dict):
             variation=art["layout_variant"]
         # AI's wording is used only if it is a literal manufacturer feature.
@@ -302,6 +308,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
                 "price_style":art["price_style"] if model_art else ("plaque","panel","tag")[i],
                 "photo_focus":art["photo_focus"] if model_art else ("right","left","centre")[variation],
                 "art_direction":art,
+                "category_design_recipe":category_recipe,
                 "preferred_variant":variation,
                 "creative_family":direction["creative_family"],
                 "headline_strategy":direction["headline_strategy"],
@@ -318,7 +325,7 @@ def plan_campaign(product, model_concepts=None, marketing_strategy=None):
         scenes.append({
             "role":role,"layout":family_map[i],"scene_category":scene,
             "variation":variation,"art_source":concept["visual_plan"]["creative_source"],
-            "art_direction":art,"why":(
+            "art_direction":art,"category_design_recipe":category_recipe,"why":(
                 "Explains documented application and specifications" if i==0
                 else "Promotes confirmed product price or price on request" if i==1
                 else "Uses "+THIRD_ANGLES[third][0].lower()+
