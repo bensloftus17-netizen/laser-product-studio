@@ -46,7 +46,21 @@ from why_choose_laser import (
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
 <link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor">
-</head><body>
+<style>
+.sales-assistant .sales-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;padding:18px 22px 4px}
+.sales-controls>div{flex:1 1 190px;max-width:330px;min-width:0}
+.sales-controls label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:#123d65}
+.sales-controls input,.sales-controls select{width:100%;box-sizing:border-box;padding:11px;border:1px solid #b9d2e7;border-radius:8px;background:#fff;color:#123d65;font:inherit;font-size:14px}
+.sales-controls button{border:0;background:#0867b4;color:white;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.sales-controls button:disabled{opacity:.6;cursor:wait}
+.sales-controls #salesCopy{background:#e8f3fc;color:#074e88}
+.sales-status{padding:8px 22px 18px;margin:0;font-size:13px;color:#36546c}
+.sales-output{padding:0 22px 22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:12px}
+.sales-output[hidden],.sales-controls button[hidden]{display:none}
+.sales-output section{border:1px solid #d2e2f0;border-radius:10px;background:#f7fbff;padding:14px;margin:0!important}
+.sales-output h3{font-size:15px;color:#074e88;margin:0 0 8px}
+.sales-output p{font-size:13px;line-height:1.5;margin:6px 0}
+</style></head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
  <symbol id="hub-campaign" viewBox="0 0 24 24"><path d="M3 10 17 5v14L3 14zM7 15l2 6h3l-2-7M20 8v8"/></symbol>
@@ -83,7 +97,7 @@ V7_HOME_PAGE = r'''
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V85 AI Sales Assistant</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V87 Sales Assistant lookup recovery</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -159,16 +173,16 @@ V7_HOME_PAGE = r'''
 </details>
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
-<section id="salesAssistant" class="saved-promotions" aria-label="AI Sales Assistant">
+<section id="salesAssistant" class="saved-promotions sales-assistant" aria-label="AI Sales Assistant">
  <div class="saved-heading"><div><span class="sectioncap">SALES ENABLEMENT / VERIFIED PRODUCT EVIDENCE</span><h2>AI Sales Assistant</h2><p>Prepare for a customer conversation without generating artwork.</p></div></div>
- <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end">
+ <div class="sales-controls">
   <div><label for="salesPart">Laser part number</label><input id="salesPart" maxlength="16" placeholder="e.g. 9395" autocomplete="off"></div>
   <div><label for="salesAudience">Customer type</label><select id="salesAudience"><option value="workshop">Independent workshop</option><option value="distributor">Tool distributor</option><option value="fleet">Fleet maintenance</option><option value="van">Mobile tool van</option><option value="dealer">Main dealership</option></select></div>
   <button type="button" id="salesBuild">Build sales briefing</button>
   <button type="button" id="salesCopy" class="secondary" hidden>Copy briefing</button>
  </div>
- <p id="salesStatus" role="status" aria-live="polite">Choose a part number and audience. No images are generated.</p>
- <div id="salesOutput" hidden></div>
+ <p id="salesStatus" class="sales-status" role="status" aria-live="polite">Choose a part number and audience. No images are generated.</p>
+ <div id="salesOutput" class="sales-output" hidden></div>
 </section>
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Technical · Price · Product-selected</small></div>
@@ -2082,7 +2096,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/sales_assistant.js?v=85"></script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
+</script><script src="/static/sales_assistant.js?v=87"></script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
 
 '''
 
@@ -2545,7 +2559,7 @@ def parse_html(content,part,url):
                          r'(?![A-Za-z0-9])',urlparse(u).path,re.I)
         ])),source_type='Official Laser/Tool Connection product page')
 
-def parse_pis_pdf(pdfbytes,part,url):
+def parse_pis_pdf(pdfbytes,part,url,*,include_photo=True):
     d=fitz.open(stream=pdfbytes,filetype='pdf')
     try:
         if d.page_count<1:raise LookupErrorPublic('The official information sheet is empty.')
@@ -2584,6 +2598,11 @@ def parse_pis_pdf(pdfbytes,part,url):
         for k,pat in patterns:
             m=re.search(pat,txt,re.I)
             if m:specs[k]=normalize(m.group(1))
+        if not include_photo:
+            return dict(part=part,title=title,description=desc,features=features,
+                        specs=specs,price=None,source=url,
+                        source_type='Official Laser product information sheet',
+                        image_candidates=[]),None
         # Keep compressed native photo bytes while choosing one candidate.
         # Previously every PDF image was converted into full-resolution RGB and
         # held in a list: multiple megapixel images could exceed Render's RAM.
@@ -3403,7 +3422,7 @@ def ai_recommendations(part):
 SALES_BRIEF_SLOT=threading.BoundedSemaphore(1)
 
 def _sales_product_record(part):
-    """Reuse fresh official records; otherwise fetch official HTML only."""
+    """Official HTML, text-only PDF and previously verified exact-SKU facts."""
     with LOOKUP_SERIAL_LOCK:
         cached=CACHE.get(part)
         if cached and time.time()-cached[0]<3600:
@@ -3412,20 +3431,71 @@ def _sales_product_record(part):
         discovered=indexed or search_official_uk_product(part,requests)
         urls=[discovered,f'https://www.lasertools.co.uk/product/{part}',
               f'https://lasertools.toolconnection.co.uk/product/{part}']
+        record=None
         for url in dict.fromkeys(x for x in urls if x):
             try:
-                response=official_get(url,requests)
+                response=official_get(url,requests,timeout=6)
                 if response.content.startswith(b'%PDF'):
+                    candidate,_=parse_pis_pdf(response.content,part,response.url,include_photo=False)
+                else:
+                    candidate=parse_html(response.content,part,response.url)
+                candidate=normalise_product_language(candidate)
+                if not candidate.get('title') or is_french(candidate['title']+' '+candidate.get('description','')):
                     continue
-                record=normalise_product_language(parse_html(response.content,part,response.url))
-                if record.get('title') and not is_french(record['title']+' '+record.get('description','')) and (record.get('features') or record.get('specs')):
-                    if not record.get('price') and part in VERIFIED_UK_RRP:
-                        record['price'],record['price_source']=VERIFIED_UK_RRP[part]
-                        record['price_status']='Previously verified UK RRP; recheck before quoting.'
-                    return record
-            except (LookupErrorPublic,requests.RequestException,ValueError):
-                continue
-        raise LookupErrorPublic('No verified English product record was available for this briefing. Try the normal product lookup first.')
+                if record is None:
+                    record=candidate
+                if candidate.get('features') or candidate.get('specs'):
+                    record=candidate
+                    break
+            except Exception as exc:
+                app.logger.info('Sales source unavailable for %s: %s',part,type(exc).__name__)
+        if record is None or not record.get('features'):
+            for url in (f'https://www.lasertools.co.uk/pis/{part}_PIS.pdf',
+                        f'https://lasertools.co.uk/pis/{part}_PIS.pdf'):
+                try:
+                    response=official_get(url,requests,content_types=['pdf'],timeout=6)
+                    sheet,_=parse_pis_pdf(response.content,part,response.url,include_photo=False)
+                    sheet=normalise_product_language(sheet)
+                    if is_french(sheet['title']+' '+sheet.get('description','')):
+                        continue
+                    if not (sheet.get('features') or sheet.get('specs')):
+                        continue
+                    if record is None:
+                        record=sheet
+                    else:
+                        record['features']=record.get('features') or sheet['features']
+                        record['specs']={**sheet.get('specs',{}),**record.get('specs',{})}
+                    break
+                except Exception as exc:
+                    app.logger.info('Sales PDF unavailable for %s: %s',part,type(exc).__name__)
+        verified=VERIFIED_UK_FACTS.get(part)
+        # An independently checked exact-SKU manufacturer record remains
+        # usable when the site is temporarily unavailable. Label its age.
+        if verified:
+            if record is None:
+                slug=urlparse(verified['source']).path.rsplit('/',1)[-1]
+                prefix=part.lower()+'-'
+                if not slug.lower().startswith(prefix):
+                    raise LookupErrorPublic('Previously verified product identity is unavailable.')
+                record={'part':part,'title':slug[len(prefix):].replace('-',' ').title(),
+                        'source':verified['source'],'description':'',
+                        'features':[],'specs':{},'price':None,
+                        'source_type':'Previously verified manufacturer record'}
+            if not record.get('features'):
+                record['features']=list(verified['features'])
+                record['source_raw_features']=list(verified['features'])
+                record['features_status']='Official UK facts checked '+verified['verified_on']
+            if not record.get('specs'):
+                record['specs']=dict(verified['specs'])
+        if record is None:
+            raise LookupErrorPublic('Official product information is temporarily unavailable. No product details have been invented.')
+        record=normalise_product_language(record)
+        if not record.get('price') and part in VERIFIED_UK_RRP:
+            record['price'],record['price_source']=VERIFIED_UK_RRP[part]
+            record['price_status']='Previously verified UK RRP; recheck before quoting.'
+        elif record.get('price'):
+            record.setdefault('price_status','Official manufacturer price; confirm before quoting.')
+        return apply_official_taxonomy(record)
 
 @app.post('/api/sales-assistant/<part>')
 def sales_assistant_brief(part):
