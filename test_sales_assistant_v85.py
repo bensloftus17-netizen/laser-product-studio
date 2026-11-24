@@ -53,7 +53,7 @@ class SalesAssistantTests(unittest.TestCase):
             self.assertEqual(client.post("/api/sales-assistant/9395",json={"audience":"unknown"}).status_code,400)
             self.assertEqual(client.post("/api/sales-assistant/9395",json={"audience":"fleet","price":"£1"}).status_code,400)
     def test_v87_8899_cold_lookup_uses_verified_record_without_artwork(self):
-        with patch.object(studio,"CACHE",{}), patch.object(studio,"official_get",side_effect=studio.LookupErrorPublic("Source unavailable")), patch.object(studio,"lookup",side_effect=AssertionError("No artwork lookup")), patch.dict("os.environ",{"GEMINI_API_KEY":""}):
+        with patch.object(studio,"CACHE",{}), patch.object(studio,"official_get",side_effect=studio.LookupErrorPublic("Source unavailable")), patch.dict("os.environ",{"GEMINI_API_KEY":""}):
             response=studio.app.test_client().post("/api/sales-assistant/8899",json={"audience":"dealer"})
         self.assertEqual(response.status_code,200,response.get_data(as_text=True))
         data=response.get_json()
@@ -66,7 +66,8 @@ class SalesAssistantTests(unittest.TestCase):
         import fitz
         doc=fitz.open()
         page=doc.new_page()
-        page.insert_text((60,70),"8899\\nBall Joint Separator for JLR\\nAdditional Information\\n- Heavy-duty scissor type separator.")
+        for i,line in enumerate(("8899","Ball Joint Separator for JLR","Additional Information","- Heavy-duty scissor type separator.")):
+            page.insert_text((60,70+i*22),line)
         data=doc.tobytes()
         doc.close()
         with patch.object(studio.Image,"open",side_effect=AssertionError("No images may be opened")):
@@ -75,9 +76,21 @@ class SalesAssistantTests(unittest.TestCase):
         self.assertEqual(record["part"],"8899")
         self.assertTrue(record["features"])
 
+    def test_v88_unknown_sku_uses_discovery_without_images(self):
+        from types import SimpleNamespace
+        part="123456"
+        url="https://www.toolconnection.co.uk/products/workshop/"+part+"-test-tool"
+        product={"part":part,"title":"Workshop Inspection Lamp","description":"Inspection lamp for workshop tasks.","features":["LED lamp with adjustable brightness."],"specs":{},"price":"£20 including VAT","source":url}
+        with patch.object(studio,"CACHE",{}), patch.object(studio,"catalogue_url_for_part",return_value=None), patch.object(studio,"search_official_uk_product",return_value=url) as discover, patch.object(studio,"official_get",return_value=SimpleNamespace(content=b"html",url=url)), patch.object(studio,"parse_html",return_value=product), patch.object(studio,"valid_image",side_effect=AssertionError("Image processing forbidden")), patch.dict("os.environ",{"GEMINI_API_KEY":""}):
+            response=studio.app.test_client().post("/api/sales-assistant/"+part,json={"audience":"workshop"})
+            discover.assert_called_once()
+            self.assertEqual(response.status_code,200,response.get_data(as_text=True))
+            self.assertEqual(response.get_json()["part"],part)
+            self.assertNotIn(part,studio.CACHE)
+
     def test_ui(self):
         self.assertIn('id="salesAssistant"',studio.V7_HOME_PAGE)
-        self.assertIn("sales_assistant.js?v=87",studio.V7_HOME_PAGE)
+        self.assertIn("sales_assistant.js?v=88",studio.V7_HOME_PAGE)
 
 if __name__=="__main__":
     unittest.main()
