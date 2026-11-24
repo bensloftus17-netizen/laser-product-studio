@@ -13,6 +13,9 @@ from copy import deepcopy
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from campaign_art_quality import choose_best
+from campaign_design_v80 import recovery_variants
+from asset_quality import require_good_asset
+from promo_art_direction import PRICE_STYLES,HEADLINE_SIZES
 from campaign_role_posters import technical_poster,smart_poster
 from product_evidence_ranker import verified_candidates
 from poster_quality import capture
@@ -47,6 +50,27 @@ def edit_campaign_poster(bundle,asset_id,body):
     # Preserve the genuine manufacturer angle chosen for this poster, rather
     # than quietly switching back to the primary packshot after an edit.
     photo=(source.get("role_photos") or {}).get(asset_id) or source["genuine_photo"]
+    photo_index=body.get("photo_index")
+    if photo_index is not None:
+        if type(photo_index) is not int or photo_index not in range(4):
+            raise ValueError("Choose one of the verified manufacturer photographs.")
+        choices=bundle["manifest"].get("poster_photo_choices") or []
+        if photo_index>=len(choices):
+            raise ValueError("Selected photo is not in this manufacturer's campaign.")
+        if hasattr(bundle,"gallery_photo"):
+            photo=bundle.gallery_photo(photo_index)
+        else:
+            gallery=source.get("gallery_photos") or []
+            if photo_index>=len(gallery):
+                raise ValueError("Selected photo is not available in this campaign.")
+            photo=gallery[photo_index]
+        # The editor cannot accept arbitrary client images or source URLs.
+        # Trust only the original source-gallery digest and recheck source
+        # integrity before composing a poster.
+        import hashlib
+        if hashlib.sha256(photo).hexdigest()!=choices[photo_index]["sha256"]:
+            raise ValueError("Manufacturer photo no longer matches the checked source.")
+        require_good_asset(photo)
     distributor=source["distributor"]
     idx,role=ASSETS[asset_id]
     current=source["concepts"][idx]
@@ -65,6 +89,26 @@ def edit_campaign_poster(bundle,asset_id,body):
     updated["selling_point"]=fact
     updated["subline"]=fact or headline
     updated["variant"]=layout
+    # Price and typography controls only use existing tested renderer
+    # enumerations. No user-supplied CSS, arbitrary product pixels or RRP.
+    requested_price_style=body.get("price_style")
+    requested_headline_size=body.get("headline_size")
+    if requested_price_style is not None:
+        if role!="price_promo" or requested_price_style not in PRICE_STYLES:
+            raise ValueError("Invalid promotional price display choice.")
+    if requested_headline_size is not None:
+        if role!="price_promo" or requested_headline_size not in HEADLINE_SIZES:
+            raise ValueError("Invalid promotional headline size.")
+    if role=="price_promo":
+        art=deepcopy(updated.get("visual_plan") or {})
+        direction=deepcopy(art.get("art_direction") or {})
+        if requested_price_style:
+            art["price_style"]=requested_price_style
+            direction["price_style"]=requested_price_style
+        if requested_headline_size:
+            direction["headline_size"]=requested_headline_size
+        art["art_direction"]=direction
+        updated["visual_plan"]=art
     updated["features"]=(
         [fact]+[item for item in features if item!=fact][:2]
         if fact and role=="technical_application" else
@@ -130,18 +174,31 @@ def edit_campaign_poster(bundle,asset_id,body):
                     default=None),
             }
 
-    new_image,quality=choose_best(render,role,photo,variants=(layout,))
+    # Repair common clipping/overlap failures by trying at most the other
+    # two already supported layouts. Stop as soon as one passes all original
+    # visual and source QA; never launch another AI call or image batch.
+    new_image,quality=choose_best(
+        render,role,photo,variants=recovery_variants(layout),
+        preferred_variant=layout,early_exit=True)
+    actual_layout=quality["variation"]
+    quality["auto_repaired"]=actual_layout!=layout
+    quality["requested_layout"]=layout
     # Work on new objects and only update the in-memory pack after rendering
     # succeeds and the ZIP/PDF are both valid.
     manifest=deepcopy(bundle["manifest"])
     angle=manifest["angles"][idx]
     angle["headline"]=headline
     angle["selling_point"]=fact
-    angle["layout_variant"]=layout
+    angle["layout_variant"]=actual_layout
     manifest["artwork_quality"][asset_id]=quality
+    if photo_index is not None:
+        chosen=bundle["manifest"]["poster_photo_choices"][photo_index]
+        manifest.setdefault("artwork_photo_sources",{})[asset_id]={
+            k:chosen[k] for k in ("source_url","type","sha256") if k in chosen}
     manifest["poster_revision"]=int(manifest.get("poster_revision",0))+1
     edits=manifest.setdefault("poster_edits",[])
     edits.append({"asset_id":asset_id,"headline_source":"manufacturer title excerpt",
+                  "photo_index":photo_index,"auto_repaired":quality["auto_repaired"],
                   "feature_source":"manufacturer feature" if fact else "no feature selected",
                   "review_required":True})
     if len(edits)>15:del edits[:-15]
@@ -166,6 +223,7 @@ def edit_campaign_poster(bundle,asset_id,body):
     bundle["manifest"]=manifest
     bundle["archive"]=archive.getvalue()
     source["concepts"]=source_concepts
+    source.setdefault("role_photos",{})[asset_id]=photo
     if hasattr(bundle,"save_editor"):
         # Source-backed variations must persist when the pack lives on disk.
         # Subsequent edits use the current verified concepts, not old defaults.
