@@ -238,6 +238,11 @@ def edit_campaign_poster(bundle,asset_id,body):
     angle["headline"]=headline
     angle["selling_point"]=fact
     angle["layout_variant"]=actual_layout
+    if role=="price_promo" and promo_template!="workshop_showcase":
+        art=updated.get("visual_plan") or {}
+        angle["price_style"]=art.get("price_style","panel")
+        angle["headline_size"]=(art.get("art_direction") or {}).get(
+            "headline_size","normal")
     manifest["artwork_quality"][asset_id]=quality
     if photo_index is not None:
         chosen=bundle["manifest"]["poster_photo_choices"][photo_index]
