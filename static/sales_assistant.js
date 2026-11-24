@@ -1,4 +1,4 @@
-/* V85 sales assistant: bounded text only, no artwork downloads. */
+/* V86 sales assistant: bounded text only, no artwork downloads. */
 (() => {
  'use strict';
  const get=id=>document.getElementById(id);
@@ -39,7 +39,8 @@
     ['Verified selling points',data.selling_points.length?data.selling_points:['No concise verified features available. Consult the official source.']],
     ['Questions to ask',data.questions],
     ['Customer objections',data.objections.flatMap(x=>[x.objection,x.response])],
-    ['Closing pitch',[data.closing]]
+    ['Demonstration and sales next steps',data.demonstration_plan?.length?data.demonstration_plan:[data.closing]],
+    ['Closing recommendation',[data.closing]]
    ];
    for(const [title,items] of groups)section(title,items);
    if(typeof data.source==='string'&&/^https:\/\//.test(data.source)){
@@ -47,7 +48,7 @@
    }
    briefing=groups.map(([title,items])=>title+'\n'+items.join('\n')).join('\n\n')+'\n\nOfficial source: '+(data.source||'Unavailable')+'\nInternal draft — verify before quoting.';
    out.hidden=false;copy.hidden=false;
-   status.textContent=(data.method==='gemini-assisted'?'AI-assisted evidence selection.':'Verified-source fallback (AI unavailable or not configured).')+' Review all details before quoting.';
+   status.textContent=(data.method==='gemini-assisted'?'AI-assisted product-specific sales strategy.':'Verified-source fallback (AI unavailable or not configured).')+' Review all details before quoting.';
   }catch(error){status.textContent=error.message||'Sales briefing could not be created.';}
   finally{button.disabled=false;}
  });
