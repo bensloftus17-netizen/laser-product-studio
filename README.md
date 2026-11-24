@@ -1,3 +1,45 @@
+## V80 — Smarter artwork and safer one-poster editing
+
+Four user-requested enhancements, designed for Render Free's 512 MiB limit:
+
+1. **Verified product photo selector.** After building a campaign, choose
+   among the up-to-four source-verified manufacturer images when editing any
+   core poster. Only a small, approved, indexed gallery is exposed in the UI.
+   Photos are served directly from private disk to the browser (no Pillow
+   thumbnail processing on the web worker). Source hashes are checked and the
+   chosen photo is recorded in the campaign manifest.
+2. **Product-aware creative direction.** An inexpensive, deterministic
+   category/role recipe provides different photo focus, hero scale,
+   typography and graphic motifs for technical, sales and benefit posters.
+   The existing single AI request receives better instructions to design
+   distinct, product-specific canvases; no extra AI/image calls are added.
+3. **Bounded automatic layout repair.** Targeted edits first try the selected
+   approved layout and use at most the other two existing QA-checked layouts
+   if necessary. All source, text, image, white-background and dimension
+   rules remain in force. A successful first layout stops further work.
+   Failed edits leave the previous poster unchanged.
+4. **Visual editor.** A preview and focused controls support verified title
+   excerpts, official feature choice, product angle and layout. Validated
+   price graphics and headline styling are available on AI-original price
+   posters. The approved technical sheet and Workshop Showcase template
+   remain locked to their original design references when edited.
+
+**Memory safety:** Browser thumbnails are sent as already-approved compressed
+source bytes; one poster is rendered at a time behind the existing memory
+admission/semaphore. For disk-backed campaigns, the updated ZIP is streamed
+from disk in 64 KiB chunks rather than duplicating the original and revised
+archives in RAM. The other eight pieces of artwork are not regenerated.
+
+**Review:** An automatic QA pass is not publication approval. Prices,
+technical applications, distributor permissions and any proposed claims still
+require company review.
+
+CI: `.github/workflows/studio-v80.yml`, including
+`test_smart_artwork_editor_v80.py`, gallery, legacy editor and Render memory
+safety regressions.
+
+---
+
 ## V77 — Multiple official product photos across all campaign artwork
 
 Laser Product Studio no longer stops once the first usable manufacturer packshot is found.
