@@ -78,12 +78,12 @@ V7_HOME_PAGE = r'''
   <a href="#builder"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Create Campaign</a>
   <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions <small>Soon</small></a>
   
-  <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a>
+  <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a><a href="#salesAssistant"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Sales Assistant</a>
   
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
- <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V81 campaign recovery and editor</span></div>
+ <div class="sidebar-bottom">Laser Product Studio <span>Internal pilot · V85 AI Sales Assistant</span></div>
 </aside>
 <main class="studio-main">
 <div class="wrap app-shell" id="builder">
@@ -159,12 +159,23 @@ V7_HOME_PAGE = r'''
 </details>
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
+<section id="salesAssistant" class="saved-promotions" aria-label="AI Sales Assistant">
+ <div class="saved-heading"><div><span class="sectioncap">SALES ENABLEMENT / VERIFIED PRODUCT EVIDENCE</span><h2>AI Sales Assistant</h2><p>Prepare for a customer conversation without generating artwork.</p></div></div>
+ <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end">
+  <div><label for="salesPart">Laser part number</label><input id="salesPart" maxlength="16" placeholder="e.g. 9395" autocomplete="off"></div>
+  <div><label for="salesAudience">Customer type</label><select id="salesAudience"><option value="workshop">Independent workshop</option><option value="distributor">Tool distributor</option><option value="fleet">Fleet maintenance</option><option value="van">Mobile tool van</option><option value="dealer">Main dealership</option></select></div>
+  <button type="button" id="salesBuild">Build sales briefing</button>
+  <button type="button" id="salesCopy" class="secondary" hidden>Copy briefing</button>
+ </div>
+ <p id="salesStatus" role="status" aria-live="polite">Choose a part number and audience. No images are generated.</p>
+ <div id="salesOutput" hidden></div>
+</section>
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Technical · Price · Product-selected</small></div>
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>9</b><small>Core artwork files</small></div>
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-download"></use></svg><b>1</b><small>Complete ZIP download</small></div>
  <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
-  <a href="#assetWorkspace">View campaign assets</a><a href="#copyWorkspace">Edit campaign copy</a>
+  <a href="#salesAssistant">AI Sales Assistant</a><a href="#assetWorkspace">View campaign assets</a><a href="#copyWorkspace">Edit campaign copy</a>
  </div>
 </section>
 <section class="studio-workspace" id="studioWorkspace" aria-label="Campaign workspace">
@@ -2071,7 +2082,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
+</script><script src="/static/sales_assistant.js?v=85"></script><script src="/static/campaign_poster_edit.js?v=81"></script></body></html>
 
 '''
 
@@ -3386,6 +3397,62 @@ def ai_recommendations(part):
         app.logger.exception('AI concept generation failed')
         return jsonify(error='Unable to generate AI poster ideas. Please retry.'),500
 
+
+
+# One text-only lookup/brief at a time. Never use the artwork renderer here.
+SALES_BRIEF_SLOT=threading.BoundedSemaphore(1)
+
+def _sales_product_record(part):
+    """Reuse fresh official records; otherwise fetch official HTML only."""
+    with LOOKUP_SERIAL_LOCK:
+        cached=CACHE.get(part)
+        if cached and time.time()-cached[0]<3600:
+            return normalise_product_language(dict(cached[1]))
+        indexed=OFFICIAL_UK_PRODUCTS.get(part) or catalogue_url_for_part(part)
+        discovered=indexed or search_official_uk_product(part,requests)
+        urls=[discovered,f'https://www.lasertools.co.uk/product/{part}',
+              f'https://lasertools.toolconnection.co.uk/product/{part}']
+        for url in dict.fromkeys(x for x in urls if x):
+            try:
+                response=official_get(url,requests)
+                if response.content.startswith(b'%PDF'):
+                    continue
+                record=normalise_product_language(parse_html(response.content,part,response.url))
+                if record.get('title') and not is_french(record['title']+' '+record.get('description','')) and (record.get('features') or record.get('specs')):
+                    if not record.get('price') and part in VERIFIED_UK_RRP:
+                        record['price'],record['price_source']=VERIFIED_UK_RRP[part]
+                        record['price_status']='Previously verified UK RRP; recheck before quoting.'
+                    return record
+            except (LookupErrorPublic,requests.RequestException,ValueError):
+                continue
+        raise LookupErrorPublic('No verified English product record was available for this briefing. Try the normal product lookup first.')
+
+@app.post('/api/sales-assistant/<part>')
+def sales_assistant_brief(part):
+    from sales_assistant import build_sales_brief,AUDIENCES as SALES_AUDIENCES
+    body=request.get_json(silent=True)
+    if not isinstance(body,dict) or set(body)-{'audience'}:
+        return jsonify(error='Invalid sales briefing request.'),400
+    audience=body.get('audience','workshop')
+    if not isinstance(audience,str) or audience not in SALES_AUDIENCES:
+        return jsonify(error='Choose a valid customer type.'),400
+    if not SALES_BRIEF_SLOT.acquire(blocking=False):
+        return jsonify(error='Another sales briefing is being prepared. Please retry.'),429
+    try:
+        part=sku_clean(part)
+        product=_sales_product_record(part)
+        response=jsonify(build_sales_brief(product,audience))
+        response.headers['Cache-Control']='private, no-store'
+        return response
+    except (LookupErrorPublic,ValueError) as exc:
+        return jsonify(error=str(exc)),400
+    except requests.RequestException:
+        return jsonify(error='Official product source unavailable. Please retry.'),502
+    except Exception:
+        app.logger.exception('Sales briefing failed')
+        return jsonify(error='Could not prepare the sales briefing.'),500
+    finally:
+        SALES_BRIEF_SLOT.release()
 
 @app.post('/api/copy/rewrite/<part>')
 def rewrite_marketing_copy(part):
