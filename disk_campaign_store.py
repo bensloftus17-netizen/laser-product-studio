@@ -108,6 +108,21 @@ class StoredCampaign(MutableMapping):
     def __len__(self):
         return 4
 
+    def gallery_photo(self,index):
+        """Read exactly one QA-approved manufacturer image from private disk.
+
+        The editor never decodes an entire four-photo gallery in RAM.
+        """
+        if type(index) is not int or index<0 or index>=4:
+            raise ValueError("Invalid manufacturer photo index")
+        choices=self._manifest.get("poster_photo_choices") or []
+        if index>=len(choices):
+            raise ValueError("Photo is not in the source-verified campaign")
+        path=self.folder/("gallery_"+str(index)+".bin")
+        if not path.is_file() or path.stat().st_size>5_000_000:
+            raise ValueError("Verified manufacturer photo unavailable")
+        return path.read_bytes()
+
     def _read_editor(self):
         path=self.folder/"editor.json"
         if not path.exists():
@@ -143,6 +158,12 @@ class StoredCampaign(MutableMapping):
         photo=ctx.get("genuine_photo")
         if isinstance(photo,bytes):
             _atomic_file(self.folder/"product_photo.bin",photo)
+        # Initial campaign stores four compressed original photos on disk;
+        # later single-poster edits only load/update one, so keep originals
+        # without readback or reserialising their bytes in editor.json.
+        for index,payload in enumerate((ctx.get("gallery_photos") or [])[:4]):
+            if isinstance(payload,bytes) and 0<len(payload)<=5_000_000:
+                _atomic_file(self.folder/("gallery_"+str(index)+".bin"),payload)
         photo_files={}
         for role,payload in (ctx.get("role_photos") or {}).items():
             if role not in ("poster_technical","poster_price","poster_smart"):
