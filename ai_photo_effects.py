@@ -132,8 +132,8 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     # artefacts create the objectionable bright rectangle around the tool.
     # A pixel qualifies as background only if it is BOTH light and neutral.
     neutral = ImageChops.subtract(maximum, minimum).point(
-        lambda value: 255 if value <= 56 else 0)
-    light = minimum.point(lambda value: 255 if value >= 199 else 0)
+        lambda value: 255 if value <= 28 else 0)
+    light = minimum.point(lambda value: 255 if value >= 235 else 0)
     candidates = ImageChops.multiply(neutral, light)
     w, h = candidates.size
 
@@ -224,6 +224,9 @@ def _cutout_png(blob: bytes) -> tuple[bytes, bool]:
     # Feather the merged exterior background and interior white gaps as one
     # mask; do not overwrite it with the original edge-only flood result.
     expanded_background = connected_background.filter(ImageFilter.MaxFilter(3))
+    # Do not erode narrow metal parts or pale steel washers at the paper edge.
+    expanded_background = ImageChops.multiply(expanded_background,
+        minimum.point(lambda p: 255 if p >= 229 else 0))
     alpha = ImageOps.invert(expanded_background).filter(
         ImageFilter.GaussianBlur(.55))
     foreground = ImageChops.darker(alpha, orig_a)
@@ -387,7 +390,7 @@ def compose_product(base: Image.Image, blob: bytes, box: tuple[int,int,int,int],
 
     zoom=max(70,min(160,int(editor.get("product_scale",100))))/100
     avail_w,avail_h=w-32,h-30
-    ratio=min(avail_w/max(1,cutout.width),avail_h/max(1,cutout.height))*zoom
+    ratio=min(avail_w/max(1,cutout.width),avail_h/max(1,cutout.height))*min(zoom,1.0)
     dims=(max(1,round(cutout.width*ratio)),max(1,round(cutout.height*ratio)))
     if cutout.size!=dims:
         cutout=cutout.resize(dims,RESAMPLE)
@@ -395,6 +398,9 @@ def compose_product(base: Image.Image, blob: bytes, box: tuple[int,int,int,int],
     yp=max(-100,min(100,int(editor.get("product_y",0))))
     cx=(w-cutout.width)//2 + int(xp*w*.003)
     cy=(h-cutout.height)//2 + int(yp*h*.003)
+    # Clamp offsets after zoom: no tool pixels can leave the allocated frame.
+    cx=max(0,min(w-cutout.width,cx))
+    cy=max(0,min(h-cutout.height,cy))
     mask=Image.new("L",(w,h),0)
     mask.paste(cutout.getchannel("A"),(cx,cy))
     if mode in ("shadow","glow"):
