@@ -59,6 +59,7 @@ def fixture():
     roles=("poster_technical","poster_price","poster_smart")
     manifest={
         "part":"9365","title":product["title"],
+        "promo_template":"ai_original",
         "angles":[{"headline":product["title"],"selling_point":"Set of four ratchets",
                    "layout_variant":0,"name":r} for r in roles],
         "poster_photo_choices":choices,
