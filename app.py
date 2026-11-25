@@ -45,7 +45,7 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing-v92-sidebar">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing-v93-sidebar-only">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -66,9 +66,12 @@ V7_HOME_PAGE = r'''
  </a>
  <nav class="studio-top-links" aria-label="Primary navigation">
   <a href="#builder" class="active"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Home</a><a href="#studioWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Campaigns</a><a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Assets</a>
-  <a class="studio-mobile-tool" href="#competitorWorkspace">Competitors</a>
-  <a class="studio-mobile-tool" href="#salesAssistant">Sales Assistant</a>
-  <a class="studio-mobile-tool" href="#repShareWorkspace">Rep Share Pack</a>
+  <details class="studio-mobile-workspace" id="studioMobileWorkspace">
+   <summary>Workspace</summary>
+   <a href="#competitorWorkspace">Competitor Finder</a>
+   <a href="#salesAssistant">Sales Assistant</a>
+   <a href="#repShareWorkspace">Rep Share Pack</a>
+  </details>
   <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions</a>
   <span title="Reports are planned for a future release"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
@@ -202,7 +205,7 @@ V7_HOME_PAGE = r'''
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg><b>9</b><small>Core artwork files</small></div>
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-download"></use></svg><b>1</b><small>Complete ZIP download</small></div>
  <div class="quickbar-actions"><strong>QUICK ACTIONS</strong>
-  <a href="#salesAssistant">AI Sales Assistant</a><a href="#assetWorkspace">View campaign assets</a><a href="#copyWorkspace">Edit campaign copy</a>
+  <a href="#assetWorkspace">View campaign assets</a><a href="#copyWorkspace">Edit campaign copy</a>
  </div>
 </section>
 <section class="studio-workspace" id="studioWorkspace" aria-label="Campaign workspace">
@@ -253,7 +256,6 @@ V7_HOME_PAGE = r'''
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
- <a href="#repShareWorkspace" class="campaign-download">Open Rep Share Pack</a>
  <a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a>
  <button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button>
  </div></div>
@@ -2198,6 +2200,9 @@ function showStudioView(){
   document.getElementById(route)?.scrollIntoView();
  }
 }
+$('studioMobileWorkspace').addEventListener('click',event=>{
+ if(event.target.closest('a'))$('studioMobileWorkspace').open=false;
+});
 window.addEventListener('hashchange',showStudioView);
 showStudioView();
 </script><script src="/static/sales_assistant.js?v=90"></script><script src="/static/campaign_poster_edit.js?v=91"></script></body></html>
