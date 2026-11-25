@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 import re
 from functools import lru_cache
-from PIL import Image, ImageChops, ImageOps, ImageStat
+from PIL import Image, ImageChops, ImageStat
 
 from ai_photo_effects import manufacturer_cutout
 from poster_quality import white_paper_warning
@@ -28,19 +28,14 @@ def inspected_product(blob:bytes):
     explicitly flag the risk and use a bounded non-white photographic frame.
     """
     cut,isolated=manufacturer_cutout(blob)
-    original=ImageOps.exif_transpose(Image.open(io.BytesIO(blob)))
-    original.load()
-    if original.width*original.height>6_000_000:
-        original.thumbnail((1800,1800),Image.Resampling.LANCZOS)
     if isolated:
         alpha=cut.getchannel("A")
         bbox=alpha.getbbox()
         if bbox:cut=cut.crop(bbox)
         coverage=round(ImageStat.Stat(alpha).mean[0]/255,4)
     else:
-        cut=original.convert("RGBA")
         coverage=1.0
-    issue=white_paper_warning(blob)
+    issue=white_paper_warning(blob, cutout=(cut, isolated))
     return {
         "isolated":bool(isolated),
         "rgba":cut,

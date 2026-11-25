@@ -77,8 +77,12 @@ def product_photo(canvas, blob, bounds, *, scale=1.0):
     campaign for review and never silently paint an invented tool silhouette.
     """
     x0,y0,x1,y1=map(int,bounds)
+    x0,y0=max(0,x0),max(0,y0)
+    x1,y1=min(canvas.width,x1),min(canvas.height,y1)
+    if x1<=x0 or y1<=y0:
+        raise ValueError("Product has no space on the poster")
     info=inspected_product(blob)
-    image=info["rgba"].copy()
+    image=info["rgba"]
     w,h=max(1,x1-x0),max(1,y1-y0)
     limit_w=max(1,round(w*.94*min(scale,1.0)))
     limit_h=max(1,round(h*.94*min(scale,1.0)))

@@ -90,7 +90,7 @@ class SalesAssistantTests(unittest.TestCase):
 
     def test_ui(self):
         self.assertIn('id="salesAssistant"',studio.V7_HOME_PAGE)
-        self.assertIn("sales_assistant.js?v=88",studio.V7_HOME_PAGE)
+        self.assertIn("sales_assistant.js?v=90",studio.V7_HOME_PAGE)
 
 if __name__=="__main__":
     unittest.main()

@@ -84,6 +84,8 @@ class MockSearch:
                 "product_link":"https://www.toolden.co.uk/sealey-screwdriver",
                 "extracted_price":99,"price":"£99.00",
             }]})
+        if url==cf.SECONDARY_SEARCH_HOST:
+            return DummyResponse(status=404)
         if url==cf.SEARCH_HOST:
             return DummyResponse(body=RSS,content_type="application/rss+xml")
         if url==PRODUCT_URL:
@@ -310,7 +312,7 @@ class CompetitorFinderTests(unittest.TestCase):
                            "competitorStatus","competitorResults","competitorExport",
                            "competitorRefresh","competitorSources"):
             self.assertEqual(page.count('id="'+identifier+'"'),1,identifier)
-        for term in ("Find Competitors","UK advertised price",
+        for term in ("Find competitors","UK advertised price",
                      "source","VAT unconfirmed","CSV",
                      "noopener noreferrer","function findCompetitors"):
             self.assertIn(term,page)
@@ -334,7 +336,7 @@ const $=id=>{
  return els[id];
 };
 const ctx={
- $,esc:s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+ $,document:{querySelectorAll:()=>[]},esc:s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
               .replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
  Date,URLSearchParams,Number,encodeURIComponent,
  fetch:async(url)=>({
@@ -351,7 +353,10 @@ const ctx={
 };
 vm.createContext(ctx);vm.runInContext(SOURCE,ctx);
 (async()=>{
+ $('part').value='4832';
+ $('competitorPart').value='9395';
  await ctx.findCompetitors(false);
+ assert.equal($('part').value,'4832');
  assert.equal(els.competitorPanel.hidden,false);
  assert.equal(els.competitorExport.hidden,false);
  assert.match(els.competitorResults.innerHTML,/BGS Technic/);

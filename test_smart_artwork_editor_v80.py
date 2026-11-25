@@ -85,6 +85,44 @@ def fixture():
 
 
 class V80ProductStudioTests(unittest.TestCase):
+    def test_reference_editor_draws_the_verified_edited_headline(self):
+        import poster_quality
+        for asset_id in ("poster_technical","poster_price"):
+            with self.subTest(asset_id=asset_id):
+                bundle,_=fixture()
+                bundle["manifest"]["promo_template"]="workshop_showcase"
+                def render_and_inspect(render,role,photo,**kwargs):
+                    # Keep the actual artwork renderer and capture its drawn copy.
+                    with patch("reference_poster_templates.record_text",wraps=poster_quality.record_text) as recorded:
+                        png,_=render(0)
+                    headlines=[call.args[0] for call in recorded.call_args_list
+                               if len(call.args)>4 and call.args[4]=="headline"]
+                    self.assertIn("RATCHET SET 4PC",headlines)
+                    return png,{"variation":0,"passed":True}
+                with patch("poster_live_edit.choose_best",side_effect=render_and_inspect), \
+                     patch("campaign_hub._summary_pdf",return_value=b"%PDF-1.4"):
+                    response=edit_campaign_poster(bundle,asset_id,{
+                        "headline":"Ratchet Set 4pc","feature_index":-1,"layout_variant":0})
+                self.assertEqual(response["revision"],1)
+
+    def test_full_kit_fits_even_when_layout_crosses_artboard_edge(self):
+        from PIL import ImageDraw
+        from campaign_role_posters import product_photo
+        src=Image.new("RGBA",(180,80),(0,0,0,0))
+        draw=ImageDraw.Draw(src)
+        draw.rectangle((0,10,26,69),fill="#ff0000")
+        draw.rectangle((153,10,179,69),fill="#00ff00")
+        canvas=Image.new("RGBA",(100,80),"black")
+        with patch("campaign_role_posters.inspected_product",return_value={
+                "rgba":src,"isolated":True,"needs_manual_cutout":False}):
+            placed=product_photo(canvas,b"official kit",(-55,1,90,79),scale=1.4)
+        x0,y0,x1,y1=placed["position"]
+        self.assertGreaterEqual(x0,0)
+        self.assertLessEqual(x1,canvas.width)
+        self.assertEqual(canvas.getpixel((x0+4,(y0+y1)//2))[:3],(255,0,0))
+        self.assertEqual(canvas.getpixel((x1-5,(y0+y1)//2))[:3],(0,255,0))
+
+
     def test_design_director_is_product_and_role_specific_without_extra_ai(self):
         technical=creative_recipe("socket_ratchet","technical_application","9365")
         price=creative_recipe("socket_ratchet","price_promo","9365")
@@ -243,7 +281,7 @@ class V80ProductStudioTests(unittest.TestCase):
                         "posterEditPriceStyle","posterEditHeadlineSize",
                         "posterEditSave","posterEditFeature","posterEditVariant"):
             self.assertIn('id="'+control+'"',page)
-        self.assertIn("campaign_poster_edit.js?v=81",page)
+        self.assertIn("campaign_poster_edit.js?v=91",page)
         self.assertIn("v80-visual-editor",page.lower())
 
 

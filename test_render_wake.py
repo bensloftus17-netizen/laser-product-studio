@@ -4,6 +4,7 @@ The existing product lookup route worked after deployment, but clients used
 response.json() unconditionally. Free-host cold starts can return HTML outside
 Flask. This tests the browser helper, safe retries and user-facing messaging.
 """
+import json
 import re
 import shutil
 import subprocess
@@ -24,6 +25,53 @@ class RenderWakeUpTests(unittest.TestCase):
         # automatically, which could duplicate expensive AI requests.
         self.assertGreaterEqual(html.count("const data=await readApiJson("),3)
         self.assertEqual(html.count("lookupWithWakeRetry("),2)
+
+    @unittest.skipUnless(shutil.which("node"),"Node.js not installed")
+    def test_stale_preview_and_zip_downloads_cannot_overwrite_edit(self):
+        start=V7_HOME_PAGE.index("const campaignLocalPNGs=new Map()")
+        end=V7_HOME_PAGE.index("// A progressive campaign",start)
+        functions=V7_HOME_PAGE[start:end]
+        script=r"""
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const downloads=[];
+const applied=[];
+const button={dataset:{}};
+const context={
+  fetch:url=>new Promise(resolve=>downloads.push({url,resolve})),
+  URL:{createObjectURL:blob=>'blob:'+blob.label},
+  $:id=>id==='campaignDownload'?button:null,
+  campaignData:{token:'token',manifest:{}},
+};
+vm.createContext(context);
+vm.runInContext(SOURCE+'\napplyLocalCampaignPNG=(id,url)=>applied.push(url);',
+                Object.assign(context,{applied}));
+const run=code=>vm.runInContext(code,context);
+const response=blob=>({ok:true,blob:async()=>blob});
+const image=label=>response({label,type:'image/png',size:40});
+const archive=label=>response({label,size:40,slice:()=>({
+  arrayBuffer:async()=>Uint8Array.of(80,75,3,4).buffer,
+})});
+const settle=()=>new Promise(resolve=>setImmediate(resolve));
+(async()=>{
+  run("useCampaignLocalJob('job'); retainVerifiedCampaignPNG('job','poster_price','old'); retainCompletedCampaignZIP('job','token','part');");
+  run("campaignData.manifest.poster_revision=1; campaignLocalPending.delete('poster_price'); retainVerifiedCampaignPNG('job','poster_price','new'); retainCompletedCampaignZIP('job','token','part');");
+  downloads[0].resolve(image('old-png'));
+  downloads[1].resolve(archive('old-zip'));
+  await settle();
+  assert.equal(applied.length,0);
+  assert.equal(button.href,undefined);
+  assert.ok(run("campaignLocalPending.has('poster_price')"));
+  downloads[2].resolve(image('new-png'));
+  downloads[3].resolve(archive('new-zip'));
+  await settle();
+  assert.deepEqual(applied,['blob:new-png']);
+  assert.equal(button.href,'blob:new-zip');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+""".replace("SOURCE",json.dumps(functions))
+        result=subprocess.run(["node","-e",script],capture_output=True,
+                              text=True,timeout=20)
+        self.assertEqual(result.returncode,0,result.stderr)
 
     @unittest.skipUnless(shutil.which("node"),"Node.js not installed")
     def test_html_wake_screen_is_retried_then_json_succeeds_in_browser_logic(self):

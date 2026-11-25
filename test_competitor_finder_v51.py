@@ -71,6 +71,8 @@ class AnyProductSearch:
         self.missing_product_page=missing_product_page
     def get(self,url,**kwargs):
         self.calls.append((url,kwargs))
+        if url==cf.SECONDARY_SEARCH_HOST:
+            return Response(status=503)
         if url==cf.SEARCH_HOST:
             if self.fail_search:raise requests.Timeout("Bing timed out")
             return Response(
@@ -96,6 +98,49 @@ class UniversalCompetitorTests(unittest.TestCase):
     def tearDown(self):
         with studio.COMPETITOR_REPORT_LOCK:
             studio.COMPETITOR_REPORT_CACHE.clear()
+
+    def test_9380_returns_catalogue_alternatives_when_public_sources_fail(self):
+        product={"part":"9380","title":"Hub Nut Socket & Bit Master Set for German Vehicles - 50th Anniversary"}
+        class Offline:
+            def get(self,*args,**kwargs):
+                raise requests.Timeout("Public source unavailable")
+        result=cf.research_competitors(product,session=Offline(),shopping_key="",enable_ai=False)
+        self.assertEqual(result["laser"]["tool_type"],"hub nut socket set")
+        self.assertEqual({row["brand"] for row in result["results"]},{"Sealey","Bergen"})
+        self.assertTrue(all(row["price_gbp"] is None for row in result["results"]))
+        signature=cf.tool_signature(product)
+        self.assertIsNone(cf.match_status(signature,"Universal Impact Socket Set 10pc"))
+        self.assertIsNone(cf.match_status(signature,"32mm Axle Nut Socket"))
+
+    def test_wrapped_search_links_are_unwrapped_without_following_redirects(self):
+        import base64
+        from urllib.parse import quote
+        payload=base64.urlsafe_b64encode(OTHER_PRODUCT_URL.encode()).decode().rstrip("=")
+        bing="https://www.bing.com/ck/a?u=a1"+payload
+        duck="//duckduckgo.com/l/?uddg="+quote(OTHER_PRODUCT_URL,safe="")
+        self.assertEqual(cf._search_result_url(bing),OTHER_PRODUCT_URL)
+        self.assertEqual(cf._search_result_url(duck),OTHER_PRODUCT_URL)
+        self.assertEqual(cf._search_result_url("//duckduckgo.com/l/?uddg="+
+            quote("http://127.0.0.1/",safe="")),"")
+
+    def test_generic_type_uses_second_index_when_primary_candidates_are_unrelated(self):
+        from urllib.parse import quote
+        signature=cf.tool_signature({"title":"Grease Pressure Adaptor"})
+        target="https://www.toolden.co.uk/products/grease-pressure-adaptor"
+        class Search:
+            def get(self,url,**kwargs):
+                if url==cf.SEARCH_HOST:
+                    return Response(content=b"<rss><channel><item><title>Paint Brush</title><link>https://www.toolden.co.uk/products/paint-brush</link></item></channel></rss>")
+                if url=="https://html.duckduckgo.com/html/":
+                    return Response(content=('<a class="result__a" href="//duckduckgo.com/l/?uddg='+
+                        quote(target,safe="")+'">Workshop Grease Pressure Adaptor</a>').encode())
+                self.assertion(url)
+            @staticmethod
+            def assertion(url):
+                raise requests.Timeout(url)
+        rows,_=cf.keyless_discovery(signature,Search())
+        self.assertEqual([row["product_url"] for row in rows],[target])
+        self.assertEqual(rows[0]["source_type"],"unverified search-index title")
 
     def test_every_official_style_product_has_a_safe_search_signature(self):
         for part,title in TEST_TITLES.items():

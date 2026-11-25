@@ -716,7 +716,7 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .saved-heading{padding:15px}
 }
 @media(max-width:400px){
- .studio-top-links>a:nth-child(4){display:none}
+ .studio-top-links>a[href="#savedPromotions"]{display:none}
  .asset-workspace .previews{grid-template-columns:1fr 1fr}
  .quickbar-item small{max-width:65px}
  .asset-workspace,.copy-workspace{padding:12px}
@@ -1656,4 +1656,94 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .campaign-poster-editor .poster-edit-visual{max-width:500px;margin:auto;width:100%}
  .campaign-poster-editor .poster-edit-controls{grid-template-columns:1fr}
  .campaign-poster-editor .poster-edit-price-options:not([hidden]){grid-template-columns:1fr}
+}
+
+/* Sales briefing */
+.sales-assistant .saved-heading{padding-bottom:12px}
+.sales-assistant .sales-controls,.sales-output{padding:0 clamp(14px,3vw,24px)}
+.sales-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) auto;gap:12px;align-items:end}
+.sales-controls label{display:block;color:#123d65;font-size:13px;font-weight:700;margin:0 0 5px}
+.sales-controls input,.sales-controls select{width:100%;min-width:0;min-height:44px;padding:9px 12px;border:1px solid #a9bfd2;border-radius:8px;background:#fff;color:#102e4a;font:inherit;font-size:16px}
+.sales-controls button,.sales-brief-actions button{min-height:44px;padding:9px 15px;border:0;border-radius:8px;font-weight:700;cursor:pointer}
+.sales-controls button{background:#075c9f;color:#fff}
+.sales-controls button:disabled{opacity:.65;cursor:wait}
+.sales-source-option{grid-column:1/-1;font-size:14px;color:#164d78}
+.sales-source-option summary,.sales-detail summary{min-height:44px;padding:12px 0;cursor:pointer;font-weight:700}
+.sales-source-option input{max-width:680px}
+.sales-status{margin:0;padding:0 clamp(14px,3vw,24px);color:#36546c;font-size:14px}
+.sales-status:not(:empty){padding-bottom:14px}
+.sales-output{padding-bottom:24px;overflow-wrap:anywhere}
+.sales-output[hidden]{display:none}
+.sales-brief-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;padding:15px 0 17px;border-top:1px solid #cfdeec}
+.sales-brief-header>div:first-child{flex:1 1 260px;min-width:0}
+.sales-output h3{color:#102e4a;font-size:clamp(19px,2.5vw,26px);line-height:1.2;margin:5px 0 9px}
+.sales-meta,.sales-output p.sales-meta{font-size:13px;color:#3c5b73;margin:0}
+.sales-price{color:#123d65;font-weight:750;margin:0 0 2px}
+.sales-brief-actions{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.sales-brief-actions a{display:inline-flex;min-height:44px;align-items:center;font-size:14px}
+.sales-brief-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:16px;margin-bottom:16px}
+.sales-opening,.sales-facts{padding:16px;border:1px solid #cfdeec;border-radius:10px}
+.sales-opening{background:#eaf4fc}
+.sales-output h4{color:#103e68;font-size:16px;margin:0 0 8px}
+.sales-output section p,.sales-output li,.sales-detail dd{font-size:15px;line-height:1.55;margin:0}
+.sales-output li+li{margin-top:8px}
+.sales-output ul,.sales-output ol{margin:0;padding-left:22px}
+.sales-detail{border-top:1px solid #cfdeec}
+.sales-detail:last-child{border-bottom:1px solid #cfdeec}
+.sales-detail summary{color:#103e68}
+.sales-detail dl,.sales-detail ul,.sales-detail ol{margin:0 0 16px}
+.sales-detail dt{font-weight:700;margin:0 0 5px}
+.sales-detail dd+dt{margin-top:14px}
+@media(max-width:760px){
+ .sales-controls,.sales-brief-main{grid-template-columns:minmax(0,1fr)}
+ .sales-brief-main{gap:10px}
+ .sales-source-option{grid-column:auto}
+}
+
+.studio-mobile-workspace{display:none}
+.competitor-workspace,.sales-assistant{min-width:0;scroll-margin-top:120px}
+.competitor-form{display:grid;grid-template-columns:minmax(0,22rem) auto;justify-content:start;align-items:end;gap:10px 14px;padding:0 20px 15px}
+.competitor-form details{grid-column:1/-1}
+.competitor-form summary,.rep-share-pack summary{padding:12px 0;cursor:pointer;color:#103e68;font-weight:700}
+.competitor-form label,.rep-share-pack label{display:block;margin:0 0 5px;font-size:13px;font-weight:700;color:#123d65}
+.competitor-form input,.rep-share-pack select,.rep-share-pack textarea{width:100%;min-width:0;min-height:44px;padding:9px 12px;border:1px solid #a9bfd2;border-radius:8px;background:#fff;color:#102e4a;font:inherit;font-size:16px}
+.competitor-form button,.rep-share-actions button,.rep-share-actions a{min-height:44px}
+.competitor-workspace .competitor-panel{margin:0 20px 20px;min-width:0}
+.rep-share-pack{margin:14px 0;padding:0 14px 12px;background:#f3f8fd;border:1px solid #cbddeb;border-radius:10px}
+.rep-share-pack:not([open]){padding-bottom:0}
+.rep-share-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.rep-share-pack textarea{resize:vertical;line-height:1.45}
+.rep-share-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.rep-share-actions a{display:inline-flex;align-items:center;padding:6px 10px;font-weight:700}
+.rep-share-pack p{margin:6px 0 0}
+@media(max-width:760px){
+ .studio-top-links a[href="#savedPromotions"],.studio-top-links>span{display:none}
+ .competitor-form,.rep-share-fields{grid-template-columns:minmax(0,1fr)}
+ .competitor-form{justify-content:stretch;padding-inline:14px}
+ .competitor-workspace .competitor-panel{margin-inline:14px}
+ .rep-share-actions>*{width:100%;justify-content:center;text-align:center}
+}
+@media(max-width:730px){
+ .competitor-workspace .competitor-table{display:block;min-width:0}
+ .competitor-workspace .competitor-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .competitor-workspace .competitor-table tbody,.competitor-workspace .competitor-table tr{display:block}
+ .competitor-workspace .competitor-table tr{padding:10px 12px;border:1px solid #cbddeb;border-radius:9px;margin-bottom:10px}
+ .competitor-workspace .competitor-table td{display:block;padding:6px 0;border:0}
+ .competitor-workspace .competitor-panel-actions{width:100%}
+}
+
+#builder.studio-tool-open > :not(.studio-tool-view),
+#builder > .studio-tool-view[hidden],.rep-share-pack[hidden]{display:none!important}
+#builder > .studio-tool-view{margin-top:0}
+#repShareWorkspace .rep-share-pack{margin:16px 20px;padding:14px}
+#repShareWorkspace .rep-share-pack a{display:inline-block;margin:6px 0}
+@media(max-width:730px){
+ .studio-top-links{flex-wrap:wrap;justify-content:flex-start;gap:2px 10px;overflow:visible}
+ .studio-top-links>a{min-height:36px}
+}
+
+@media(max-width:730px){
+ .studio-mobile-workspace{display:block;position:relative}
+ .studio-mobile-workspace summary{display:list-item;cursor:pointer;padding:10px 4px}
+ .studio-mobile-workspace a{display:flex;min-height:44px;align-items:center;white-space:nowrap}
 }

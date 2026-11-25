@@ -115,20 +115,19 @@ def assess_text_and_geometry(capture:QualityCapture,price:dict,concept:dict):
             "product_checked":True}
 
 
-def white_paper_warning(original_blob:bytes):
+def white_paper_warning(original_blob:bytes, *, cutout=None):
     """Flag likely unresolved white packshot backgrounds, not white tool parts."""
     from ai_photo_effects import manufacturer_cutout
     try:
-        source=Image.open(BytesIO(original_blob)).convert("RGB")
-        cut,isolated=manufacturer_cutout(original_blob)
+        cut,isolated=cutout if cutout is not None else manufacturer_cutout(original_blob)
     except (OSError,ValueError):
         return "Manufacturer product image could not be analysed"
     if not isolated:
         # Real garage photographs have colourful borders; those legitimately
         # retain their original pixels rather than having a fake cutout.
-        corners=(source.getpixel((0,0)),source.getpixel((source.width-1,0)),
-                 source.getpixel((0,source.height-1)),
-                 source.getpixel((source.width-1,source.height-1)))
+        corners=(cut.getpixel((0,0))[:3],cut.getpixel((cut.width-1,0))[:3],
+                 cut.getpixel((0,cut.height-1))[:3],
+                 cut.getpixel((cut.width-1,cut.height-1))[:3])
         if all(min(px)>215 and max(px)-min(px)<38 for px in corners):
             return "White packshot requires manual cutout review"
         return None

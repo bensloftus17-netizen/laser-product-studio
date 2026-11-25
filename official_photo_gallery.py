@@ -160,7 +160,7 @@ def distinct_gallery(options, primary, *, max_images=_MAX_IMAGES):
     for item in sorted(options,key=lambda x:-x[0]):
         if item is primary or not isinstance(item,(list,tuple)) or len(item)<4:
             continue
-        if not item[3].get("passed"):
+        if not item[3].get("passed") or item[3].get("possible_source_crop"):
             continue
         selected.append(item)
     seen_hash=set()

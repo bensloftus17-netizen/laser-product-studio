@@ -107,9 +107,7 @@ def build_sales_brief(product, audience="workshop", use_ai=True):
     chosen=[facts[n] for n in ids]
     part=str(product.get("part") or "")[:18]
     title=" ".join(str(product.get("title") or "").split())[:180]
-    ref=f"Laser Tools {part} — {title}"
     plan=_conversation_plan(title,facts,ids,selected_themes)
-    evidence=chosen[0] if chosen else "Let's review the official product specifications together."
     price=_price(product)
     questions=[]
     objections=[]
@@ -131,23 +129,21 @@ def build_sales_brief(product, audience="workshop", use_ai=True):
         questions.append(ask)
         objections.append({"objection":objection,"response":response})
     first_question=questions[0]
-    primary=plan[0][0] if plan else None
     focus_line=PROFILES.get(category,PROFILES["general_hand_tools"])["angle"]
     if audience=="distributor":
-        pitch=f"Are your customers asking about {title}? {evidence} {first_question} We can use those enquiries to assess whether part {part} fits your range."
+        pitch=f"{first_question} That will help us decide whether to add Laser {part} to your range."
     elif audience=="van":
-        pitch=f"Would {title} be relevant to the jobs your workshop customers are doing? {evidence} {first_question}"
+        pitch=f"{first_question} I can walk you through Laser {part} so you can see if it fits the work your customers do."
     elif audience=="fleet":
-        pitch=f"For your in-house maintenance, {first_question} The Laser {part} is listed as {title}. {evidence}"
+        pitch=f"{first_question} We can compare Laser {part} with the tools your fleet team already uses."
     elif audience=="dealer":
-        pitch=f"{first_question} Let's review the official details for {ref}: {evidence}"
+        pitch=f"{first_question} Let's review the official specifications for Laser {part} against that job."
     else:
-        pitch=f"{first_question} One option to look at is {ref}. {evidence}"
+        pitch=f"{first_question} We can check whether Laser {part} fits the job."
     # Audience is a suggested lead type, not a verified market or demand claim.
-    target=label+" — prospect hypothesis for "+title
     return {
         "part":part,"title":title,"audience":label,"category":category_label,
-        "target_customer":target,
+        "target_customer":label,
         "focus":focus_line+"; "+focus,"selling_points":chosen,
         "pitch":pitch,"questions":questions+[question],
         "objections":objections,

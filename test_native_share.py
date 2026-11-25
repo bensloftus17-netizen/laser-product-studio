@@ -16,19 +16,17 @@ class NativeShareTests(unittest.TestCase):
         self.assertIn("data-share-filename=", html)
         self.assertIn("data-ai-share=", html)
         self.assertIn("Share to apps", html)
-        self.assertIn("Share social graphic", html)
-        self.assertIn("WhatsApp · Instagram · Facebook", html)
+        self.assertIn("Share graphic and message", html)
+        self.assertIn("Rep Share Pack", html)
         self.assertEqual(html.count('id="campaignShareSocial"'), 1)
-        self.assertIn("if(socialAsset)prepareShareButtons($('campaignResults'))", html)
         self.assertIn("Preload ONLY after the user requests that individual share file.",html)
-        self.assertIn("const socialAsset=m.images.find(item=>item.id==='social_square')", html)
         self.assertIn("Share complete ZIP", html)
         self.assertIn("Share edited image to apps", html)
         self.assertIn("Share prepared ZIP", html)
         self.assertIn("Download complete ZIP", html)
         self.assertIn("Download PNG", html)
-        self.assertIn("navigator.share({files:[file]})", html)
-        self.assertIn("navigator.canShare({files:[file]})", html)
+        self.assertIn("navigator.share(payload)", html)
+        self.assertIn("navigator.canShare(payload)", html)
         self.assertIn("function prepareShareButtons(root)", html)
         self.assertIn("function shareDataImage(dataUrl,filename)", html)
         self.assertIn("Suggested captions are in the Copy Editor", html)
@@ -60,7 +58,7 @@ function el(id) {
 }
 const sandbox = {
   document: {addEventListener(type,handler){listeners[type]=handler;}},
-  $:el,
+  $:el,updateRepShareGraphic(){},
   navigator: {
     canShare(data){return allowed && !!data.files?.length;},
     share(data){shareCalls.push(data);return Promise.resolve();}
@@ -111,6 +109,12 @@ const clickTarget=(button)=>({target:{closest(selector){
   assert.equal(shareCalls.length,callsBefore+1);
   assert.equal(fetchCalls,fetchBefore);
   assert.equal(shareCalls.at(-1).files[0].name,'LASER_7411_social_square.png');
+
+  button.id='campaignShareSocial';
+  el('repShareText').value='Reviewed message for the customer';
+  listeners.click(clickTarget(button));
+  assert.equal(shareCalls.at(-1).text,'Reviewed message for the customer');
+  assert.equal(shareCalls.at(-1).files[0].type,'image/png');
 
   // Unsupported ZIP types never claim success and do not invoke a native
   // app share; the UI directs users to the existing download option.

@@ -13,6 +13,15 @@ from copy import deepcopy
 
 CHECKED_DATE = "2026-11-23"
 REFERENCES = {
+    "hub nut socket set": [{
+        "brand": "Sealey",
+        "sku": "SX053",
+        "title": "Sealey Impact Hub Socket & Socket Bit Set, 1/2 in Drive, 12-Point, 5pc",
+        "url": "https://www.sealey.co.uk/impact-hub-socket-socket-bit-set-1-2-sq-drive-12-point-5pc-sx053/",
+        "verified_specs": {"Drive": "1/2 in", "Number of pieces": "5", "Profile": "12-point"},
+        "relationship": "Related five-piece hub socket set; compare bit coverage and vehicle applications",
+        "source_checked_on": "2026-11-25",
+    }],
     # Independently checked official manufacturer pages, 23 Nov 2026.
     # These international sources establish competing pneumatic scraper
     # products, NOT UK stock, prices or interchangeable accessories.

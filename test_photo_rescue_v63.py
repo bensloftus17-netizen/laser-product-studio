@@ -70,6 +70,40 @@ def ranking(blob):
 
 
 class SelectionV63Tests(unittest.TestCase):
+    def test_photo_endpoint_serves_cached_original_without_decoding(self):
+        import time
+        with patch.dict(app.CACHE,{PART:(time.time(),{},LARGE)}), \
+             patch.object(app,"lookup",side_effect=AssertionError("unexpected lookup")), \
+             patch.object(Image.Image,"load",side_effect=AssertionError("unexpected decode")):
+            response=app.app.test_client().get("/api/photo/"+PART)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.mimetype,"image/jpeg")
+        self.assertEqual(response.data,LARGE)
+        self.assertEqual(response.headers["X-Content-Type-Options"],"nosniff")
+
+    def test_photo_cache_miss_uses_lookup_override(self):
+        with patch.dict(app.CACHE,clear=True), \
+             patch.object(app,"lookup",return_value=({},LARGE)) as lookup:
+            response=app.app.test_client().get("/api/photo/"+PART,query_string={"uk_url":UK_URL})
+        lookup.assert_called_once_with(PART,uk_url=UK_URL)
+        self.assertEqual(response.data,LARGE)
+
+    def test_complete_packshot_wins_over_larger_edge_cropped_source(self):
+        from asset_quality import manufacturer_image_rank
+        with Image.open(io.BytesIO(LARGE)) as master:
+            out=io.BytesIO()
+            master.crop((master.width//4,0,master.width,master.height)).save(out,"PNG")
+        cropped=out.getvalue()
+        crop_score,crop_report=manufacturer_image_rank(cropped)
+        clean_score,clean_report=manufacturer_image_rank(LARGE)
+        self.assertTrue(crop_report["possible_source_crop"])
+        self.assertFalse(clean_report["possible_source_crop"])
+        chosen=best_manufacturer_photo([
+            (crop_score+200,cropped,LOW_URLS[0],crop_report),
+            (clean_score,LARGE,MASTER,clean_report)])
+        self.assertEqual(chosen[2],MASTER)
+
+
     def test_fourth_verified_master_is_found_after_three_rejected_catalogue_images(self):
         urls=[*LOW_URLS,MASTER]
         visited=[]
