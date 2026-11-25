@@ -50,6 +50,8 @@ class SearchSession:
         self.fail_rss=fail_rss
     def get(self,url,**kwargs):
         self.urls.append(url)
+        if url==cf.SECONDARY_SEARCH_HOST:
+            return FakeResponse(b"")
         if url==cf.SEARCH_HOST:
             if self.fail_rss:raise requests.Timeout("Search RSS unavailable")
             return FakeResponse(b'''<rss version="2.0"><channel><item>

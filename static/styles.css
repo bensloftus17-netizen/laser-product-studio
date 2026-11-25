@@ -1657,3 +1657,45 @@ body{background:#eef4fb;color:#102744;min-width:320px}
  .campaign-poster-editor .poster-edit-controls{grid-template-columns:1fr}
  .campaign-poster-editor .poster-edit-price-options:not([hidden]){grid-template-columns:1fr}
 }
+
+/* Sales briefing */
+.sales-assistant .saved-heading{padding-bottom:12px}
+.sales-assistant .sales-controls,.sales-output{padding:0 clamp(14px,3vw,24px)}
+.sales-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) auto;gap:12px;align-items:end}
+.sales-controls label{display:block;color:#123d65;font-size:13px;font-weight:700;margin:0 0 5px}
+.sales-controls input,.sales-controls select{width:100%;min-width:0;min-height:44px;padding:9px 12px;border:1px solid #a9bfd2;border-radius:8px;background:#fff;color:#102e4a;font:inherit;font-size:16px}
+.sales-controls button,.sales-brief-actions button{min-height:44px;padding:9px 15px;border:0;border-radius:8px;font-weight:700;cursor:pointer}
+.sales-controls button{background:#075c9f;color:#fff}
+.sales-controls button:disabled{opacity:.65;cursor:wait}
+.sales-source-option{grid-column:1/-1;font-size:14px;color:#164d78}
+.sales-source-option summary,.sales-detail summary{min-height:44px;padding:12px 0;cursor:pointer;font-weight:700}
+.sales-source-option input{max-width:680px}
+.sales-status{margin:0;padding:0 clamp(14px,3vw,24px);color:#36546c;font-size:14px}
+.sales-status:not(:empty){padding-bottom:14px}
+.sales-output{padding-bottom:24px;overflow-wrap:anywhere}
+.sales-output[hidden]{display:none}
+.sales-brief-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;padding:15px 0 17px;border-top:1px solid #cfdeec}
+.sales-brief-header>div:first-child{flex:1 1 260px;min-width:0}
+.sales-output h3{color:#102e4a;font-size:clamp(19px,2.5vw,26px);line-height:1.2;margin:5px 0 9px}
+.sales-meta,.sales-output p.sales-meta{font-size:13px;color:#3c5b73;margin:0}
+.sales-price{color:#123d65;font-weight:750;margin:0 0 2px}
+.sales-brief-actions{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.sales-brief-actions a{display:inline-flex;min-height:44px;align-items:center;font-size:14px}
+.sales-brief-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:16px;margin-bottom:16px}
+.sales-opening,.sales-facts{padding:16px;border:1px solid #cfdeec;border-radius:10px}
+.sales-opening{background:#eaf4fc}
+.sales-output h4{color:#103e68;font-size:16px;margin:0 0 8px}
+.sales-output section p,.sales-output li,.sales-detail dd{font-size:15px;line-height:1.55;margin:0}
+.sales-output li+li{margin-top:8px}
+.sales-output ul,.sales-output ol{margin:0;padding-left:22px}
+.sales-detail{border-top:1px solid #cfdeec}
+.sales-detail:last-child{border-bottom:1px solid #cfdeec}
+.sales-detail summary{color:#103e68}
+.sales-detail dl,.sales-detail ul,.sales-detail ol{margin:0 0 16px}
+.sales-detail dt{font-weight:700;margin:0 0 5px}
+.sales-detail dd+dt{margin-top:14px}
+@media(max-width:760px){
+ .sales-controls,.sales-brief-main{grid-template-columns:minmax(0,1fr)}
+ .sales-brief-main{gap:10px}
+ .sales-source-option{grid-column:auto}
+}

@@ -84,6 +84,8 @@ class MockSearch:
                 "product_link":"https://www.toolden.co.uk/sealey-screwdriver",
                 "extracted_price":99,"price":"£99.00",
             }]})
+        if url==cf.SECONDARY_SEARCH_HOST:
+            return DummyResponse(status=404)
         if url==cf.SEARCH_HOST:
             return DummyResponse(body=RSS,content_type="application/rss+xml")
         if url==PRODUCT_URL:

@@ -45,22 +45,8 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor">
-<style>
-.sales-assistant .sales-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;padding:18px 22px 4px}
-.sales-controls>div{flex:1 1 190px;max-width:330px;min-width:0}
-.sales-controls label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:#123d65}
-.sales-controls input,.sales-controls select{width:100%;box-sizing:border-box;padding:11px;border:1px solid #b9d2e7;border-radius:8px;background:#fff;color:#123d65;font:inherit;font-size:14px}
-.sales-controls button{border:0;background:#0867b4;color:white;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
-.sales-controls button:disabled{opacity:.6;cursor:wait}
-.sales-controls #salesCopy{background:#e8f3fc;color:#074e88}
-.sales-status{padding:8px 22px 18px;margin:0;font-size:13px;color:#36546c}
-.sales-output{padding:0 22px 22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:12px}
-.sales-output[hidden],.sales-controls button[hidden]{display:none}
-.sales-output section{border:1px solid #d2e2f0;border-radius:10px;background:#f7fbff;padding:14px;margin:0!important}
-.sales-output h3{font-size:15px;color:#074e88;margin:0 0 8px}
-.sales-output p{font-size:13px;line-height:1.5;margin:6px 0}
-</style></head><body>
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing">
+</head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
  <symbol id="hub-campaign" viewBox="0 0 24 24"><path d="M3 10 17 5v14L3 14zM7 15l2 6h3l-2-7M20 8v8"/></symbol>
@@ -117,7 +103,7 @@ V7_HOME_PAGE = r'''
   <h3 id="competitorTitle">Find comparable products</h3>
   <p id="competitorStatus" role="status" aria-live="polite">Enter a Laser Tools part number to search.</p></div>
   <div class="competitor-panel-actions">
-   <button type="button" id="competitorRefresh" class="secondary">Refresh prices</button>
+   <button type="button" id="competitorRefresh" class="secondary">Refresh results</button>
    <a id="competitorExport" class="competitor-export" download hidden>Export comparison CSV</a>
    <button type="button" id="whyLaserBtn" class="why-laser-action" disabled>✦ Why Choose Laser? Sheet</button>
 
@@ -174,15 +160,16 @@ V7_HOME_PAGE = r'''
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
 <section id="salesAssistant" class="saved-promotions sales-assistant" aria-label="AI Sales Assistant">
- <div class="saved-heading"><div><span class="sectioncap">SALES ENABLEMENT / VERIFIED PRODUCT EVIDENCE</span><h2>AI Sales Assistant</h2><p>Prepare for a customer conversation without generating artwork.</p></div></div>
- <div class="sales-controls">
+ <div class="saved-heading"><div><h2>AI Sales Assistant</h2><p>Build a briefing from verified Laser product details.</p></div></div>
+ <form id="salesForm" class="sales-controls" novalidate>
   <div><label for="salesPart">Laser part number</label><input id="salesPart" maxlength="16" placeholder="e.g. 9395" autocomplete="off"></div>
   <div><label for="salesAudience">Customer type</label><select id="salesAudience"><option value="workshop">Independent workshop</option><option value="distributor">Tool distributor</option><option value="fleet">Fleet maintenance</option><option value="van">Mobile tool van</option><option value="dealer">Main dealership</option></select></div>
-  <div><label for="salesOfficialUrl">Official product URL (optional)</label><input id="salesOfficialUrl" type="url" maxlength="2048" placeholder="Only if product is hard to find"></div>
-  <button type="button" id="salesBuild">Build sales briefing</button>
-  <button type="button" id="salesCopy" class="secondary" hidden>Copy briefing</button>
- </div>
- <p id="salesStatus" class="sales-status" role="status" aria-live="polite">Choose a part number and audience. No images are generated.</p>
+  <button type="submit" id="salesBuild">Build briefing</button>
+  <details class="sales-source-option"><summary>Use an official product URL</summary>
+   <label for="salesOfficialUrl">Official product URL</label><input id="salesOfficialUrl" type="url" maxlength="2048" placeholder="https://www.toolconnection.co.uk/products/…">
+  </details>
+ </form>
+ <p id="salesStatus" class="sales-status" role="status" aria-live="polite"></p>
  <div id="salesOutput" class="sales-output" hidden></div>
 </section>
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
@@ -1775,7 +1762,7 @@ function renderCompetitorReport(result){
       '<small>'+esc(item.price_source||'Price unavailable from source')+'</small></td></tr>';
    }).join('')+'</tbody></table></div>';
  }else{
-  container.innerHTML='<p class="competitor-empty">No reliably matched products were found from the accessible sources. This does not mean competitors do not exist. Try Refresh prices or use a configured UK Shopping search provider.</p>';
+  container.innerHTML='<p class="competitor-empty">No matches found in the sources we could reach. Try Refresh results.</p>';
  }
  const notes=Array.isArray(result.warnings)?result.warnings:[];
  $('competitorSources').textContent=(result.providers||[]).join(' + ')+
@@ -2105,7 +2092,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/sales_assistant.js?v=88"></script><script src="/static/campaign_poster_edit.js?v=89"></script></body></html>
+</script><script src="/static/sales_assistant.js?v=90"></script><script src="/static/campaign_poster_edit.js?v=89"></script></body></html>
 
 '''
 
@@ -3265,7 +3252,8 @@ def find_competitor_products(part):
             with COMPETITOR_REPORT_LOCK:
                 now=time.time()
                 COMPETITOR_REPORT_CACHE[part]={
-                    'expires':now+COMPETITOR_REPORT_TTL,'report':report,
+                    'expires':now+(COMPETITOR_REPORT_TTL if (report.get('results') or []) else 60),
+                    'report':report,
                     'official_product':source_snapshot,
                     'official_photo_preview':tiny_photo}
                 while len(COMPETITOR_REPORT_CACHE)>24:

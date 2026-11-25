@@ -6,6 +6,8 @@ represented as Laser Tools' manufacturer RRP.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import csv
 import io
 import json
@@ -17,7 +19,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from html import unescape
-from urllib.parse import urlparse, urljoin
+from urllib.parse import parse_qs, urlparse, urljoin
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -25,6 +27,7 @@ from bs4 import BeautifulSoup
 from competitor_catalogue import catalogue_references
 
 SEARCH_HOST = "https://www.bing.com/search"
+SECONDARY_SEARCH_HOST = "https://html.duckduckgo.com/html/"
 SHOPPING_HOST = "https://serpapi.com/search.json"
 TTL_SECONDS = 20 * 60
 MAX_RESULTS = 18
@@ -61,7 +64,7 @@ APPROVED_HOSTS = (
     "powertoolsdirect.com", "esska-tech.co.uk", "hoffmann-group.com",
     "wallmektools.com", "sealey.co.uk", "toolteam.com",
     "neilsentools.com",
-    "facom.co.uk", "draper.co.uk", "brilliant-tools.com",
+    "facom.co.uk", "draper.co.uk", "brilliant-tools.com", "newenduser.co.uk",
 )
 BRANDS = (
     ("Snap-on", ("snap-on", "snap on", "snapon")),
@@ -82,6 +85,7 @@ BRANDS = (
     ("Teng Tools", ("teng tools", "tengtools")),
     ("Sonic Tools", ("sonic tools", "sonic equipment", "sonictools")),
     ("Wera", ("wera",)),
+    ("Bergen", ("bergen",)),
     ("Bahco", ("bahco",)),
     ("Clarke", ("clarke",)),
     ("Neilsen", ("neilsen",)),
@@ -113,6 +117,7 @@ TYPE_RULES = (
     ("ball joint separator", ("ball", "joint")),
     ("shock absorber", ("shock", "absorber")),
     ("glow plug", ("glow", "plug")),
+    ("hub nut socket set", ("hub", "socket", "set")),
     ("wheel hub", ("wheel", "hub")),
     ("injector puller", ("injector",)),
     ("brake bleeder", ("brake", "bleed")),
@@ -163,7 +168,13 @@ INSPECTION_CAMERA_SEEDS = (
 # A candidate is only returned after reading that product page live, checking
 # its original title and tool type, and extracting photo/price source data.
 # Categories are deliberately broad; technical equivalence is NOT asserted.
+HUB_SOCKET_RETAILER = "https://www.newenduser.co.uk/shop/vw-audi-5pc-hub-nut-socket-bit-set-24-30-32mm-12pt-sockets-14mm17mm-hex-bits/"
+
 CATEGORY_SEEDS={
+    "hub nut socket set": (
+        *(entry["url"] for entry in catalogue_references("hub nut socket set")),
+        HUB_SOCKET_RETAILER,
+    ),
     "pneumatic gasket scraper": tuple(
         entry["url"] for entry in catalogue_references("pneumatic gasket scraper")
     ),
@@ -202,6 +213,7 @@ CATEGORY_SEEDS={
 # research leads only, NOT a substitute for fetching today's live page, image,
 # price, stock, specification, or product fitment.
 CURATED_CATALOGUE_LEADS={
+    HUB_SOCKET_RETAILER: "Bergen VW Audi 5pc Hub Nut Socket & Bit Set",
     "https://www.sealey.co.uk/rechargeable-flexible-under-bonnet-light-10w-cob-led-led142/":
         "Sealey Rechargeable Flexible Under-Bonnet Light 10W COB LED LED142",
     "https://www.sealey.co.uk/under-bonnet-rechargeable-light-9w-smd-led-led141/":
@@ -221,6 +233,7 @@ IMAGE_CDN_HOSTS=(
 )
 # Search synonyms improve discovery, NEVER certify interchangeability.
 TYPE_SYNONYMS={
+    "hub nut socket set": ("hub nut impact socket set","axle hub socket bit set","drive shaft hub bolt socket set"),
     "pneumatic gasket scraper": (
         "air gasket scraper", "air powered gasket scraper",
         "pneumatic air scraper kit", "vibrating gasket scraper"),
@@ -270,6 +283,10 @@ TYPE_SYNONYMS={
 # one term per group must be present on the ORIGINAL competitor listing.
 # Do not make up missing vehicle fits, capacities or complete kit contents.
 TYPE_MATCH_GROUPS={
+    "hub nut socket set": (
+        (r"\bhub\b",r"\baxle\b",r"\bdrive[ -]?shaft\b"),
+        (r"\bsockets?\b",), (r"\bset\b",r"\bkit\b",r"\d+\s*pcs?\b"),
+    ),
     "pneumatic gasket scraper":((r"pneumatic|air.powered|air.scraper|air.gasket",),
                                  (r"gasket|scraper|scraping",)),
     "inspection camera":((r"borescope|boroscope|endoscope|videoscope|inspection.camera|snake.camera",),),
@@ -717,7 +734,9 @@ def search_queries(signature):
     # For unknown categories extract manufacturer title vocabulary, not a
     # hallucinated taxonomy. No Laser SKU is used as a competitor model.
     broad=clean_text(name,95)
-    product_title=clean_text(signature["title"],105)
+    product_title=re.sub(r"^(?:laser(?: tools)?\s+)?[a-z]*\d{3,}\b[\s:–-]*","",signature["title"],flags=re.I)
+    product_title=re.split(r"\s+[-–]\s+",product_title,1)[0]
+    product_title=clean_text(product_title,105)
     if name=="under bonnet light":
         return [
             "Sealey LED142 under bonnet rechargeable 10W COB light",
@@ -737,11 +756,11 @@ def search_queries(signature):
     # Query the tool operation and leading manufacturer sites, not only the
     # Laser-branded full title. This works for any category without a preset.
     queries=[
-        (broad+" "+fit+" competitor alternative tools UK").strip(),
+        (" ".join(filter(None,(broad,fit,"UK")))),
         ((synonyms[0] if synonyms else broad)+" "+fit+
-         " Sealey Draper BGS UK").strip(),
+         " Sealey UK").strip(),
         ((synonyms[1] if len(synonyms)>1 else broad)+
-         " Gedore Sykes Pickavant UK product").strip(),
+         " Draper UK").strip(),
         (product_title+" alternative equivalent manufacturer").strip(),
         ((synonyms[2] if len(synonyms)>2 else broad)+
          " tool UK price comparison").strip(),
@@ -791,6 +810,26 @@ def shopping_search(signature, session=requests, api_key=None):
     return _parse_shopping(data,signature),None
 
 
+def _search_result_url(raw):
+    """Read public index wrappers without requesting or following redirects."""
+    if not raw or len(raw)>4096:
+        return ""
+    url=urljoin(SEARCH_HOST,raw)
+    parsed=urlparse(url)
+    if parsed.hostname in ("bing.com","www.bing.com") and parsed.path.startswith("/ck/"):
+        encoded=parse_qs(parsed.query).get("u",[""])[0]
+        if not encoded.startswith("a1"):
+            return ""
+        payload=encoded[2:]
+        try:
+            url=base64.urlsafe_b64decode(payload+"="*(-len(payload)%4)).decode("utf-8")
+        except (binascii.Error,UnicodeError,ValueError):
+            return ""
+    elif parsed.hostname in ("duckduckgo.com","html.duckduckgo.com") and parsed.path=="/l/":
+        url=parse_qs(parsed.query).get("uddg",[""])[0]
+    return url if safe_url(url) else ""
+
+
 def _parse_rss(content):
     if len(content) > 750000:
         raise ValueError("Web-search feed exceeded size limits")
@@ -804,7 +843,7 @@ def _parse_rss(content):
     for node in root.findall(".//channel/item")[:15]:
         result.append({
             "title":clean_text(node.findtext("title"),230),
-            "url":(node.findtext("link") or "").strip(),
+            "url":_search_result_url((node.findtext("link") or "").strip()),
             "description":clean_text(node.findtext("description"),250),
         })
     return result
@@ -835,7 +874,7 @@ def rss_search(signature,session=requests):
     return rows,errors
 
 
-def _parse_search_html(content):
+def _parse_search_html(content, selector="li.b_algo h2 a, #b_results h2 a"):
     """Extract ordinary public Bing product-result links, not its own ads.
 
     This keyless path supplements RSS when search feeds are sparse. No data
@@ -846,8 +885,8 @@ def _parse_search_html(content):
         raise ValueError("Search page exceeded size limit")
     soup=BeautifulSoup(content,"html.parser")
     rows=[]
-    for tag in soup.select("li.b_algo h2 a, #b_results h2 a")[:35]:
-        url=str(tag.get("href") or "")
+    for tag in soup.select(selector)[:35]:
+        url=_search_result_url(str(tag.get("href") or ""))
         title=clean_text(tag.get_text(" ",strip=True),225)
         if not safe_url(url) or len(title)<8:
             continue
@@ -859,20 +898,25 @@ def _parse_search_html(content):
 
 def html_search(signature,session=requests):
     """Second public discovery mechanism where Bing RSS has few listings."""
-    queries=search_queries(signature)[:2]
-    def fetch(query):
+    query=search_queries(signature)[0]
+    engines=(
+        (SEARCH_HOST, {"q":query,"mkt":"en-GB"}, "li.b_algo h2 a, #b_results h2 a"),
+        (SECONDARY_SEARCH_HOST, {"q":query,"kl":"uk-en"}, ".result__a"),
+    )
+    def fetch(engine):
+        host,params,selector=engine
         try:
-            response=session.get(SEARCH_HOST,params={"q":query,"mkt":"en-GB"},
+            response=session.get(host,params=params,
                 timeout=7,allow_redirects=False,headers={
                     "User-Agent":"Mozilla/5.0 (compatible; LaserProductStudio/1.0)"})
             response.raise_for_status()
             if response.status_code!=200:
                 return []
-            return _parse_search_html(response.content)
+            return _parse_search_html(response.content,selector)
         except (requests.RequestException,ValueError,OSError):
             return []
     with ThreadPoolExecutor(max_workers=2) as pool:
-        return [row for batch in pool.map(fetch,queries) for row in batch]
+        return [row for batch in pool.map(fetch,engines) for row in batch]
 
 
 def _jsonld_nodes(data):
@@ -1127,14 +1171,15 @@ def keyless_discovery(signature,session=requests):
     else:
         try:
             hits,feed_errors=rss_search(signature,session)
-            urls.extend(row["url"] for row in hits)
             if feed_errors:
                 warnings.append("Some public search requests failed; results may be incomplete.")
         except (requests.RequestException,ValueError,RuntimeError):
             hits=[]
             warnings.append(
                 "Public RSS feed unavailable; trying normal search results and approved catalogue leads.")
-        if len({r["url"] for r in hits if safe_url(r.get("url"))})<10:
+        relevant={row["url"] for row in hits
+                  if safe_url(row.get("url")) and match_status(signature,row["title"])}
+        if not relevant:
             extra=html_search(signature,session)
             if extra:
                 hits.extend(extra)
@@ -1161,7 +1206,10 @@ def keyless_discovery(signature,session=requests):
     indexed_titles={r["url"]:r for r in hits}
     def inspect(url):
         try:
-            verified=_get_product_page(url,signature,session)
+            try:
+                verified=_get_product_page(url,signature,session)
+            except requests.RequestException:
+                verified=None
             if verified:
                 reference=snapshots.get(url)
                 if reference:
@@ -1203,10 +1251,10 @@ def keyless_discovery(signature,session=requests):
                     lead["image_source"]=None
                     lead["source_type"]="unverified search-index title"
                     lead["match_status"]=(
-                        "Manufacturer catalogue lead — verify live product page"
+                        "Catalogue lead — verify live product page"
                         if curated else "Search lead — verify manufacturer page")
                     lead["match_evidence"]=(
-                        "Official manufacturer product link was independently "
+                        "Published product link was independently "
                         "researched, but this server could not check today's "
                         "page, photograph, price, stock or exact specifications."
                         if curated else
@@ -1375,9 +1423,8 @@ def research_competitors(product, *, session=requests,
                                 "manufacturer catalogue reference")
             for r in rows):
         warnings.append(
-            "No source-verified competitor matches were found. This does not "
-            "prove that competing tools do not exist. Try again or connect "
-            "SERPAPI_KEY for structured UK shopping results.")
+            "No source-verified competitor matches were found in the accessible "
+            "sources. This does not prove the market has no alternatives.")
     return {
         "laser":{"part":str(product.get("part") or ""),
                  "title":signature["title"],"source":product.get("source"),
