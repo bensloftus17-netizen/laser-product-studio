@@ -191,6 +191,7 @@
         if(typeof stale==='string'&&stale.startsWith('blob:'))URL.revokeObjectURL(stale);
         campaignLocalPNGs.delete(assetId);
       }
+      if(typeof updateRepShareGraphic==='function'&&get('repShareAsset')?.value)updateRepShareGraphic();
       const zip=get('campaignShareZip');
       const zipUrl='/api/campaign/download/'+encodeURIComponent(token)+'?revision='+encodeURIComponent(result.revision);
       if(typeof campaignLocalZIP!=='undefined'&&campaignLocalZIP&&campaignLocalZIP.token===token){

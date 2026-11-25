@@ -281,7 +281,7 @@ class V80ProductStudioTests(unittest.TestCase):
                         "posterEditPriceStyle","posterEditHeadlineSize",
                         "posterEditSave","posterEditFeature","posterEditVariant"):
             self.assertIn('id="'+control+'"',page)
-        self.assertIn("campaign_poster_edit.js?v=89",page)
+        self.assertIn("campaign_poster_edit.js?v=91",page)
         self.assertIn("v80-visual-editor",page.lower())
 
 

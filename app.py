@@ -45,7 +45,7 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing-v91-share">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -66,6 +66,8 @@ V7_HOME_PAGE = r'''
  </a>
  <nav class="studio-top-links" aria-label="Primary navigation">
   <a href="#builder" class="active"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Home</a><a href="#studioWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Campaigns</a><a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Assets</a>
+  <a class="studio-mobile-tool" href="#competitorWorkspace">Competitors</a>
+  <a class="studio-mobile-tool" href="#salesAssistant">Sales Assistant</a>
   <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions</a>
   <span title="Reports are planned for a future release"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
@@ -80,6 +82,7 @@ V7_HOME_PAGE = r'''
   
   <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a><a href="#salesAssistant"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Sales Assistant</a>
   
+  <a href="#competitorWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-stack"></use></svg> Competitor Finder</a>
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
@@ -90,37 +93,8 @@ V7_HOME_PAGE = r'''
 <div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
 <section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Build a Unique Product Campaign</h2><p>Enter a part number to build a detailed technical sheet, workshop price promotion and AI-led product poster, plus social artwork and editable copy.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
-<div class="competitor-launch">
- <button type="button" id="competitorBtn" class="competitor-launch-button">
-  <span aria-hidden="true">↔</span> Find Competitors &amp; UK Prices
- </button>
- <span>Independent product comparison using official Laser specifications and cited competitor listings.</span>
-</div>
 <div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onload="this.hidden=false" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
-<section id="competitorPanel" class="competitor-panel" aria-label="Competitor comparison results" hidden>
- <div class="competitor-panel-heading"><div><span class="sectioncap">SALES RESEARCH / PRODUCT BENCHMARKING</span>
-  <h3 id="competitorTitle">Find comparable products</h3>
-  <p id="competitorStatus" role="status" aria-live="polite">Enter a Laser Tools part number to search.</p></div>
-  <div class="competitor-panel-actions">
-   <button type="button" id="competitorRefresh" class="secondary">Refresh results</button>
-   <a id="competitorExport" class="competitor-export" download hidden>Export comparison CSV</a>
-   <button type="button" id="whyLaserBtn" class="why-laser-action" disabled>✦ Why Choose Laser? Sheet</button>
-
-  </div></div>
- <div id="competitorStats" class="competitor-stats"></div>
- <div id="competitorResults" class="competitor-results"></div>
- <div id="competitorSources" class="competitor-sources"></div>
- <section id="whyLaserPanel" class="why-laser-panel" hidden aria-label="Why Choose Laser sales evidence sheet">
-  <div class="why-laser-heading"><div><span class="sectioncap">PRODUCT VS COMPETITOR · VERIFIED EVIDENCE</span><h4>WHY CHOOSE LASER?</h4></div>
-  <span>INTERNAL DRAFT · APPROVAL REQUIRED</span>
-  <a id="whyLaserPdf" class="why-laser-export" download hidden>Download comparison PDF</a>
-  <button type="button" id="whyLaserClose" class="why-compare-close" aria-label="Close comparison sheet">Close ×</button></div>
-  <p id="whyLaserStatus" role="status" aria-live="polite"></p>
-  <div id="whyLaserContent"></div>
- </section>
- <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Used/pre-owned and new prices must not be compared as equivalent. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
-</section>
 <div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
  <span id="campaignRecoveryText">Your last campaign may still be available.</span>
  <button type="button" id="campaignResume">Reopen campaign</button>
@@ -159,6 +133,37 @@ V7_HOME_PAGE = r'''
 </details>
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
+<section id="competitorWorkspace" class="saved-promotions competitor-workspace" aria-labelledby="competitorWorkspaceTitle">
+ <div class="saved-heading"><div><h2 id="competitorWorkspaceTitle">Competitor Finder</h2><p>Compare similar tools and source-checked UK prices.</p></div></div>
+ <form id="competitorForm" class="competitor-form">
+  <div><label for="competitorPart">Laser part number</label><input id="competitorPart" type="text" maxlength="16" placeholder="e.g. 9380" autocomplete="off"></div>
+  <button type="submit" id="competitorBtn" class="competitor-launch-button">Find competitors</button>
+  <details><summary>Use an official product URL</summary><label for="competitorOfficialUrl">Official product URL</label><input id="competitorOfficialUrl" type="url" maxlength="2048"></details>
+ </form>
+<section id="competitorPanel" class="competitor-panel" aria-label="Competitor comparison results" hidden>
+ <div class="competitor-panel-heading"><div><span class="sectioncap">SALES RESEARCH / PRODUCT BENCHMARKING</span>
+  <h3 id="competitorTitle">Find comparable products</h3>
+  <p id="competitorStatus" role="status" aria-live="polite">Enter a Laser Tools part number to search.</p></div>
+  <div class="competitor-panel-actions">
+   <button type="button" id="competitorRefresh" class="secondary">Refresh results</button>
+   <a id="competitorExport" class="competitor-export" download hidden>Export comparison CSV</a>
+   <button type="button" id="whyLaserBtn" class="why-laser-action" disabled>✦ Why Choose Laser? Sheet</button>
+
+  </div></div>
+ <div id="competitorStats" class="competitor-stats"></div>
+ <div id="competitorResults" class="competitor-results"></div>
+ <div id="competitorSources" class="competitor-sources"></div>
+ <section id="whyLaserPanel" class="why-laser-panel" hidden aria-label="Why Choose Laser sales evidence sheet">
+  <div class="why-laser-heading"><div><span class="sectioncap">PRODUCT VS COMPETITOR · VERIFIED EVIDENCE</span><h4>WHY CHOOSE LASER?</h4></div>
+  <span>INTERNAL DRAFT · APPROVAL REQUIRED</span>
+  <a id="whyLaserPdf" class="why-laser-export" download hidden>Download comparison PDF</a>
+  <button type="button" id="whyLaserClose" class="why-compare-close" aria-label="Close comparison sheet">Close ×</button></div>
+  <p id="whyLaserStatus" role="status" aria-live="polite"></p>
+  <div id="whyLaserContent"></div>
+ </section>
+ <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Used/pre-owned and new prices must not be compared as equivalent. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
+</section>
+</section>
 <section id="salesAssistant" class="saved-promotions sales-assistant" aria-label="AI Sales Assistant">
  <div class="saved-heading"><div><h2>AI Sales Assistant</h2><p>Build a briefing from verified Laser product details.</p></div></div>
  <form id="salesForm" class="sales-controls" novalidate>
@@ -228,12 +233,24 @@ V7_HOME_PAGE = r'''
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
- <button type="button" id="campaignShareSocial" class="asset-share-button share-primary" data-share-url="" data-share-filename="">↗ Share social graphic</button>
- <small class="share-app-targets">WhatsApp · Instagram · Facebook</small>
  <a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a>
  <button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button>
- <small>Nothing downloads automatically. Sharing is optional too. Save the ZIP to keep it permanently; server copies are temporary.</small>
  </div></div>
+<details id="repSharePack" class="rep-share-pack">
+ <summary>Rep Share Pack</summary>
+ <div class="rep-share-fields">
+  <div><label for="repShareAsset">Graphic</label><select id="repShareAsset"></select></div>
+  <div><label for="repShareChannel">Message format</label><select id="repShareChannel"><option value="short_message">WhatsApp</option><option value="email_body">Email</option></select></div>
+ </div>
+ <label for="repShareText">Review or edit message</label>
+ <textarea id="repShareText" rows="5"></textarea>
+ <div class="rep-share-actions">
+  <button type="button" id="campaignShareSocial" class="asset-share-button share-primary" data-share-url="" data-share-filename="">Share graphic and message</button>
+  <button type="button" id="repShareCopy" class="secondary">Copy message</button>
+  <a id="repShareDownload" download>Download graphic</a>
+ </div>
+ <p id="repShareStatus" role="status" aria-live="polite"></p>
+</details>
 <section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
  <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
  <div class="marketing-strategy-grid">
@@ -401,14 +418,15 @@ function showShareNotice(message){
  shareNoticeTimer=setTimeout(()=>{notice.hidden=true;},11000);
 }
 $('shareNoticeClose').addEventListener('click',()=>{$('shareNotice').hidden=true;});
-function shareNativeFile(file){
+function shareNativeFile(file,text){
  if(!file||!canNativeShareFiles()){
   showShareNotice('This browser cannot share files directly. Use Download PNG/ZIP, then share the saved file from Photos or Files.');
   return;
  }
+ const payload=text?{files:[file],text}:{files:[file]};
  let shareable=true;
  if(typeof navigator.canShare==='function'){
-  try{shareable=navigator.canShare({files:[file]});}catch(error){shareable=false;}
+  try{shareable=navigator.canShare(payload);}catch(error){shareable=false;}
  }
  if(!shareable){
   showShareNotice(file.type==='application/zip'
@@ -418,7 +436,7 @@ function shareNativeFile(file){
  }
  // CRITICAL: call share() right in this tap handler, without awaits.
  try{
-  const pending=navigator.share({files:[file]});
+  const pending=navigator.share(payload);
   Promise.resolve(pending).then(()=>showShareNotice('Share sheet completed. Check the receiving app before posting.'))
    .catch(error=>{
     if(error?.name==='AbortError')return;
@@ -480,8 +498,9 @@ function prepareShareButtons(root){
 document.addEventListener('click',event=>{
  const button=event.target.closest('button[data-share-url]');
  if(!button||button.disabled)return;
+ if(button.id==='campaignShareSocial')updateRepShareGraphic();
  const file=preparedShareFiles.get(button);
- if(file){shareNativeFile(file);return;}
+ if(file){shareNativeFile(file,button.id==='campaignShareSocial'?$('repShareText').value.trim():undefined);return;}
  if(!canNativeShareFiles()){
   showShareNotice('This browser does not support sharing images directly. Open Laser Product Studio in Safari or Chrome to use the phone share sheet.');
   return;
@@ -1059,9 +1078,6 @@ function applyLocalCampaignPNG(id,localUrl){
   const retry=card.querySelector('[data-retry-asset]');
   if(retry)retry.hidden=true;
  }
- if(id==='social_square'&&$('campaignShareSocial')&&campaignData){
-  $('campaignShareSocial').dataset.shareUrl=localUrl;
- }
 }
 function retainVerifiedCampaignPNG(jobId,id,remoteUrl){
  // Existing tests and older browsers still use normal image URLs. Cache is
@@ -1419,17 +1435,6 @@ function showCampaign(data){
  $('campaignShareZip').dataset.shareUrl=$('campaignDownload').href;
  $('campaignShareZip').dataset.shareFilename='LASER_'+m.part+'_Complete_Campaign.zip';
  prepareShareButtons($('campaignResults'));
- // The most shareable graphic is the square social image; show an obvious
- // Share action above the gallery, not only under individual download links.
- const socialAsset=m.images.find(item=>item.id==='social_square');
- const socialButton=$('campaignShareSocial');
- preparedShareFiles.delete(socialButton);
- delete socialButton.dataset.shareLoading;
- socialButton.dataset.shareUrl=socialAsset
-    ?(campaignLocalPNGs.get('social_square')||campaignAssetUrl('social_square')):'';
- socialButton.dataset.shareFilename='LASER_'+m.part+'_Social.png';
- socialButton.hidden=!socialAsset;
- if(socialAsset)prepareShareButtons($('campaignResults'));
  if(campaignLocalJob)retainCompletedCampaignZIP(campaignLocalJob,data.token,m.part);
  $('campaignAngles').innerHTML=m.angles.map((angle,index)=>
   '<div class="campaign-angle'+(angle.role==='product_selected'?' strategy-recommended':'')+'"><span>0'+(index+1)+' / '+esc(angle.name.toUpperCase())+
@@ -1447,6 +1452,7 @@ function showCampaign(data){
   ' · Captions and other channel text can be edited in the single Copy Editor.';
  copyStudioData={origin:'campaign',copy:m.copy};
  campaignCopyIndex=0;campaignCopyChannel='social_caption';campaignCopyEdits={};rewriteUndoHistory={};
+ setupRepSharePack(m);
  renderCampaignCopyStudio();
  $('unifiedCopyStudio').hidden=false;
  showCopyEmpty();
@@ -1469,6 +1475,70 @@ function campaignDraft(index,channel){
  if(channel==='hashtags')return Array.isArray(copy.hashtags)?copy.hashtags.join(' '):'';
  return copy[channel]||'';
 }
+const repShareAssets={
+ social_square:['Social square',2],poster_technical:['Technical poster',0],
+ poster_price:['Price poster',1],poster_smart:['Product poster',2],email_header:['Email header',2]
+};
+let repShareDrafts={};
+function readRepShareDraft(copy,channel){
+ return channel==='email_body'
+  ?'Subject: '+(copy.email_subject||'')+'\n\n'+(copy.email_body||'')
+  :copy[channel]||'';
+}
+function updateRepShareGraphic(){
+ const id=$('repShareAsset').value;
+ const button=$('campaignShareSocial'),link=$('repShareDownload');
+ const revision=campaignData.manifest.poster_revision||0;
+ const remote=campaignAssetUrl(id)+'?revision='+revision;
+ const local=campaignLocalPNGs.get(id);
+ const url=local||remote;
+ if(button.dataset.shareUrl!==url){
+  preparedShareFiles.delete(button);
+  delete button.dataset.shareLoading;
+  button.disabled=false;
+  button.textContent='Share graphic and message';
+  button.dataset.shareUrl=url;
+  button.dataset.shareFilename='LASER_'+campaignData.manifest.part+'_'+id+'.png';
+ }
+ link.href=local||remote+'&download=1';
+ link.download=button.dataset.shareFilename;
+}
+function refreshRepSharePack(){
+ if(!campaignData||!$('repShareAsset').value)return;
+ updateRepShareGraphic();
+ const asset=$('repShareAsset').value,channel=$('repShareChannel').value;
+ const index=repShareAssets[asset][1];
+ $('repShareText').value=repShareDrafts[asset+':'+channel]??
+   (copyStudioData?.origin==='campaign'
+    ?campaignDraft(index,channel)||campaignDraft(0,channel)
+    :readRepShareDraft(campaignData.manifest.copy[index]||campaignData.manifest.copy[0]||{},channel));
+ $('repShareStatus').textContent='';
+}
+function setupRepSharePack(manifest){
+ repShareDrafts={};
+ $('repSharePack').open=false;
+ const picker=$('repShareAsset');
+ picker.replaceChildren();
+ for(const [id,[label]] of Object.entries(repShareAssets)){
+  if(manifest.images.some(asset=>asset.id===id))picker.add(new Option(label,id));
+ }
+ $('repShareChannel').value='short_message';
+ refreshRepSharePack();
+}
+$('repSharePack').addEventListener('toggle',()=>{
+ if($('repSharePack').open)refreshRepSharePack();
+});
+$('repShareAsset').addEventListener('change',refreshRepSharePack);
+$('repShareChannel').addEventListener('change',refreshRepSharePack);
+$('repShareText').addEventListener('input',()=>{
+ repShareDrafts[$('repShareAsset').value+':'+$('repShareChannel').value]=$('repShareText').value;
+});
+$('repShareCopy').addEventListener('click',async()=>{
+ const text=$('repShareText').value.trim();
+ if(!text)return;
+ try{await navigator.clipboard.writeText(text);$('repShareStatus').textContent='Message copied.';}
+ catch{$('repShareText').focus();$('repShareText').select();$('repShareStatus').textContent='Copy the selected message.';}
+});
 function renderCampaignCopyStudio(){
  if(!copyStudioData)return;
  resetRewriteSuggestion();
@@ -1774,14 +1844,14 @@ function renderCompetitorReport(result){
 }
 async function findCompetitors(force=false){
  if(competitorBusy)return;
- const part=$('part').value.trim().toUpperCase();
+ const part=($('competitorPart').value.trim()||$('part').value.trim()).toUpperCase();
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(part)){
   $('competitorPanel').hidden=false;
   $('competitorStatus').textContent='Enter a valid Laser Tools part number first.';
   return;
  }
- if(heroPhotoDebounce!==null)clearTimeout(heroPhotoDebounce);
- showOfficialHero(part);
+ $('competitorPart').value=part;
+ competitorShownPart=null;
  competitorBusy=true;
  clearWhyLaserBrowserPack();
  $('whyLaserBtn').disabled=true;
@@ -1795,7 +1865,7 @@ async function findCompetitors(force=false){
  $('competitorResults').innerHTML='<div class="competitor-searching">Searching live UK product sources. This may take a moment.</div>';
  $('competitorExport').hidden=true;
  try{
-  const uk=$('officialUrl').value.trim();
+  const uk=$('competitorOfficialUrl').value.trim();
   const params=new URLSearchParams();
   if(force)params.set('refresh','1');
   if(uk)params.set('uk_url',uk);
@@ -1804,6 +1874,7 @@ async function findCompetitors(force=false){
   const response=await fetch(endpoint,{cache:'no-store',
       headers:{Accept:'application/json'}});
   const data=await readApiJson(response);
+  if($('competitorPart').value.trim().toUpperCase()!==part||$('competitorOfficialUrl').value.trim()!==uk)return;
   competitorShownPart=part;
   renderCompetitorReport(data);
  }catch(err){
@@ -1925,7 +1996,7 @@ function displayWhyLaserSheet(sheet){
 }
 
 async function buildWhyLaserSheet(){
- const part=$('part').value.trim().toUpperCase();
+ const part=$('competitorPart').value.trim().toUpperCase();
  $('whyLaserPanel').hidden=false;
  $('whyLaserStatus').textContent='Preparing product-specific, source-checked sales evidence…';
  $('whyLaserContent').textContent='';
@@ -1976,17 +2047,22 @@ if(typeof document!=='undefined' &&
  });
 }
 $('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
-$('competitorBtn').addEventListener('click',()=>findCompetitors(false));
+$('competitorForm').addEventListener('submit',event=>{event.preventDefault();findCompetitors(false);});
+document.querySelectorAll('a[href="#competitorWorkspace"]').forEach(link=>link.addEventListener('click',()=>{
+ if(!$('competitorPart').value.trim())$('competitorPart').value=$('part').value.trim();
+}));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
-$('part').addEventListener('input',()=>{
- const selected=$('part').value.trim().toUpperCase();
- if(competitorShownPart!==selected){
+function clearCompetitorSelection(){
   $('competitorPanel').hidden=true;
   competitorShownPart=null;
   $('whyLaserBtn').disabled=true;
   $('whyLaserPanel').hidden=true;
   clearWhyLaserBrowserPack();
- }
+}
+$('competitorPart').addEventListener('input',clearCompetitorSelection);
+$('competitorOfficialUrl').addEventListener('input',clearCompetitorSelection);
+$('part').addEventListener('input',()=>{
+ const selected=$('part').value.trim().toUpperCase();
  // Never keep showing another product's image when changing part number.
  $('heroProductPhoto').hidden=true;
  if(heroPhotoDebounce!==null)clearTimeout(heroPhotoDebounce);
@@ -2092,7 +2168,7 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
-</script><script src="/static/sales_assistant.js?v=90"></script><script src="/static/campaign_poster_edit.js?v=89"></script></body></html>
+</script><script src="/static/sales_assistant.js?v=90"></script><script src="/static/campaign_poster_edit.js?v=91"></script></body></html>
 
 '''
 

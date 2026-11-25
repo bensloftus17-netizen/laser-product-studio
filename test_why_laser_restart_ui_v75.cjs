@@ -19,7 +19,7 @@ const onclick=between('async function buildWhyLaserSheet(){',
                       "$('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);");
 
 const elements={
- part:{value:'4832'},
+ competitorPart:{value:'4832'},
  whyLaserPanel:{hidden:true},
  whyLaserStatus:{textContent:''},
  whyLaserContent:{textContent:''},
@@ -67,7 +67,7 @@ vm.runInContext(
  assert.strictEqual(elements.whyLaserPdf.hidden,false);
  assert.strictEqual(elements.whyLaserBtn.disabled,false);
  assert(elements.whyLaserStatus.textContent.includes('even if Render restarts'));
- elements.part.value='9395';
+ elements.competitorPart.value='9395';
  await vm.runInContext('buildWhyLaserSheet()',testContext,{timeout:2000});
  assert.strictEqual(elements.whyLaserPdf.hidden,true,
                     'Never display previous part PDF after input changes');

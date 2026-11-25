@@ -136,7 +136,6 @@ class GenuineLamp9197Tests(unittest.TestCase):
         page=studio.V7_HOME_PAGE
         self.assertIn("function showOfficialHero(part)",page)
         self.assertIn("showOfficialHero(selected)",page)
-        self.assertIn("showOfficialHero(part);",page)
         self.assertIn("photo.src='/api/photo/'+encodeURIComponent(clean)",page)
         self.assertIn("onload=\"this.hidden=false\"",page)
         # Page now advances version while retaining V59 competitor/photo
