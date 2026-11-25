@@ -45,7 +45,7 @@ from why_choose_laser import (
 
 V7_HOME_PAGE = r'''
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laser Product Studio | Official product data to marketing assets</title>
-<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing-v91-share">
+<link rel="stylesheet" href="/static/styles.css?design=v52-responsive-recovery-v58-competitor-photos-v61-copy-intent-english-v64-workshop-promo-v80-visual-editor-v90-briefing-v92-sidebar">
 </head><body>
 <svg xmlns="http://www.w3.org/2000/svg" class="hub-icon-sprite" aria-hidden="true" focusable="false">
  <symbol id="hub-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
@@ -68,6 +68,7 @@ V7_HOME_PAGE = r'''
   <a href="#builder" class="active"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-home"></use></svg> Home</a><a href="#studioWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Campaigns</a><a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Assets</a>
   <a class="studio-mobile-tool" href="#competitorWorkspace">Competitors</a>
   <a class="studio-mobile-tool" href="#salesAssistant">Sales Assistant</a>
+  <a class="studio-mobile-tool" href="#repShareWorkspace">Rep Share Pack</a>
   <a href="#savedPromotions"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-saved"></use></svg> Saved Promotions</a>
   <span title="Reports are planned for a future release"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
@@ -83,6 +84,7 @@ V7_HOME_PAGE = r'''
   <a href="#assetWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Asset Library</a><a href="#salesAssistant"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg> Sales Assistant</a>
   
   <a href="#competitorWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-stack"></use></svg> Competitor Finder</a>
+  <a href="#repShareWorkspace"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-image"></use></svg> Rep Share Pack</a>
   <span class="sidebar-future" title="Reports are a planned feature"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-chart"></use></svg> Reports <small>Soon</small></span>
  </nav>
  <div class="sidebar-section"><b>CAMPAIGN WORKFLOW</b><p>Enter a part number, generate assets, review your copy and download a complete draft pack.</p></div>
@@ -133,7 +135,7 @@ V7_HOME_PAGE = r'''
 </details>
 <p id="status" class="status" role="status" aria-live="polite">Ready to find a Laser Tools product.</p></section>
 
-<section id="competitorWorkspace" class="saved-promotions competitor-workspace" aria-labelledby="competitorWorkspaceTitle">
+<section id="competitorWorkspace" class="saved-promotions competitor-workspace studio-tool-view" hidden aria-labelledby="competitorWorkspaceTitle">
  <div class="saved-heading"><div><h2 id="competitorWorkspaceTitle">Competitor Finder</h2><p>Compare similar tools and source-checked UK prices.</p></div></div>
  <form id="competitorForm" class="competitor-form">
   <div><label for="competitorPart">Laser part number</label><input id="competitorPart" type="text" maxlength="16" placeholder="e.g. 9380" autocomplete="off"></div>
@@ -164,7 +166,7 @@ V7_HOME_PAGE = r'''
  <p class="competitor-disclaimer">Competitor matches are research leads, not guaranteed interchangeable tools. Check each manufacturer's specifications. Used/pre-owned and new prices must not be compared as equivalent. Advertised retailer prices are not RRPs, and VAT treatment may be unconfirmed. Review all data before using it in customer marketing.</p>
 </section>
 </section>
-<section id="salesAssistant" class="saved-promotions sales-assistant" aria-label="AI Sales Assistant">
+<section id="salesAssistant" class="saved-promotions sales-assistant studio-tool-view" hidden aria-label="AI Sales Assistant">
  <div class="saved-heading"><div><h2>AI Sales Assistant</h2><p>Build a briefing from verified Laser product details.</p></div></div>
  <form id="salesForm" class="sales-controls" novalidate>
   <div><label for="salesPart">Laser part number</label><input id="salesPart" maxlength="16" placeholder="e.g. 9395" autocomplete="off"></div>
@@ -176,6 +178,24 @@ V7_HOME_PAGE = r'''
  </form>
  <p id="salesStatus" class="sales-status" role="status" aria-live="polite"></p>
  <div id="salesOutput" class="sales-output" hidden></div>
+</section>
+<section id="repShareWorkspace" class="saved-promotions studio-tool-view" hidden aria-labelledby="repShareTitle">
+ <div class="saved-heading"><div><h2 id="repShareTitle">Rep Share Pack</h2><p>Choose a campaign graphic and a message to share.</p></div></div>
+ <div id="repShareEmpty" class="rep-share-pack"><p>Build a campaign to prepare your share pack.</p><a href="#builder">Go to campaign builder</a></div>
+<div id="repSharePack" class="rep-share-pack" hidden>
+ <div class="rep-share-fields">
+  <div><label for="repShareAsset">Graphic</label><select id="repShareAsset"></select></div>
+  <div><label for="repShareChannel">Message format</label><select id="repShareChannel"><option value="short_message">WhatsApp</option><option value="email_body">Email</option></select></div>
+ </div>
+ <label for="repShareText">Review or edit message</label>
+ <textarea id="repShareText" rows="5"></textarea>
+ <div class="rep-share-actions">
+  <button type="button" id="campaignShareSocial" class="asset-share-button share-primary" data-share-url="" data-share-filename="">Share graphic and message</button>
+  <button type="button" id="repShareCopy" class="secondary">Copy message</button>
+  <a id="repShareDownload" download>Download graphic</a>
+ </div>
+ <p id="repShareStatus" role="status" aria-live="polite"></p>
+</div>
 </section>
 <section class="studio-quickbar" aria-label="Campaign formats and quick actions">
  <div class="quickbar-item"><svg class="hub-icon" aria-hidden="true" focusable="false"><use href="#hub-campaign"></use></svg><b>3</b><small>Technical · Price · Product-selected</small></div>
@@ -233,24 +253,11 @@ V7_HOME_PAGE = r'''
 <div id="previews" class="previews"><div class="posterempty"><b>Your posters will appear here</b><p>Enter a part number to create three branded previews.</p></div></div>
 <section class="campaign-dashboard" id="campaignResults" hidden aria-label="Complete marketing campaign">
 <div class="campaign-results-heading"><div><span class="sectioncap">ONE-CLICK CAMPAIGN / READY TO REVIEW</span><h3 id="campaignTitle">Your campaign pack</h3><p id="campaignSummary">Review all copy, image rights and prices before publishing.</p><p id="campaignQuality" class="campaign-quality" aria-live="polite"></p></div><div class="campaign-download-choice">
+ <a href="#repShareWorkspace" class="campaign-download">Open Rep Share Pack</a>
  <a id="campaignDownload" class="campaign-download" href="#" download>Download complete ZIP ↓</a>
  <button type="button" id="campaignShareZip" class="asset-share-button" data-share-url="" data-share-filename="">↗ Share complete ZIP</button>
  </div></div>
-<details id="repSharePack" class="rep-share-pack">
- <summary>Rep Share Pack</summary>
- <div class="rep-share-fields">
-  <div><label for="repShareAsset">Graphic</label><select id="repShareAsset"></select></div>
-  <div><label for="repShareChannel">Message format</label><select id="repShareChannel"><option value="short_message">WhatsApp</option><option value="email_body">Email</option></select></div>
- </div>
- <label for="repShareText">Review or edit message</label>
- <textarea id="repShareText" rows="5"></textarea>
- <div class="rep-share-actions">
-  <button type="button" id="campaignShareSocial" class="asset-share-button share-primary" data-share-url="" data-share-filename="">Share graphic and message</button>
-  <button type="button" id="repShareCopy" class="secondary">Copy message</button>
-  <a id="repShareDownload" download>Download graphic</a>
- </div>
- <p id="repShareStatus" role="status" aria-live="polite"></p>
-</details>
+
 <section class="marketing-strategy-panel" id="marketingStrategyPanel" hidden aria-label="Product-specific AI marketing strategy">
  <div class="marketing-strategy-heading"><div><span class="sectioncap">PRODUCT-SPECIFIC MARKETING INTELLIGENCE</span><h4>Recommended marketing approach</h4></div><span id="strategyMethod" class="strategy-method"></span></div>
  <div class="marketing-strategy-grid">
@@ -599,7 +606,7 @@ document.querySelectorAll('[data-open-ai]').forEach(control=>control.addEventLis
 
 function setState(message,type='neutral'){const el=$('status');el.className='status '+type;el.textContent=message;}
 function selectedDistributor(){return $('distributorBrand').value;}
-function clearCampaign(){campaignData=null;$('campaignResults').hidden=true;$('campaignProgress').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
+function clearCampaign(){campaignData=null;syncRepShareAvailability();$('campaignResults').hidden=true;$('campaignProgress').hidden=true;$('previews').hidden=false;$('previewCampaignCallout').hidden=!activePhoto;if(copyStudioData?.origin==='campaign'){copyStudioData=null;rewriteNonce++;pendingCopyRewrite=null;rewriteUndoHistory={};$('unifiedCopyStudio').hidden=true;}showCopyEmpty();$('campaignStatus').textContent='Enter a part number to begin. Generated marketing requires review before publication.';}
 function updateDistributorPreview(){
  legacyShareFile=null;$('legacyShareZip').disabled=true;
  const id=selectedDistributor(),target=$('distributorPreview');
@@ -1516,7 +1523,7 @@ function refreshRepSharePack(){
 }
 function setupRepSharePack(manifest){
  repShareDrafts={};
- $('repSharePack').open=false;
+ syncRepShareAvailability();
  const picker=$('repShareAsset');
  picker.replaceChildren();
  for(const [id,[label]] of Object.entries(repShareAssets)){
@@ -1525,9 +1532,10 @@ function setupRepSharePack(manifest){
  $('repShareChannel').value='short_message';
  refreshRepSharePack();
 }
-$('repSharePack').addEventListener('toggle',()=>{
- if($('repSharePack').open)refreshRepSharePack();
-});
+function syncRepShareAvailability(){
+ $('repSharePack').hidden=!campaignData;
+ $('repShareEmpty').hidden=Boolean(campaignData);
+}
 $('repShareAsset').addEventListener('change',refreshRepSharePack);
 $('repShareChannel').addEventListener('change',refreshRepSharePack);
 $('repShareText').addEventListener('input',()=>{
@@ -2048,9 +2056,6 @@ if(typeof document!=='undefined' &&
 }
 $('whyLaserBtn').addEventListener('click',buildWhyLaserSheet);
 $('competitorForm').addEventListener('submit',event=>{event.preventDefault();findCompetitors(false);});
-document.querySelectorAll('a[href="#competitorWorkspace"]').forEach(link=>link.addEventListener('click',()=>{
- if(!$('competitorPart').value.trim())$('competitorPart').value=$('part').value.trim();
-}));
 $('competitorRefresh').addEventListener('click',()=>findCompetitors(true));
 function clearCompetitorSelection(){
   $('competitorPanel').hidden=true;
@@ -2168,6 +2173,33 @@ $('previewBuildFull').addEventListener('click',()=>{
 });
 $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('campaignBtn').click()});$('searchBtn').addEventListener('click',()=>load($('part').value.trim().toUpperCase()));document.querySelectorAll('[data-part]').forEach(b=>b.addEventListener('click',()=>{$('part').value=b.dataset.part;load(b.dataset.part)}));$('reviewed').addEventListener('change',()=>{$('download').disabled=!$('reviewed').checked;setProgress($('reviewed').checked?3:2);});
 $('download').addEventListener('click',async()=>{if(!active||!$('reviewed').checked)return;const b=$('download');b.disabled=true;b.textContent='Creating ZIP…';try{const r=await fetch(`/api/generate/${encodeURIComponent(active.part)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmed:true,distributor_brand:selectedDistributor(),staff_rrp_ex:staffApplied,staff_rrp_reviewed:!!staffApplied&&$('staffReview').checked,staff_rrp_basis:staffBasis})});if(!r.ok){const v=await r.json();throw Error(v.error||'Export failed')}const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');const packName=`LASER_${active.part}_Marketing_Pack.zip`;legacyShareFile=new File([blob],packName,{type:'application/zip'});$('legacyShareZip').disabled=false;a.href=url;a.download=packName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);setState('Marketing pack generated and downloaded.','success')}catch(e){setState(e.message,'error')}finally{b.disabled=false;b.innerText='Download all assets (ZIP) ↓';}});
+const studioToolViews=['competitorWorkspace','salesAssistant','repShareWorkspace'];
+function showStudioView(){
+ const route=location.hash.slice(1);
+ const tool=studioToolViews.includes(route)?route:null;
+ $('builder').classList.toggle('studio-tool-open',Boolean(tool));
+ for(const id of studioToolViews)$(id).hidden=id!==tool;
+ for(const link of document.querySelectorAll('.sidebar-menu a,.studio-top-links a')){
+  const target=link.getAttribute('href');
+  const current=target==='#'+(tool||(route||'builder'));
+  link.classList.toggle('active',current);
+  if(current)link.setAttribute('aria-current','location');
+  else link.removeAttribute('aria-current');
+ }
+ if(tool==='competitorWorkspace'&&!$('competitorPart').value.trim()){
+  $('competitorPart').value=$('part').value.trim();
+ }
+ if(tool==='repShareWorkspace'){
+  syncRepShareAvailability();
+  refreshRepSharePack();
+ }
+ if(tool||!route||route==='builder')window.scrollTo(0,0);
+ else {
+  document.getElementById(route)?.scrollIntoView();
+ }
+}
+window.addEventListener('hashchange',showStudioView);
+showStudioView();
 </script><script src="/static/sales_assistant.js?v=90"></script><script src="/static/campaign_poster_edit.js?v=91"></script></body></html>
 
 '''
