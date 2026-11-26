@@ -1048,6 +1048,17 @@ def _listing_condition(soup, node=None):
     return None
 
 
+def _manufacturer_list_price(soup, url):
+    # Sealey explicitly labels its manufacturer list price and VAT basis.
+    # Retailers' list prices and JSON-LD offers never enter this field.
+    if urlparse(url).hostname not in {"sealey.co.uk", "www.sealey.co.uk"}:
+        return None
+    text = clean_text(soup.get_text(" ", strip=True), 100000)
+    matches = re.findall(r"\bList Price:\s*£([\d,]+\.\d{2})\s+(Inc|Exc)\. VAT", text, re.I)
+    return {basis: f"£{amount} {basis} VAT" for amount, vat in matches
+            for basis in ("including" if vat.lower() == "inc" else "excluding",)}
+
+
 def parse_product_page(content, url, signature):
     """Source-derived product name and exact GBP offer, never fictitious RRP."""
     if len(content)>1100000:
@@ -1057,6 +1068,12 @@ def parse_product_page(content, url, signature):
     headings=[clean_text(tag.get_text(" ",strip=True),220)
               for tag in soup.select("h1")[:3]]
     rows=[]
+    rrp=_manufacturer_list_price(soup,url)
+    published_specs={}
+    if signature["type"]=="split hub spreader" and urlparse(url).hostname in {"sealey.co.uk","www.sealey.co.uk"}:
+        description=soup.get_text(" ",strip=True)[:100000]
+        if re.search(r"double[ -]ended.{0,110}upper split hubs.{0,70}lower ball joint split joints",description,re.I):
+            published_specs["Spreader design"]="Double-ended for upper split hubs and lower ball joint split joints"
     for tag in soup.select('script[type="application/ld+json"]')[:16]:
         try:
             data=json.loads(tag.get_text()[:100000])
@@ -1076,8 +1093,10 @@ def parse_product_page(content, url, signature):
                 seller=urlparse(url).hostname,
                 listing_condition=_listing_condition(soup,node),
                 image_url=image,image_origin=image_source,
-                verified_specs=_schema_verified_specs(node))
+                verified_specs={**_schema_verified_specs(node),**published_specs})
             if result:
+                result["manufacturer_list_prices"]=rrp
+                result["manufacturer_list_source"]=url if rrp else None
                 rows.append(result)
     if rows:
         return max(rows,key=lambda r:(
@@ -1093,10 +1112,15 @@ def parse_product_page(content, url, signature):
         return None
     visible_price,vat,origin=_merchant_visible_price(soup,url)
     hero,hero_origin=_page_main_image(soup,url)
-    return _build_result(candidate,url,signature,price=visible_price,
+    result = _build_result(candidate,url,signature,price=visible_price,
                          vat=vat,price_origin=origin,
                          image_url=hero,image_origin=hero_origin,
-                         listing_condition=_listing_condition(soup))
+                         listing_condition=_listing_condition(soup),
+                         verified_specs=published_specs)
+    if result:
+        result["manufacturer_list_prices"]=rrp
+        result["manufacturer_list_source"]=url if rrp else None
+    return result
 
 
 def _get_product_page(url, signature,session=requests):
@@ -1322,8 +1346,14 @@ def _distinct(results):
              item["part_number"].lower() if item["part_number"] else
              re.sub(r"\W+","",item["title"].lower())[:85])
         previous=best.get(key)
-        if previous is None or evidence_rank(item)>evidence_rank(previous):
+        if previous is None:
             best[key]=item
+            continue
+        winner,other=(item,previous) if evidence_rank(item)>evidence_rank(previous) else (previous,item)
+        if not winner.get("manufacturer_list_prices") and other.get("manufacturer_list_prices"):
+            winner["manufacturer_list_prices"]=other["manufacturer_list_prices"]
+            winner["manufacturer_list_source"]=other.get("manufacturer_list_source")
+        best[key]=winner
     return sorted(best.values(),key=lambda item:(
         0 if item["match_status"].startswith("Likely equivalent") else 1,
         0 if item.get("verified_specs") else 1,

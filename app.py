@@ -1934,11 +1934,13 @@ function displayWhyLaserSheet(sheet){
    ...changes.map(x=>({...x,kind:'Documented difference'})),
    ...shared.map(x=>({...x,kind:'Shared published specification'}))
   ].slice(0,4);
-  const tableRows=comparisons.length?comparisons.map(x=>
+  const rrpRow='<tr><th>Manufacturer RRP / list price</th><td>'+
+   esc(sheet.manufacturer_rrp||'Not verified')+(sheet.manufacturer_rrp&&sheet.rrp_source?' · '+link(sheet.rrp_source,'RRP source'):'')+'</td><td>'+esc(r.manufacturer_rrp||'Not verified')+(r.manufacturer_rrp&&r.rrp_source?' · '+link(r.rrp_source,'List price source'):'')+'</td></tr>';
+  const tableRows=rrpRow+(comparisons.length?comparisons.map(x=>
    '<tr><th>'+esc(x.attribute)+'</th><td>'+esc(x.laser)+'</td>'+
    '<td>'+esc(x.competitor)+'</td></tr>').join(''):
    '<tr><th>Technical comparison</th><td>See official features above</td>'+
-   '<td>Matching specifications not verified</td></tr>';
+   '<td>Matching specifications not verified</td></tr>');
   const rivalFacts=[r.comparison_relationship||'Comparable product category',
     ...changes.map(x=>x.attribute+': '+x.competitor),
     ...shared.map(x=>x.attribute+': '+x.competitor)];
@@ -1962,12 +1964,14 @@ function displayWhyLaserSheet(sheet){
    takeaway=(facts.length?'Laser officially lists '+facts[0].text+'. ':'')+
      'No defensible technical superiority claim has yet been verified against this product.';
   }
+  if(r.reasons_to_choose?.length)takeaway=r.reasons_to_choose.join(' ');
   const verifiedRivalLink=link(r.url,'View '+(r.brand||'competitor')+' source');
   const officialLink=link(sheet.official_source,'View official Laser source');
   return '<article class="why-compare-page">'+
    '<div class="why-compare-title"><h3>Laser Tools '+esc(part)+' vs '+
       esc(r.brand||'Competitor')+' '+esc(r.part_number||'')+'</h3>'+
     '<p>'+esc(sheet.title)+' · Published product evidence comparison</p></div>'+
+   '<div class="why-compare-takeaway"><p><strong>Why choose Laser?</strong> '+esc(takeaway)+'</p></div>'+
    '<div class="why-compare-dual">'+
     '<section class="why-compare-card why-compare-laser">'+
       '<h4>Laser Tools '+esc(part)+'</h4>'+
@@ -1991,12 +1995,10 @@ function displayWhyLaserSheet(sheet){
     '<th>Laser Tools '+esc(part)+'</th><th>'+esc(r.brand||'Competitor')+
     ' '+esc(r.part_number||'')+'</th></tr></thead><tbody>'+
     tableRows+'</tbody></table></div>'+
-   '<div class="why-compare-takeaway"><span aria-hidden="true">✓</span><p><strong>Key takeaway:</strong> '+
-    esc(takeaway)+'</p></div>'+
    '<footer class="why-compare-evidence">'+
     '<span>Research checked '+esc(sheet.research_checked_at_utc)+
     (r.source_checked_on?' · Manufacturer details checked '+esc(r.source_checked_on):'')+'</span>'+
-    '<span>Price comparison excluded: different or unverified pricing bases</span>'+
+    '<span>Manufacturer list prices shown where verified. Check VAT and date before quoting.</span>'+
     '<strong>INTERNAL DRAFT · NOT APPROVED FOR CUSTOMER DISTRIBUTION</strong>'+
    '</footer>'+
   '</article>';
@@ -3327,7 +3329,8 @@ def find_competitor_products(part):
             # time-stamped competitor report the user just reviewed.
             source_snapshot={
                 "part":product.get("part"),"title":product.get("title"),
-                "source":product.get("source"),"features":list(
+                "source":product.get("source"),"price":product.get("price"),
+                "price_source":product.get("price_source"),"price_status":product.get("price_status"),"features":list(
                     (product.get("features") or [])[:25]),
                 "specs":dict(list((product.get("specs") or {}).items())[:40])
                     if isinstance(product.get("specs"),dict) else {},

@@ -74,6 +74,24 @@ class WhyChooseLaserV72Tests(unittest.TestCase):
         self.assertFalse(sheet["public_claim_approved"])
         self.assertNotIn("superior",json.dumps(sheet).lower())
 
+    def test_manufacturer_rrps_match_vat_and_generate_price_reason(self):
+        data=report()
+        listing=data["results"][0]
+        listing["url"]=listing["product_url"]="https://www.sealey.co.uk/verified-product/"
+        html="<p>List Price: £99.54 Inc. VAT</p><p>List Price: £82.95 Exc. VAT</p>"
+        soup=cf.BeautifulSoup(html,"html.parser")
+        listing["manufacturer_list_prices"]=cf._manufacturer_list_price(soup,listing["url"])
+        self.assertIsNone(cf._manufacturer_list_price(soup,PRODUCT_URL))
+        laser={**product(),"price":"£41.67 excluding VAT"}
+        sheet=build_why_choose_laser(laser,data)
+        rival=sheet["competitors"][0]
+        self.assertEqual(rival["manufacturer_rrp"],"£82.95 excluding VAT")
+        self.assertIn("£41.28 lower",rival["reasons_to_choose"][0])
+        with fitz.open(stream=render_why_choose_laser_pdf(sheet),filetype="pdf") as doc:
+            text=doc[0].get_text()
+        for value in ("£41.67", "£82.95", "£41.28 lower"):
+            self.assertIn(value,text)
+
     def test_search_leads_and_shopping_prices_never_certify_superiority(self):
         data=report()
         data["results"][0]["source_type"]="unverified search-index title"
@@ -139,7 +157,7 @@ class WhyChooseLaserV72Tests(unittest.TestCase):
         self.assertIn("WHY CHOOSE LASER?",text)
         self.assertIn("Six threaded bars included",text)
         self.assertIn("BGS Technic",text)
-        self.assertIn("Published difference",text)
+        self.assertIn("Manufacturer RRP / list price",text)
         self.assertIn("NOT APPROVED",text)
         self.assertNotIn("Laser is cheaper",text)
         links=[link.get("uri","") for page in document for link in page.get_links()]
