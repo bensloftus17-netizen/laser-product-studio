@@ -26,6 +26,27 @@ def verdict(smart_codes=()):
 
 
 class ActualPosterTextRepairTests(unittest.TestCase):
+    def test_product_selected_recovery_measures_9315_copy_before_painting(self):
+        from campaign_role_posters import smart_poster
+        title="Brake Fluid Pressure Bleeder with Adaptor Kit"
+        proof="A portable workshop pressure bleeder with a selection of reservoir adaptors."
+        product={**PRODUCT,"part":"9315","title":title}
+        concept={"headline":title,"selling_point":proof,
+                 "name":"Workshop brake servicing and fluid replacement"}
+        with patch("campaign_role_posters.product_photo",side_effect=fake_photo):
+            with capture() as tracked:
+                png=smart_poster(product,image_bytes(),concept)
+        self.assertTrue(png.startswith(b"\x89PNG"))
+        painted={item["role"]:" ".join(item["lines"]) for item in tracked.texts}
+        self.assertEqual(painted["headline"],title)
+        self.assertEqual(painted["proof"],proof.rstrip("."))
+        self.assertFalse(any(item["truncated"] for item in tracked.texts))
+        from creative_qa import reconcile_with_measured_geometry
+        reconciled=reconcile_with_measured_geometry(
+            verdict(["cutoff_text","white_halo"]),
+            {"poster_smart":{"passed":True,"text_bounds_verified":True}})
+        self.assertEqual(reconciled["issues"]["poster_smart"],["white_halo"])
+
     def test_text_safety_reflows_actual_painted_headline_and_proof(self):
         product=dict(PRODUCT)
         product["title"]="Ratchet Set 4pc"

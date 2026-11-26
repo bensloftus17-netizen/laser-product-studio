@@ -171,6 +171,7 @@ INSPECTION_CAMERA_SEEDS = (
 HUB_SOCKET_RETAILER = "https://www.newenduser.co.uk/shop/vw-audi-5pc-hub-nut-socket-bit-set-24-30-32mm-12pt-sockets-14mm17mm-hex-bits/"
 
 CATEGORY_SEEDS={
+    "insulated key set": tuple(row["url"] for row in catalogue_references("insulated key set")),
     "hub nut socket set": (
         *(entry["url"] for entry in catalogue_references("hub nut socket set")),
         HUB_SOCKET_RETAILER,
@@ -233,6 +234,7 @@ IMAGE_CDN_HOSTS=(
 )
 # Search synonyms improve discovery, NEVER certify interchangeability.
 TYPE_SYNONYMS={
+    "insulated key set": ("VDE insulated hex key set","VDE insulated Torx key set","insulated Allen star key set"),
     "hub nut socket set": ("hub nut impact socket set","axle hub socket bit set","drive shaft hub bolt socket set"),
     "pneumatic gasket scraper": (
         "air gasket scraper", "air powered gasket scraper",
@@ -283,6 +285,10 @@ TYPE_SYNONYMS={
 # one term per group must be present on the ORIGINAL competitor listing.
 # Do not make up missing vehicle fits, capacities or complete kit contents.
 TYPE_MATCH_GROUPS={
+    "insulated key set": (
+        (r"\b(?:insulated|vde)\b",), (r"\b(?:hex|allen|torx|star)\b",),
+        (r"\bkeys?\b",), (r"\b(?:set|kit|\d+\s*pcs?)\b",),
+    ),
     "hub nut socket set": (
         (r"\bhub\b",r"\baxle\b",r"\bdrive[ -]?shaft\b"),
         (r"\bsockets?\b",), (r"\bset\b",r"\bkit\b",r"\d+\s*pcs?\b"),
@@ -492,6 +498,11 @@ def tool_signature(product):
     if _is_inspection_camera(title) or _is_inspection_camera(fallback):
         kind="inspection camera"
         source="verified-alias-rule"
+    elif (re.search(r"\b(?:vde|insulated)\b",text)
+          and re.search(r"\b(?:hex|allen|torx|star)\b",text)
+          and re.search(r"\b(?:keys?|wrench)\b",text)):
+        return {"type":"insulated key set","type_terms":("insulated","key"),
+                "fitments":[],"title":title,"category_source":"verified-alias-rule"}
     elif (re.search(r"\b(?:under[ -]?bonnet|under[ -]?hood|engine[ -]?bay)\b",text)
           and re.search(r"\b(?:lamp|light|lighting|worklight)\b",text)):
         # Official 9197 title: "Under Bonnet Compact Work Lamp 10W COB
@@ -586,6 +597,9 @@ def match_status(signature, candidate_title):
     elif not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
                  for word in signature["type_terms"]):
         return None
+    if signature["type"]=="insulated key set":
+        return ("Related insulated key set — compare profiles",
+                "Check hex and star coverage, sizes and the published insulation rating for each set.")
     if signature["type"]=="open end torque wrench" and not re.search(
             r"open.end|open.jaw|crowfoot|spanner",text):
         return ("Related torque tool — open-end function unverified",

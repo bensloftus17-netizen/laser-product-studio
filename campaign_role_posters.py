@@ -285,6 +285,8 @@ def technical_poster(product,official_photo,concept,scene=None,distributor=None)
 
 def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     """Feature-led split-story ad, never a second price or technical flyer."""
+    from flexible_canvas import _text
+
     part=product.get("part","")
     plan=concept.get("visual_plan") or {}
     theme=str(concept.get("name") or "PRODUCT HIGHLIGHT")
@@ -297,10 +299,10 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     d.rectangle((0,175,W,190),fill=accent)
     brand(d,part)
     co_brand(canvas,distributor)
-    fitted(d,"LASER / PRODUCT SPOTLIGHT",(54,243,1135,290),
-           (31,27,23),accent,1)
-    fitted(d,concept.get("headline") or product.get("title","Laser Tools product"),
-           (52,314,1146,523),(67,61,54,48,42,36,30),WHITE,3)
+    _text(d,"LASER / PRODUCT SPOTLIGHT",(54,243,1135,290),
+          base=30,minsize=22,maxlines=1,colour=accent)
+    _text(d,concept.get("headline") or product.get("title","Laser Tools product"),
+          (52,304,1146,542),base=66,minsize=26,maxlines=5,role="headline")
     # A broad colored architectural shape behind, but NEVER white paper.
     # Photographic workshop context remains on the right and the original
     # tool silhouette is clearly legible in front of both.
@@ -321,12 +323,13 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,1201,W,H),fill=(6,29,52,248))
     d.rectangle((54,1237,1144,1247),fill=accent)
-    fitted(d,theme.upper(),(61,1280,1140,1334),
-           (34,30,26),accent,1)
+    _text(d,theme.upper(),(61,1255,1140,1334),
+          base=34,minsize=22,maxlines=2,colour=accent)
     detail=_story_copy(concept)
     if detail:
-        fitted(d,detail,(61,1363,1133,1435),
-               (30,27,24,21,18),WHITE,3,bold=False)
-    fitted(d,"GENUINE PRODUCT PHOTO · DRAFT FOR REVIEW",
-           (61,1461,1133,1487),(17,15,13),"#B9D7EB",1,bold=False)
+        _text(d,detail,(61,1345,1133,1448),
+              base=30,minsize=18,maxlines=4,bold=False,role="proof")
+    _text(d,"GENUINE PRODUCT PHOTO · DRAFT FOR REVIEW",
+          (61,1461,1133,1492),base=16,minsize=12,maxlines=1,
+          colour="#B9D7EB",bold=False)
     return _export(canvas)
