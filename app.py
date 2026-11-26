@@ -2098,10 +2098,14 @@ async function startFullQualityCampaign(part,body){
    await new Promise(resolve=>setTimeout(resolve,7000));
    continue;
   }
-  if(response.status===429){
+  const memoryBusy=response.status===503 &&
+    (response.headers.get('content-type')||'').includes('application/json') &&
+    (await response.clone().json().catch(()=>null))?.code==='campaign_memory_busy';
+  if(response.status===429||memoryBusy){
+   if(attempt===6)return await readApiJson(response);
    const seconds=Math.min(45,Math.max(8,parseInt(
        response.headers.get('Retry-After')||'15',10)||15));
-   $('campaignStatus').textContent='Another full-quality campaign is being prepared. '+
+   $('campaignStatus').textContent=(memoryBusy?'Studio is waiting for Render memory to free up. ':'Another full-quality campaign is being prepared. ')+
       'Your campaign has not started yet; the website will retry automatically ('+
       (attempt+1)+'/7). No artwork quality settings are reduced.';
    await new Promise(resolve=>setTimeout(resolve,seconds*1000));
@@ -2144,8 +2148,9 @@ $('campaignBtn').addEventListener('click',async()=>{
    // progressive results without rerunning Gemini or reducing image QA.
    $('previews').hidden=true;
    $('previewCampaignCallout').hidden=true;
-   $('assetWorkspaceStatus').textContent='Preparing 9 high-quality graphics. Each will appear once it passes QA.';
+   $('assetWorkspaceStatus').textContent='Waiting for the server to start the campaign.';
    const started=await startFullQualityCampaign(part,body);
+   $('assetWorkspaceStatus').textContent='Preparing 9 high-quality graphics. Each will appear once it passes QA.';
    rememberMobileJob(started.job_id,part);
    renderProgressGallery(started.job_id,{status:'queued',stage:'queued'});
    $('studioWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
@@ -2154,12 +2159,12 @@ $('campaignBtn').addEventListener('click',async()=>{
    showCampaign(data);
    $('campaignStatus').textContent='All 9 campaign graphics are ready. Nothing has downloaded automatically. Scroll to view every format or use Download complete ZIP. Links are temporary (up to 45 minutes while this server remains running). Download the ZIP to keep them.';
  }catch(error){
-   $('campaignStatus').textContent=(error.message||'Campaign could not complete.')+
-     ' The three basic previews are not a complete AI campaign.';
+   $('campaignStatus').textContent=error.message||'Campaign could not complete.';
    setState(error.message||'Campaign generation failed','error');
    if($('campaignProgress').hidden){
-     $('previews').hidden=false;
-     $('previewCampaignCallout').hidden=false;
+     $('assetWorkspaceStatus').textContent='Campaign generation did not start. You can try Build Campaign again.';
+     $('previews').hidden=true;
+     $('previewCampaignCallout').hidden=true;
    }
    updateCampaignRecovery();
  }
@@ -4156,7 +4161,8 @@ def start_mobile_campaign(part):
                 return response
             if not can_start_heavy("campaign"):
                 CAMPAIGN_RENDER_SLOT.release()
-                response=jsonify(error='Render is under memory pressure. Please retry the campaign when resources are available.')
+                response=jsonify(code='campaign_memory_busy',
+                                 error='Render has insufficient memory to start this campaign. Please try again shortly.')
                 response.status_code=503
                 response.headers['Retry-After']='30'
                 return response
