@@ -81,6 +81,12 @@ class SelectionV63Tests(unittest.TestCase):
         self.assertEqual(response.data,LARGE)
         self.assertEqual(response.headers["X-Content-Type-Options"],"nosniff")
 
+    def test_decorative_photo_cache_miss_does_not_start_lookup(self):
+        with patch.object(app,"CACHE",{}), \
+             patch.object(app,"lookup",side_effect=AssertionError("unexpected lookup")):
+            response=app.app.test_client().get("/api/photo/9395?cached_only=1")
+        self.assertEqual(response.status_code,204)
+
     def test_photo_cache_miss_uses_lookup_override(self):
         with patch.dict(app.CACHE,clear=True), \
              patch.object(app,"lookup",return_value=({},LARGE)) as lookup:

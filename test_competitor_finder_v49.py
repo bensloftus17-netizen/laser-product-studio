@@ -272,9 +272,10 @@ class CompetitorFinderTests(unittest.TestCase):
             "checked_at_utc":"2026-11-19T09:00:00+00:00",
             "providers":["Public product-page search"],
             "warnings":[],"ai_matching":"Rules-based"}
-        with patch.object(studio,"lookup",return_value=(LASER,b"official-source-photo")),\
+        with patch.object(studio,"lookup",return_value=(LASER,b"official-source-photo")) as lookup,\
              patch.object(studio,"research_competitors",return_value=fake) as fn:
             first=self.client.get("/api/competitors/9395")
+            lookup.assert_called_once_with("9395",uk_url=None,text_only=True)
             self.assertEqual(first.status_code,200,first.get_json())
             self.assertEqual(first.get_json()["count"] if "count" in
                 first.get_json() else len(first.get_json()["results"]),1)

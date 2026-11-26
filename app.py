@@ -98,7 +98,7 @@ V7_HOME_PAGE = r'''
 <div class="steps-panel" hidden><div class="steps-heading"><b>Three simple steps</b><span>From product lookup to marketing materials</span></div><ol class="steps" aria-label="Poster creation steps"><li class="step active" data-step="1" aria-current="step"><span class="step-num">1</span><div><b>Find your product</b><small>Enter a part number</small></div></li><li class="step" data-step="2"><span class="step-num">2</span><div><b>Review the details</b><small>Check imagery and RRP</small></div></li><li class="step" data-step="3"><span class="step-num">3</span><div><b>Download the posters</b><small>Three ready-to-review drafts</small></div></li></ol></div>
 <section class="searchpanel"><div class="lookup-heading"><div><div class="sectioncap">ONE-CLICK PRODUCT MARKETING</div><h2>Build a Unique Product Campaign</h2><p>Enter a part number to build a detailed technical sheet, workshop price promotion and AI-led product poster, plus social artwork and editable copy.</p></div><span class="lookup-chip">OFFICIAL SOURCE CONTENT</span></div>
 <form id="searchForm"><label class="inputlabel" for="part">LASER TOOLS PART NUMBER</label><div class="searchrow"><input id="part" type="text" pattern="[0-9A-Za-z.\-]{3,16}" maxlength="16" value="9395" placeholder="e.g. 9395" required autocomplete="off"><button class="campaign-start" id="campaignBtn" type="button">✦ Build Campaign</button></div></form>
-<div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395" alt="" onload="this.hidden=false" onerror="this.hidden=true"></div>
+<div class="studio-hero-art" aria-hidden="true"><img id="heroProductPhoto" src="/api/photo/9395?cached_only=1" loading="lazy" decoding="async" alt="" onload="this.hidden=false" onerror="this.hidden=true"></div>
 <p id="campaignStatus" class="campaign-feedback" role="status" aria-live="polite">Enter a part number to begin. Generated marketing requires review before publication.</p>
 <div id="campaignRecovery" class="campaign-mobile-recovery" hidden>
  <span id="campaignRecoveryText">Your last campaign may still be available.</span>
@@ -991,14 +991,12 @@ function renderCampaignGallery(data){
   '<div class="campaign-asset-actions"><a class="campaign-save-image" href="'+campaignAssetUrl(asset.id)+'?download=1" download="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">Download PNG</a>'+
   '<button type="button" class="asset-share-button share-primary" data-share-url="'+campaignAssetUrl(asset.id)+'" data-share-filename="LASER_'+esc(m.part)+'_'+esc(asset.id)+'.png">↗ Share to apps</button>'+
   (['poster_technical','poster_price','poster_smart'].includes(asset.id)?'<button type="button" class="campaign-edit-button" data-edit-poster="'+esc(asset.id)+'">✎ Edit poster</button>':'')+'</div></article>').join('');
- // Reuse already fetched, QA-approved image bytes. Load every remaining PNG
- // promptly so lazy thumbnails cannot fail after the server token expires.
+ // Reuse approved progressive assets. The browser lazy-loads any remaining
+ // previews through their img URLs without issuing a second request.
  if(campaignLocalJob){
   for(const asset of m.images){
    if(campaignLocalPNGs.has(asset.id)){
     applyLocalCampaignPNG(asset.id,campaignLocalPNGs.get(asset.id));
-   }else{
-    retainVerifiedCampaignPNG(campaignLocalJob,asset.id,campaignAssetUrl(asset.id));
    }
   }
  }
@@ -1728,7 +1726,7 @@ function showOfficialHero(part){
  photo.hidden=true;
  if(!/^[0-9A-Za-z.-]{3,16}$/.test(clean))return;
  if(photo.dataset)photo.dataset.part=clean;
- photo.src='/api/photo/'+encodeURIComponent(clean);
+ photo.src='/api/photo/'+encodeURIComponent(clean)+'?cached_only=1';
 }
 
 let competitorShownPart=null, competitorBusy=false;
@@ -3314,7 +3312,10 @@ def find_competitor_products(part):
             # lookup() independently verifies official UK source facts and
             # manufacturer authenticity. No price or feature can be invented
             # from a scraped competitor search result.
-            product,_=lookup(part,uk_url=request.args.get('uk_url') or None)
+            # Price research needs official text. Only reuse artwork already
+            # held by the product cache for the optional comparison image.
+            product, cached_photo = lookup(
+                part, uk_url=request.args.get('uk_url') or None, text_only=True)
             report=research_competitors(product)
             # Retain only a bounded, official-source snapshot and compact
             # authentic product preview. The PDF is built from the exact same
@@ -3326,7 +3327,7 @@ def find_competitor_products(part):
                 "specs":dict(list((product.get("specs") or {}).items())[:40])
                     if isinstance(product.get("specs"),dict) else {},
             }
-            tiny_photo=compact_photo(_)
+            tiny_photo=compact_photo(cached_photo)
             # Render Free suspends and restarts its worker, destroying this
             # process-local report cache. Prepare the actual source-linked
             # sales sheet and its small, genuine-photo PDF DURING the verified
@@ -4387,6 +4388,8 @@ def photo(part):
         cached=CACHE.get(part)
         if cached and cached[2] and time.time()-cached[0]<3600:
             image=cached[2]
+        elif request.args.get('cached_only') == '1':
+            return '', 204
         else:
             _,image=lookup(part,uk_url=request.args.get('uk_url') or None)
         if not image:
