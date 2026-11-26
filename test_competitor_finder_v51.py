@@ -99,6 +99,18 @@ class UniversalCompetitorTests(unittest.TestCase):
         with studio.COMPETITOR_REPORT_LOCK:
             studio.COMPETITOR_REPORT_CACHE.clear()
 
+    def test_8657_finds_magnetic_toolbox_storage_kit_without_search_provider(self):
+        class Offline:
+            def get(self,*args,**kwargs):
+                raise requests.Timeout("Public source unavailable")
+        product={"part":"8657","title":"Magnetic Holders & Tray Set 4pc"}
+        result=cf.research_competitors(product,session=Offline(),shopping_key="",enable_ai=False)
+        self.assertEqual([row["part_number"] for row in result["results"]],["F4MTBHK"])
+        self.assertIsNone(result["results"][0]["price_gbp"])
+        signature=cf.tool_signature(product)
+        self.assertIsNone(cf.match_status(signature,"Magnetic Tool Holder Strip"))
+        self.assertIsNone(cf.match_status(signature,"Non-magnetic Toolbox Holder Kit"))
+
     def test_8567_finds_insulated_hex_and_star_catalogue_alternatives(self):
         class Offline:
             def get(self,*args,**kwargs):

@@ -35,6 +35,7 @@ MAX_PAGES = 18
 # Pages are retrieved only from these publicly accessible established brands
 # and UK sellers, never from free-form model text or arbitrary/internal URLs.
 APPROVED_HOSTS = (
+    "first4magnets.com",
     "sealey.co.uk", "drapertools.com", "drapertools.co.uk",
     "astrotools.com", "beswellpowertools.com",
     "hilka.co.uk",
@@ -67,6 +68,7 @@ APPROVED_HOSTS = (
     "facom.co.uk", "draper.co.uk", "brilliant-tools.com", "newenduser.co.uk",
 )
 BRANDS = (
+    ("FIRST4MAGNETS", ("first4magnets",)),
     ("Snap-on", ("snap-on", "snap on", "snapon")),
     ("Astro Pneumatic", ("astro pneumatic", "astrotools", "astro tools")),
     ("Beswell", ("beswell",)),
@@ -95,6 +97,7 @@ BRANDS = (
     ("Laser Tools", ("laser tools", "lasertools", "tool connection")),
 )
 TYPE_RULES = (
+    ("magnetic toolbox storage set", ("magnetic", "holders", "tray", "set")),
     ("pneumatic gasket scraper", ("pneumatic", "scraper")),
     ("open end torque wrench", ("torque", "wrench")),
     ("split hub spreader", ("hub", "spreader")),
@@ -171,6 +174,7 @@ INSPECTION_CAMERA_SEEDS = (
 HUB_SOCKET_RETAILER = "https://www.newenduser.co.uk/shop/vw-audi-5pc-hub-nut-socket-bit-set-24-30-32mm-12pt-sockets-14mm17mm-hex-bits/"
 
 CATEGORY_SEEDS={
+    "magnetic toolbox storage set": tuple(row["url"] for row in catalogue_references("magnetic toolbox storage set")),
     "insulated key set": tuple(row["url"] for row in catalogue_references("insulated key set")),
     "hub nut socket set": (
         *(entry["url"] for entry in catalogue_references("hub nut socket set")),
@@ -234,6 +238,7 @@ IMAGE_CDN_HOSTS=(
 )
 # Search synonyms improve discovery, NEVER certify interchangeability.
 TYPE_SYNONYMS={
+    "magnetic toolbox storage set": ("magnetic toolbox holder kit", "magnetic toolbox accessory set", "magnetic spray can and paper towel holder set"),
     "insulated key set": ("VDE insulated hex key set","VDE insulated Torx key set","insulated Allen star key set"),
     "hub nut socket set": ("hub nut impact socket set","axle hub socket bit set","drive shaft hub bolt socket set"),
     "pneumatic gasket scraper": (
@@ -285,6 +290,10 @@ TYPE_SYNONYMS={
 # one term per group must be present on the ORIGINAL competitor listing.
 # Do not make up missing vehicle fits, capacities or complete kit contents.
 TYPE_MATCH_GROUPS={
+    "magnetic toolbox storage set": (
+        (r"(?<!non-)\bmagnetic\b",), (r"\b(?:toolbox|tool box|tray|shelf|storage)\b",),
+        (r"\b(?:holder|holders|tray|shelf|accessory)\b",), (r"\b(?:set|kit)\b",),
+    ),
     "insulated key set": (
         (r"\b(?:insulated|vde)\b",), (r"\b(?:hex|allen|torx|star)\b",),
         (r"\bkeys?\b",), (r"\b(?:set|kit|\d+\s*pcs?)\b",),
@@ -597,6 +606,9 @@ def match_status(signature, candidate_title):
     elif not all(re.search(r"(?<![a-z])"+re.escape(word)+r"(?![a-z])", text)
                  for word in signature["type_terms"]):
         return None
+    if signature["type"]=="magnetic toolbox storage set":
+        return ("Related magnetic storage kit — compare contents",
+                "Compare shelves, trays, can and towel holders and their published capacities.")
     if signature["type"]=="insulated key set":
         return ("Related insulated key set — compare profiles",
                 "Check hex and star coverage, sizes and the published insulation rating for each set.")

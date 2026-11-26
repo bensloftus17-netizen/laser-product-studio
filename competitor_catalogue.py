@@ -13,6 +13,16 @@ from copy import deepcopy
 
 CHECKED_DATE = "2026-11-23"
 REFERENCES = {
+    "magnetic toolbox storage set": [{
+        "brand": "FIRST4MAGNETS",
+        "sku": "F4MTBHK",
+        "title": "FIRST4MAGNETS 4 Piece Magnetic Toolbox Holder Kit",
+        "url": "https://www.first4magnets.com/product/4-piece-magnetic-toolbox-holder-kit-121704",
+        "verified_specs": {"Number of pieces": "4",
+                           "Kit contents": '6" shelf, 12" shelf, spray can holder and paper towel holder'},
+        "relationship": "Four-piece magnetic toolbox storage alternative with different kit contents",
+        "source_checked_on": "2026-11-26",
+    }],
     "insulated key set": [
         {
             "brand":"Sealey", "sku":"AK7177",
