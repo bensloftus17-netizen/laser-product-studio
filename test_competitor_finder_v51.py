@@ -99,6 +99,17 @@ class UniversalCompetitorTests(unittest.TestCase):
         with studio.COMPETITOR_REPORT_LOCK:
             studio.COMPETITOR_REPORT_CACHE.clear()
 
+    def test_8567_finds_insulated_hex_and_star_catalogue_alternatives(self):
+        class Offline:
+            def get(self,*args,**kwargs):
+                raise requests.Timeout("Public source unavailable")
+        product={"part":"8567","title":"VDE Extra Long Hex/Star Key Wrench 19pc"}
+        result=cf.research_competitors(product,session=Offline(),shopping_key="",enable_ai=False)
+        self.assertEqual({row["part_number"] for row in result["results"]},{"AK7177","AK7178"})
+        self.assertTrue(all(row["source_type"]=="manufacturer catalogue reference"
+                            for row in result["results"]))
+        self.assertIsNone(cf.match_status(cf.tool_signature(product),"Extra Long Hex Key Set 9pc"))
+
     def test_9380_returns_catalogue_alternatives_when_public_sources_fail(self):
         product={"part":"9380","title":"Hub Nut Socket & Bit Master Set for German Vehicles - 50th Anniversary"}
         class Offline:

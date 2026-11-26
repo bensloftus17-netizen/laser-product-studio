@@ -7,6 +7,7 @@ silently compared. Produces a review-labelled one-page-or-more A4 PDF.
 """
 from __future__ import annotations
 
+from decimal import Decimal
 import html
 import io
 import re
@@ -136,6 +137,9 @@ def _official_specs(product):
                 output[_normal_key(label)] = (label, detail)
     features = " ".join(str(x) for x in product.get("features", [])
                         if isinstance(x, str))
+    if re.search(r"double[ -]ended.{0,120}upper split hubs.{0,70}lower ball joint split joints",features,re.I):
+        output.setdefault("spreader design",("Spreader design",
+            "Double-ended for upper split hubs and lower ball joint split joints"))
     if re.search(r"\bbrake.{0,45}\bbleed",_clean(product.get("title"),180),re.I):
         checks = (
             ("fluid capacity", r"(\d+(?:\.\d+)?)\s*(?:l|litres?|liters?)\s+(?:capacity|tank|reservoir)",
@@ -160,6 +164,39 @@ def _official_specs(product):
                         detail+=" L"
                     output[key]=(label,detail)
     return output
+
+def _rival_list_price(item, laser_rrp):
+    prices = item.get("manufacturer_list_prices") or {}
+    if not isinstance(prices, dict):
+        return None
+    preferred = "excluding" if "excluding VAT" in (laser_rrp or "") else "including"
+    return _clean(prices.get(preferred) or prices.get("including") or prices.get("excluding"),70) or None
+
+
+def _laser_reasons(laser_rrp, rival_rrp, strengths):
+    reasons = []
+    higher = None
+    pattern = r"£([\d,]+(?:\.\d{1,2})?) (including|excluding) VAT"
+    laser = re.fullmatch(pattern, laser_rrp or "")
+    rival = re.fullmatch(pattern, rival_rrp or "")
+    if laser and rival and laser[2] == rival[2]:
+        saving = Decimal(rival[1].replace(",", "")) - Decimal(laser[1].replace(",", ""))
+        if saving > 0:
+            reasons.append(f"Laser's manufacturer RRP is £{saving:,.2f} lower ({laser[2]} VAT).")
+        elif saving < 0:
+            higher = f"Laser's manufacturer RRP is £{-saving:,.2f} higher ({laser[2]} VAT)."
+    # Lead with what the tool actually does. A published Laser feature
+    # does not establish whether an unverified competitor lacks it.
+    use = next((fact for fact in strengths if re.search(
+        r"\b(?:allows?|designed|remov(?:al|e|ing)|install(?:ation|ing)?|double ended)\b", fact, re.I)), None)
+    if use:
+        reasons.append(use.rstrip(".")+".")
+    if not reasons and strengths:
+        reasons.append(strengths[0].rstrip(".")+".")
+    if higher:
+        reasons.append(higher)
+    return reasons
+
 
 def _verified_competitor_rows(report, product, max_rows=4):
     rows = []
@@ -213,6 +250,8 @@ def _verified_competitor_rows(report, product, max_rows=4):
         unique_products.add(product_key)
         rows.append({
             "brand": brand, "title": title,
+            "manufacturer_rrp": _rival_list_price(item, product.get("price")),
+            "rrp_source": item.get("manufacturer_list_source") if safe_url(item.get("manufacturer_list_source")) else None,
             "part_number": _clean(item.get("part_number"), 60) or None,
             "url": url, "match_status": status,
             # Genuine product photograph, sourced from this exact live
@@ -260,10 +299,16 @@ def build_why_choose_laser(product, report):
         raise ValueError("A time-stamped competitor research report is required")
     strengths = _strengths(product)
     rivals = _verified_competitor_rows(report, product)
+    laser_rrp = _clean(product.get("price"), 70) or None
+    for rival in rivals:
+        rival["reasons_to_choose"] = _laser_reasons(laser_rrp, rival["manufacturer_rrp"], strengths)
     comparisons = sum(len(r["published_differences"]) for r in rivals)
     return {
         "part": part, "title": title, "manufacturer": "Laser Tools",
         "official_source": official,
+        "manufacturer_rrp": laser_rrp,
+        "rrp_source": product.get("price_source") or official,
+        "rrp_status": _clean(product.get("price_status"),100),
         "strengths": [{"text": feature, "source": official, "verified": True}
                       for feature in strengths],
         "competitors": rivals,
@@ -273,9 +318,7 @@ def build_why_choose_laser(product, report):
         "status": ("Some explicit published differences identified"
                    if comparisons else
                    "No defensible technical superiority claim available"),
-        "pricing_note": ("Laser manufacturer's RRP must not be directly "
-                         "compared with competitors' retail offers. Pricing "
-                         "is deliberately excluded from this sales sheet."),
+        "pricing_note": "Manufacturer RRP / list price. Check VAT basis and date before quoting.",
         "caution": ("Dated manufacturer catalogue references are not live "
                     "stock or price verification. An unpublished competitor "
                     "feature is not evidence that the competitor lacks it. "

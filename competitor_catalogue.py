@@ -13,6 +13,24 @@ from copy import deepcopy
 
 CHECKED_DATE = "2026-11-23"
 REFERENCES = {
+    "insulated key set": [
+        {
+            "brand":"Sealey", "sku":"AK7177",
+            "title":"Sealey Premier Extra-Long Hex Key Set 6pc - VDE Approved",
+            "url":"https://www.sealey.co.uk/premier-extra-long-hex-key-set-6pc-vde-approved-ak7177/",
+            "verified_specs":{"Number of pieces":"6","Profile":"Hex"},
+            "relationship":"Hex-profile alternative; compare key sizes and profiles",
+            "source_checked_on":"2026-11-26",
+        },
+        {
+            "brand":"Sealey", "sku":"AK7178",
+            "title":"Sealey Premier Extra-Long TRX-Star Key Set 9pc - VDE Approved",
+            "url":"https://www.sealey.co.uk/premier-extra-long-trx-star-key-set-9pc-vde-approved-ak7178/",
+            "verified_specs":{"Number of pieces":"9","Profile":"TRX-Star"},
+            "relationship":"Star-profile alternative; compare key sizes and profiles",
+            "source_checked_on":"2026-11-26",
+        },
+    ],
     "hub nut socket set": [{
         "brand": "Sealey",
         "sku": "SX053",

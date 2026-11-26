@@ -209,10 +209,17 @@ def _comparison_rows(rival):
                "laser":"Official features listed above",
                "rival":"No matching specification verified",
                "difference":False}]
-    return rows[:4]
+    return [{
+        "name":"Manufacturer RRP / list price",
+        "laser":rival.get("_laser_rrp") or "Not verified",
+        "rival":rival.get("manufacturer_rrp") or "Not verified",
+        "difference":False,
+    }, *rows[:3]]
 
 
 def _takeaway(sheet,rival):
+    if rival.get("reasons_to_choose"):
+        return "Why choose Laser? "+" ".join(rival["reasons_to_choose"])
     changed=rival.get("published_differences") or []
     shared=rival.get("shared_published_specs") or []
     strengths=_features(sheet)
@@ -264,7 +271,7 @@ def _card(c,x,y,w,h,name,title,colour,bullets,photo,source,missing_caption):
 
 
 def _table(c,rival):
-    x,y,w,h=19,127,PW-38,125
+    x,y,w,h=19,56,PW-38,125
     rows=_comparison_rows(rival)
     c.setLineWidth(.7)
     c.setStrokeColor(BORDER)
@@ -345,7 +352,7 @@ def render_visual_comparison_pdf(sheet,photo_bytes=None):
                   20,PH-96,530,12,size=8,bold=True,colour=RED)
         draw_text(c,"WHY CHOOSE LASER?",PW-182,PH-96,161,12,
                   size=9,bold=True,colour=BLUE)
-        panel_y=262
+        panel_y=190
         gap=10
         panel_w=(PW-48)/2
         left_x=19
@@ -365,18 +372,22 @@ def render_visual_comparison_pdf(sheet,photo_bytes=None):
               rival_photos.get(rival.get("url")),
               rival.get("url"),
               "COMPETITOR PHOTO NOT VERIFIED")
-        with_name={**rival,"_laser_part":sheet.get("part")}
+        with_name={**rival,"_laser_part":sheet.get("part"),"_laser_rrp":sheet.get("manufacturer_rrp")}
         _table(c,with_name)
-        rounded(c,19,52,PW-38,72,PALE,YELLOW,8)
+        if sheet.get("manufacturer_rrp"):
+            _link(c,sheet.get("rrp_source"),(212,132,515,153))
+        if rival.get("manufacturer_rrp"):
+            _link(c,rival.get("rrp_source"),(516,132,PW-19,153))
+        rounded(c,19,422,PW-38,72,PALE,YELLOW,8)
         c.setFillColor(YELLOW)
-        c.circle(46,88,18,fill=1,stroke=0)
+        c.circle(46,458,18,fill=1,stroke=0)
         c.setStrokeColor(DEEP)
         c.setLineWidth(3)
-        c.line(37,88,43,82)
-        c.line(43,82,55,97)
+        c.line(37,458,43,452)
+        c.line(43,452,55,467)
         draw_text(c,_takeaway(sheet,rival),
-                  76,60,PW-110,56,size=12,bold=True,min_size=9.2)
-        draw_text(c,"Published difference, not automatically an advantage · "+
+                  76,430,PW-110,56,size=12,bold=True,min_size=9.2)
+        draw_text(c,"Manufacturer list pricing and product evidence · "+
                   clean(sheet.get("research_checked_at_utc"),40),
                   19,34,PW-38,12,size=8,colour=MUTED)
         draw_text(c,"DRAFT — NOT APPROVED FOR CUSTOMER DISTRIBUTION",

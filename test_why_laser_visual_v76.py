@@ -31,7 +31,7 @@ class VisualComparisonV76Tests(unittest.TestCase):
             text=page.get_text()
             self.assertIn("Laser Tools 4832 vs",text)
             self.assertIn("COMPARISON",text)
-            self.assertIn("Key takeaway",text)
+            self.assertIn("Why choose Laser?",text)
             self.assertIn("NOT APPROVED",text)
             self.assertIn("VIEW MANUFACTURER SOURCE",text)
             self.assertNotIn("£4,164.18",text)
@@ -103,7 +103,7 @@ class VisualComparisonV76Tests(unittest.TestCase):
                 for x in rival[key]}
             for row in rows:
                 if allowed:
-                    self.assertIn(row["name"],allowed)
+                    self.assertIn(row["name"],allowed | {"Manufacturer RRP / list price"})
                     self.assertIn("laser",row)
                     self.assertIn("rival",row)
             conclusion=_takeaway(self.sheet,rival)

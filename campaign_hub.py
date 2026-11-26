@@ -640,8 +640,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                 or t["box"][3]>1500 for t in texts),
             "overlaps": overlaps,
             "missing_headline":not main,
-            # Only the freeform renderer has measured each *painted glyph*.
-            # Do not grant legacy/price-fallback layouts this proof.
+            # Only renderers that measure painted glyphs can supply proof.
+            # Do not grant unmeasured price-fallback layouts this proof.
             "text_bounds_verified":bool(measured_text and texts and main),
             "product_bounds_verified":bool(
                 tracked.products and all(p.get("isolated") for p in tracked.products)),
@@ -656,7 +656,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         with capture() as tracked:
             output = renderer(product,_poster_photo(index),candidate,
                               scenes[index],distributor)
-        return output,_geometry(tracked)
+        return output,_geometry(tracked,measured_text=renderer is smart_poster)
 
     def _reference_candidate(index, variant):
         """Immutable reference-led role composition with checked text geometry."""
