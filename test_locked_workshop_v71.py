@@ -48,6 +48,21 @@ class LockedWorkshopReferenceV71Tests(unittest.TestCase):
         image.load()
         return image,record,result
 
+    def test_generated_scene_replaces_packshot_and_keeps_template_price(self):
+        from ai_workbench_hero import MARKER, SIZE
+        stream=io.BytesIO()
+        Image.new("RGB",SIZE,"#806040").save(stream,"JPEG")
+        with patch("reference_poster_templates.product_photo",
+                   side_effect=AssertionError("Packshot must not overlay AI scene")):
+            with capture() as record:
+                output=render_promo_reference(
+                    self.product,self.photo,self.concept,scene=MARKER+stream.getvalue())
+        with Image.open(io.BytesIO(output)) as result:
+            self.assertTrue(all(abs(a-b)<=3 for a,b in
+                                zip(result.getpixel((600,800)),(128,96,64))))
+        self.assertIn("£175.00",[item["text"] for item in record.texts])
+        self.assertTrue(any("AI VISUALISATION" in item["text"] for item in record.texts))
+
     def test_workbench_preserves_separate_pieces_across_photo_shapes(self):
         from campaign_role_posters import product_photo
 

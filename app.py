@@ -108,7 +108,7 @@ V7_HOME_PAGE = r'''
 <details id="campaignSettings" class="campaign-settings">
  <summary>Distributor branding, product lookup and pricing settings <span>Optional</span></summary>
  <div class="campaign-settings-content">
-<div class="promo-layout-setting"><small>The price promo uses the Workshop Showcase layout. Studio uses a genuine laid-out kit photo when one is available.</small></div>
+<div class="promo-layout-setting"><small>The price promo uses the Workshop Showcase layout. Studio attempts an AI workbench scene from the official product photos, with an official-photo fallback.</small></div>
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
  <div class="distributor-label"><label for="distributorBrand">Customer / distributor branding <span>(optional)</span></label><small>Show a customer's logo alongside Laser Tools on all three posters.</small></div>
@@ -964,7 +964,9 @@ function renderCampaignGallery(data){
        return '01 / Technical reference · clean blue manufacturer-style fact sheet · source-verified application and specifications';
      }
      if(asset.id==='poster_price'&&m.promo_template==='workshop_showcase'){
-       return 'Template: Workshop Showcase · original supplied workshop and steel bench · fixed price poster · genuine product photo · verified content panels';
+       return m.workbench_hero==='ai_visualisation'
+         ?'Workshop Showcase · AI workbench visualisation based on official product photos · verify before publishing'
+         :'Workshop Showcase · official product photo on the workbench';
      }
      return '03 / Product spotlight · independently AI-directed creative composition · '+
        'selling angle: '+String(a.proof_strategy||'verified product benefit').replaceAll('_',' ')+

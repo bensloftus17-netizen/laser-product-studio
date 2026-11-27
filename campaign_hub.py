@@ -618,6 +618,16 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             "relevance_score":match["score"],
             "relevance_warning":match["warning"],
         })
+    from ai_workbench_hero import generate_workbench_hero
+    workbench_hero=None
+    if use_gemini and promo_template=="workshop_showcase":
+        import os
+        if os.environ.get("STUDIO_AI_WORKBENCH","").lower()=="true":
+            from workshop_reference_locked import SOURCE_PATH
+            import base64
+            workshop_source=base64.b64decode(SOURCE_PATH.read_text(encoding="ascii").strip())
+            workbench_hero=generate_workbench_hero(
+                product,_poster_photo(1),workshop_source,alternate=genuine_photo)
     _emit("rendering_posters")
     image_assets = {}
     quality_reports = {}
@@ -673,11 +683,23 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                     distributor,variant=variant)
             elif index==1 and promo_template=="workshop_showcase":
                 payload=render_workshop_showcase(
-                    product,_poster_photo(index),concepts[index],scenes[index],
+                    product,_poster_photo(index),concepts[index],workbench_hero or scenes[index],
                     distributor,variant=variant)
             else:
                 raise ValueError("No fixed reference for this campaign role")
         return payload,_geometry(tracked,measured_text=True)
+
+    def _select_reference(index, render, **options):
+        nonlocal workbench_hero
+        try:
+            return choose_best(render,ROLES[index],_poster_photo(index),**options)
+        except ValueError:
+            if index!=1 or not workbench_hero:
+                raise
+            workbench_hero=None
+            warnings.append("The AI workbench illustration failed artwork checks. "
+                            "The price promo uses the official product photo.")
+            return choose_best(render,ROLES[index],_poster_photo(index),**options)
 
     def _verified_safe_candidate(index, variant):
         """Last-resort distinct legacy composition; still subject to full QA.
@@ -725,9 +747,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             _emit("rendering",key)
             scene_warning={"warning":scene_references[index]["relevance_warning"]}
             if index==0 or (index==1 and promo_template=="workshop_showcase"):
-                image_assets[key],quality_reports[key]=choose_best(
-                    lambda variant,index=index:_reference_candidate(index,variant),
-                    ROLES[index],_poster_photo(index),
+                image_assets[key],quality_reports[key]=_select_reference(
+                    index,lambda variant,index=index:_reference_candidate(index,variant),
                     preferred_variant=1,scene_relevance=scene_warning)
                 quality_reports[key]["render_engine"]=(
                     "laser-technical-reference" if index==0
@@ -811,7 +832,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             if promo_template=="workshop_showcase":
                 with capture() as tracked:
                     output=render_workshop_showcase(
-                        product,_poster_photo(1),retail,scenes[1],
+                        product,_poster_photo(1),retail,workbench_hero or scenes[1],
                         distributor,variant=variant)
                 return output,_geometry(tracked,measured_text=True)
             candidate=dict(retail)
@@ -840,8 +861,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             return output,{"truncated":False,"out_of_bounds":False,
                            "overlaps":bool(detail.get("issues"))}
     
-        image_assets["poster_price"],quality_reports["poster_price"] = choose_best(
-            _price_candidate,"price_promo",_poster_photo(1),
+        image_assets["poster_price"],quality_reports["poster_price"] = _select_reference(
+            1,_price_candidate,
             preferred_variant=concepts[1]["visual_plan"]["preferred_variant"],
             scene_relevance={"warning":scene_references[1]["relevance_warning"]})
         if promo_template=="workshop_showcase":
@@ -1034,6 +1055,8 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
             distinctness)
         blocking={key:codes for key,codes in critic["issues"].items() if codes}
         if blocking:
+            if "poster_price" in blocking:
+                workbench_hero=None
             # Keep the actual AI artboards and genuine manufacturer pixels.
             # V52 retried only one variant, then failed the whole campaign with
             # a generic message even if another bounded variant was available.
@@ -1257,6 +1280,7 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         "official_photo_gallery":product.get("photo_gallery") or [],
         "poster_photo_choices":photo_choices,
         "artwork_photo_sources":photo_assignments,
+        "workbench_hero":"ai_visualisation" if workbench_hero else "official_photo",
         "creative_critic":{
             "method":critic["method"],"reviewed":critic["reviewed"],
             "issues":critic["issues"],"warning":critic["warning"],
@@ -1400,5 +1424,5 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                               # on private disk; the public manifest has only
                               # bounded source metadata and photo indices.
                               "gallery_photos":role_photos,
-                              "scenes":scenes,"concepts":concepts,
+                              "scenes":[scenes[0],workbench_hero or scenes[1],scenes[2]],"concepts":concepts,
                               "distributor":distributor}}
