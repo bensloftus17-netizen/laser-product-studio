@@ -2123,16 +2123,14 @@ $('campaignBtn').addEventListener('click',async()=>{
    return;
  }
  const rawPrice=$('staffRrp').value.trim();
- // Capture staff review before lookup: load() resets inputs during first search.
  const reviewedPrice=$('staffReview').checked,reviewedBasis=$('staffRrpBasis').value;
  if(rawPrice&&!reviewedPrice){$('campaignStatus').textContent='Check the staff RRP box before using your entered price.';return;}
  button.disabled=true;button.textContent='Building full campaign…';
  clearCampaign();
  try{
-   if(!active||active.part!==part){$('campaignStatus').textContent='Retrieving verified product details…';await load(part);}
-   if(rawPrice&&!$('staffRrp').value){$('staffRrp').value=rawPrice;$('staffReview').checked=reviewedPrice;$('staffRrpBasis').value=reviewedBasis;}
-   if(!active||active.part!==part||!activePhoto)throw Error('Verified manufacturer product details and original photography are required.');
-   $('campaignStatus').textContent='Understanding the tool, selecting three different poster layouts, sourcing approved application imagery and writing channel copy…';
+   // The admitted job verifies the product and loads its photo gallery.
+   // A separate preview lookup here would decode images before admission.
+   $('campaignStatus').textContent='Waiting for the server to start the campaign.';
    const body={official_url:$('officialUrl').value.trim()||null,
        distributor_brand:selectedDistributor(),
        staff_rrp_ex:rawPrice||staffApplied,
