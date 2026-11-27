@@ -152,12 +152,17 @@ def _signature(blob):
         return bits
 
 
+def _laid_out_photo(url):
+    name = urlparse(url).path.rsplit("/", 1)[-1].lower()
+    return bool(re.search(r"(?:exploded|lay[ _-]?out|laid[ _-]?out|contents?)",name))
+
+
 def distinct_gallery(options, primary, *, max_images=_MAX_IMAGES):
     """Keep only genuinely different, QA-approved manufacturer hero images."""
     selected=[]
     if primary:
         selected.append(primary)
-    for item in sorted(options,key=lambda x:-x[0]):
+    for item in sorted(options,key=lambda x:(not _laid_out_photo(x[2]),-x[0])):
         if item is primary or not isinstance(item,(list,tuple)) or len(item)<4:
             continue
         if not item[3].get("passed") or item[3].get("possible_source_crop"):
@@ -181,6 +186,7 @@ def distinct_gallery(options, primary, *, max_images=_MAX_IMAGES):
         seen_visual.append(visual)
         basename=urlparse(url).path.lower()
         kind=("application" if re.search(r"in.?situ|workshop|application",basename)
+              else "laid-out contents" if _laid_out_photo(url)
               else "contents" if re.search(r"contents?|kit",basename)
               else "detail" if re.search(r"close.?up|detail",basename)
               else "alternate" if distinct else "packshot")

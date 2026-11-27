@@ -92,6 +92,15 @@ class GalleryV77Tests(unittest.TestCase):
         self.assertNotIn("https://www.toolconnection.co.uk/media/9195.jpg",found)
         self.assertFalse(any("evil.example" in x or x.endswith(".svg") for x in found))
 
+    def test_explicit_manufacturer_contents_angle_survives_gallery_limit(self):
+        root="https://www.lasertools.co.uk/items/XLarge/"
+        main=source(root+"9395.jpg",photo(0))
+        generic=source(root+"9395-alt.jpg",photo(1),score=180)
+        laid_out=source(root+"9395-exploded.jpg",photo(2),score=110)
+        gallery=distinct_gallery([main,generic,laid_out],main,max_images=2)
+        self.assertEqual([row["type"] for row in gallery],["packshot","laid-out contents"])
+        self.assertEqual(gallery[1]["blob"],laid_out[1])
+
     def test_duplicate_pictures_different_sizes_do_not_count_as_alt_heroes(self):
         main=source("https://www.lasertools.co.uk/items/XLarge/9395.jpg",photo(0))
         scaled=source("https://www.lasertools.co.uk/items/large/9395.jpg",

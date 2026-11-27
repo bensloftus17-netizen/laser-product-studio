@@ -107,14 +107,7 @@ V7_HOME_PAGE = r'''
 <details id="campaignSettings" class="campaign-settings">
  <summary>Distributor branding, product lookup and pricing settings <span>Optional</span></summary>
  <div class="campaign-settings-content">
-<div class="promo-layout-setting">
- <label for="promoTemplate"><strong>Promotional poster template</strong></label>
- <select id="promoTemplate" name="promo_template" aria-label="Promotional poster layout">
-  <option value="workshop_showcase" selected>Workshop Showcase — fixed photographic reference (default)</option>
-  <option value="ai_original">AI Original — unrestricted brand-safe composition</option>
- </select>
- <small>Poster 02 now uses your actual supplied workshop-and-steel-workbench photograph with fixed information panels and angled footer — not a generic AI recreation. Poster 01 remains the technical product sheet and Poster 03 is independently AI-led. Genuine product photos, verified claims and price checks remain locked.</small>
-</div>
+<div class="promo-layout-setting"><small>The price promo uses the Workshop Showcase layout. Studio uses a genuine laid-out kit photo when one is available.</small></div>
 <div class="examples"><span>Try an example:</span><button class="linkchip" type="button" data-part="9364">9364 · Ratchet set</button><button class="linkchip" type="button" data-part="9395">9395 · Bearing kit</button><button class="linkchip" type="button" data-part="9365">9365 · 4pc set</button><button class="linkchip" type="button" data-part="9372">9372 · 50t press</button><button class="linkchip" type="button" data-part="8324">8324 · Hub spreader</button></div>
 <div class="distributor-config">
  <div class="distributor-label"><label for="distributorBrand">Customer / distributor branding <span>(optional)</span></label><small>Show a customer's logo alongside Laser Tools on all three posters.</small></div>
@@ -2142,7 +2135,6 @@ $('campaignBtn').addEventListener('click',async()=>{
    $('campaignStatus').textContent='Understanding the tool, selecting three different poster layouts, sourcing approved application imagery and writing channel copy…';
    const body={official_url:$('officialUrl').value.trim()||null,
        distributor_brand:selectedDistributor(),
-       promo_template:$('promoTemplate').value,
        staff_rrp_ex:rawPrice||staffApplied,
        staff_rrp_reviewed:!!(rawPrice||staffApplied)&&(rawPrice?reviewedPrice:$('staffReview').checked),
        staff_rrp_basis:rawPrice?reviewedBasis:staffBasis};
@@ -2174,7 +2166,7 @@ $('campaignBtn').addEventListener('click',async()=>{
 });
 
 $('distributorBrand').addEventListener('change',updateDistributorPreview);
-['staffRrp','staffRrpBasis','staffReview','officialUrl','promoTemplate'].forEach(id=>$(id).addEventListener('change',clearCampaign));
+['staffRrp','staffRrpBasis','staffReview','officialUrl'].forEach(id=>$(id).addEventListener('change',clearCampaign));
 $('previewBuildFull').addEventListener('click',()=>{
  $('campaignBtn').click();
 });
@@ -3939,8 +3931,7 @@ def _get_campaign_pack(token):
 
 def _assemble_campaign_bundle(part, body, progress=None):
     """Source-safe generator for both synchronous and progressive campaigns."""
-    from workshop_promo_template import validate_promo_template
-    promo_template=validate_promo_template(body.get('promo_template'))
+    promo_template='workshop_showcase'
     if progress:
         progress("verifying_product")
     product, image = lookup(part, uk_url=body.get('official_url') or None,

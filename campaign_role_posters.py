@@ -89,19 +89,11 @@ def product_photo(canvas, blob, bounds, *, scale=1.0, workbench=False):
     on_bench=workbench and info["isolated"]
     if on_bench:
         limit_h=min(limit_h,max(1,h-24))
-    depth=.74 if on_bench else 1.0
-    ratio=min(limit_w/image.width,limit_h/(image.height*depth))
+    # Uniform scale preserves the component thickness visible in official
+    # angled photographs. A flat packshot cannot supply missing 3D surfaces.
+    ratio=min(limit_w/image.width,limit_h/image.height)
     image=image.resize((max(1,int(image.width*ratio)),
-                        max(1,int(image.height*ratio*depth))),Image.Resampling.LANCZOS)
-    if on_bench:
-        # A shallow trapezoid follows the table perspective. Transform the
-        # entire source cutout together so no kit component is rearranged.
-        inset=image.width*.07
-        top_width=1-2*inset/image.width
-        slope=(1-top_width)/image.height
-        image=image.transform(image.size,Image.Transform.PERSPECTIVE,
-            (1/top_width,inset/image.height/top_width,-inset/top_width,
-             0,1/top_width,0,0,slope/top_width),Image.Resampling.BICUBIC)
+                        max(1,int(image.height*ratio))),Image.Resampling.LANCZOS)
     x=x0+(w-image.width)//2
     y=y1-image.height-16 if on_bench else y0+(h-image.height)//2
     if not info["isolated"]:

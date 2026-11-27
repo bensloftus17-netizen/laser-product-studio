@@ -65,6 +65,7 @@ class LockedWorkshopReferenceV71Tests(unittest.TestCase):
                 x0,y0,x1,y1=result["position"]
                 self.assertGreaterEqual(y0,630)
                 self.assertEqual(y1,996)
+                self.assertLessEqual(abs((x1-x0)/(y1-y0)-width/height),.025)
                 pixels=canvas.crop((x0,y0,x1,y1)).getcolors(maxcolors=100000)
                 colors={pixel for _,pixel in pixels}
                 self.assertIn((255,0,0,255),colors)
