@@ -4,6 +4,7 @@ Public-site pilot. Not affiliated with the official Laser Tools website.
 from __future__ import annotations
 import io, re, json, time, zipfile, hashlib, logging, html, base64, secrets, threading, gc, tempfile, shutil
 from datetime import datetime, timezone
+from os import environ
 from urllib.parse import urljoin, urlparse, quote, unquote, parse_qs
 from functools import lru_cache
 from typing import Any
@@ -3231,18 +3232,48 @@ def safe_override(original,updates):
     if isinstance(updates.get('specs'),dict):out['specs']={str(k)[:55]:str(v)[:110] for k,v in list(updates['specs'].items())[:15]}
     return out
 
+def _studio_private():
+    return environ.get("RENDER") == "true" or "STUDIO_OWNER_PASSWORD_SHA256" in environ
+
+
+@app.before_request
+def require_studio_owner():
+    """Gate all Studio routes, including direct links to files and APIs."""
+    if not _studio_private() or request.endpoint == "health":
+        return None
+    expected = environ.get("STUDIO_OWNER_PASSWORD_SHA256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        return "Private Studio access is being configured.", 503
+    credentials = request.authorization
+    if credentials and credentials.type == "basic" and credentials.username == "ben":
+        provided = hashlib.sha256((credentials.password or "").encode("utf-8")).hexdigest()
+        if secrets.compare_digest(provided, expected):
+            if request.method not in ("GET", "HEAD", "OPTIONS"):
+                origin = request.headers.get("Origin")
+                if request.headers.get("Sec-Fetch-Site") == "cross-site" or (
+                    origin and origin not in {f"https://{request.host}", request.host_url.rstrip("/")}
+                ):
+                    return "Cross-origin request blocked.", 403
+            return None
+    return ("Sign in to Laser Product Studio.", 401,
+            {"WWW-Authenticate": 'Basic realm="Laser Product Studio", charset="UTF-8"'})
+
+
 @app.get('/')
 def home():
     return render_template_string(V7_HOME_PAGE)
 
 @app.after_request
 def no_cache_for_drafts(response):
-    if request.path=='/' or request.path.startswith('/api/poster/') or request.path.startswith('/api/photo/') or request.path.startswith('/api/distributor-logo/'):
+    if _studio_private() or request.path=='/' or request.path.startswith('/api/poster/') or request.path.startswith('/api/photo/') or request.path.startswith('/api/distributor-logo/'):
         response.headers['Cache-Control']='no-store, max-age=0'
     return response
 
 @app.get('/api/health')
-def health():return jsonify(ok=True,service='Laser Product Studio',design='v19-product-aware-marketing-direction',lookup='official page + PDF fallback')
+def health():
+    if _studio_private():
+        return jsonify(ok=True)
+    return jsonify(ok=True,service='Laser Product Studio',design='v19-product-aware-marketing-direction',lookup='official page + PDF fallback')
 
 @app.get('/api/catalogue/taxonomy')
 def catalogue_taxonomy():
