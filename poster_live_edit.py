@@ -183,6 +183,9 @@ def edit_campaign_poster(bundle,asset_id,body):
         [fact] if fact and role=="product_selected" else []
     )
     scene=source["scenes"][idx]
+    from ai_workbench_hero import is_workbench_hero
+    if photo_index is not None and is_workbench_hero(scene):
+        scene=None
     # The two user-approved reference posters must NEVER silently turn into
     # generic AI templates when staff edits their text or manufacturer angle.
     # They continue using exactly the same reference renderers as the builder.
@@ -304,6 +307,8 @@ def edit_campaign_poster(bundle,asset_id,body):
         angle["headline_size"]=(art.get("art_direction") or {}).get(
             "headline_size","normal")
     manifest["artwork_quality"][asset_id]=quality
+    if role=="price_promo" and promo_template=="workshop_showcase":
+        manifest["workbench_hero"]="ai_visualisation" if is_workbench_hero(scene) else "official_photo"
     if photo_index is not None:
         chosen=bundle["manifest"]["poster_photo_choices"][photo_index]
         manifest.setdefault("artwork_photo_sources",{})[asset_id]={
@@ -346,6 +351,7 @@ def edit_campaign_poster(bundle,asset_id,body):
         bundle["archive"]=archive.getvalue()
     # Save the exact source photo for future edits; no background generation.
     source["concepts"]=source_concepts
+    source["scenes"][idx]=scene
     source.setdefault("role_photos",{})[asset_id]=photo
     if hasattr(bundle,"save_editor"):
         # Source-backed variations must persist when the pack lives on disk.

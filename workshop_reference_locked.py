@@ -119,6 +119,13 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
     photographed_workshop=ImageEnhance.Brightness(
         photographed_workshop).enhance((1.0,.92,.85)[variant%3])
     canvas.alpha_composite(photographed_workshop, (0, 259))
+    from ai_workbench_hero import is_workbench_hero, MARKER, SIZE
+    generated=is_workbench_hero(scene)
+    if generated:
+        with Image.open(io.BytesIO(scene[len(MARKER):])) as hero:
+            if hero.size != SIZE:
+                raise ValueError("Invalid workbench illustration dimensions")
+            canvas.paste(hero.convert("RGB"),(0,421))
     d=ImageDraw.Draw(canvas, "RGBA")
     # Original template: tall LASER header and single horizontal blue line.
     d.rectangle((0, 0, W, 265), fill=DARK)
@@ -143,8 +150,9 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
              maximum=52, minimum=21, max_lines=3,
              role="headline")
     # Place the full product inside the photographed table area.
-    photo_placer(canvas,official_photo,(58, 505, 1142, 1012),
-                 scale=(1.0, .90, .96)[variant%3],workbench=True)
+    if not generated:
+        photo_placer(canvas,official_photo,(58, 505, 1142, 1012),
+                     scale=(1.0, .90, .96)[variant%3],workbench=True)
     d=ImageDraw.Draw(canvas, "RGBA")
     # Lower information bays reproduce the user reference's 3-column grid
     # plus separate right-hand kit/product information bay.
@@ -176,7 +184,8 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
     required(d, suffix, (625, 1397, 1166, 1431),
              maximum=22, minimum=15, max_lines=1,
              bold=False, colour=PALE, role="price_caption")
-    required(d, "DRAFT — CHECK PRODUCT DETAILS BEFORE PUBLICATION",
+    required(d, ("AI VISUALISATION · REVIEW BEFORE PUBLICATION" if generated else
+                 "DRAFT — CHECK PRODUCT DETAILS BEFORE PUBLICATION"),
              (620, 1460, 1176, 1493), maximum=16, minimum=12,
              max_lines=1, bold=False, colour=PALE, role="footer")
     return save(canvas)
