@@ -58,7 +58,7 @@ def image_bytes(w=950,h=800):
     out=io.BytesIO();im.save(out,"PNG");return out.getvalue()
 
 
-def fake_photo(canvas,raw,bounds,scale=1):
+def fake_photo(canvas,raw,bounds,scale=1, **placement):
     # Simulates compositing a genuine opaque manufacturer shape for deterministic
     # renderer geometry checks without depending on auto-segmentation heuristics.
     x0,y0,x1,y1=bounds
