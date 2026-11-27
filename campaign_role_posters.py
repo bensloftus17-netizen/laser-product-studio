@@ -301,8 +301,16 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     co_brand(canvas,distributor)
     _text(d,"LASER / PRODUCT SPOTLIGHT",(54,243,1135,290),
           base=30,minsize=22,maxlines=1,colour=accent)
-    _text(d,concept.get("headline") or product.get("title","Laser Tools product"),
-          (52,304,1146,542),base=66,minsize=26,maxlines=5,role="headline")
+    title=product.get("title") or "Laser Tools "+part
+    headline_box=(52,304,1146,542)
+    try:
+        _text(d,concept.get("headline") or title,headline_box,
+              base=66,minsize=26,maxlines=5,role="headline")
+    except ValueError:
+        # Preserve the exact manufacturer title when a generated headline
+        # cannot fit. Measure the replacement before any text is drawn.
+        _text(d,title,headline_box,base=56,minsize=22,maxlines=6,
+              role="headline")
     # A broad colored architectural shape behind, but NEVER white paper.
     # Photographic workshop context remains on the right and the original
     # tool silhouette is clearly legible in front of both.
@@ -323,12 +331,23 @@ def smart_poster(product,official_photo,concept,scene=None,distributor=None):
     d=ImageDraw.Draw(canvas,"RGBA")
     d.rectangle((0,1201,W,H),fill=(6,29,52,248))
     d.rectangle((54,1237,1144,1247),fill=accent)
-    _text(d,theme.upper(),(61,1255,1140,1334),
-          base=34,minsize=22,maxlines=2,colour=accent)
+    theme_box=(61,1255,1140,1334)
+    try:
+        _text(d,theme.upper(),theme_box,
+              base=34,minsize=22,maxlines=2,colour=accent)
+    except ValueError:
+        _text(d,"PRODUCT HIGHLIGHT",theme_box,
+              base=34,minsize=22,maxlines=2,colour=accent)
     detail=_story_copy(concept)
     if detail:
-        _text(d,detail,(61,1345,1133,1448),
-              base=30,minsize=18,maxlines=4,bold=False,role="proof")
+        proof_box=(61,1345,1133,1448)
+        try:
+            _text(d,detail,proof_box,base=30,minsize=18,
+                  maxlines=4,bold=False,role="proof")
+        except ValueError:
+            # A long line of supporting copy belongs in the campaign text.
+            # Keep the already-verified title and complete artwork readable.
+            pass
     _text(d,"GENUINE PRODUCT PHOTO · DRAFT FOR REVIEW",
           (61,1461,1133,1492),base=16,minsize=12,maxlines=1,
           colour="#B9D7EB",bold=False)

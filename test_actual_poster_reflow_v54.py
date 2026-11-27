@@ -47,6 +47,22 @@ class ActualPosterTextRepairTests(unittest.TestCase):
             {"poster_smart":{"passed":True,"text_bounds_verified":True}})
         self.assertEqual(reconciled["issues"]["poster_smart"],["white_halo"])
 
+    def test_9395_fallback_uses_readable_copy_when_the_ai_wording_is_oversized(self):
+        from campaign_role_posters import smart_poster
+        title="Front Wheel Bearing Kit for Mercedes-Benz Sprinter and Volkswagen Crafter"
+        product={**PRODUCT,"part":"9395","title":title}
+        concept={"headline":"Oversized generated headline "*80,
+                 "name":"Oversized campaign theme "*80,
+                 "selling_point":"For Mercedes-Benz Sprinter and Volkswagen Crafter."}
+        with patch("campaign_role_posters.product_photo",side_effect=fake_photo):
+            with capture() as tracked:
+                png=smart_poster(product,image_bytes(),concept)
+        self.assertTrue(png.startswith(b"\x89PNG"))
+        self.assertTrue(any(t["role"]=="headline" and
+                            " ".join(t["lines"])==title for t in tracked.texts))
+        self.assertTrue(any(t["text"]=="PRODUCT HIGHLIGHT" for t in tracked.texts))
+        self.assertFalse(any(t["truncated"] for t in tracked.texts))
+
     def test_text_safety_reflows_actual_painted_headline_and_proof(self):
         product=dict(PRODUCT)
         product["title"]="Ratchet Set 4pc"
