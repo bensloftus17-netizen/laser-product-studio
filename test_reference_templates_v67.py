@@ -31,7 +31,7 @@ class ReferenceTemplateTests(unittest.TestCase):
             ],
         }
 
-    def fake_photo(self, canvas, blob, bounds, scale=1.0):
+    def fake_photo(self, canvas, blob, bounds, scale=1.0, **placement):
         original = Image.open(io.BytesIO(blob)).convert("RGBA")
         original.thumbnail((int((bounds[2]-bounds[0]) * .86),
                             int((bounds[3]-bounds[1]) * .86)),

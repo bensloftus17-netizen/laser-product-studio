@@ -28,7 +28,7 @@ class LockedWorkshopReferenceV71Tests(unittest.TestCase):
         photo.save(stream,"PNG")
         self.photo=stream.getvalue()
 
-    def photo_placer(self,canvas, blob, bounds, scale=1):
+    def photo_placer(self,canvas, blob, bounds, scale=1, **placement):
         part=Image.open(io.BytesIO(blob)).convert("RGBA")
         part.thumbnail((bounds[2]-bounds[0]-75,bounds[3]-bounds[1]-80),
                        Image.Resampling.LANCZOS)
@@ -47,6 +47,28 @@ class LockedWorkshopReferenceV71Tests(unittest.TestCase):
         image=Image.open(io.BytesIO(result))
         image.load()
         return image,record,result
+
+    def test_workbench_preserves_separate_pieces_across_photo_shapes(self):
+        from campaign_role_posters import product_photo
+
+        for width, height in ((460, 180), (180, 460)):
+            with self.subTest(size=(width, height)):
+                kit=Image.new("RGBA",(width,height))
+                draw=ImageDraw.Draw(kit)
+                draw.rectangle((0,0,30,30),fill="#ff0000")
+                draw.rectangle((width-31,height-31,width-1,height-1),fill="#00ff00")
+                canvas=Image.new("RGBA",(1200,1500),"#444444")
+                with patch("campaign_role_posters.inspected_product",return_value={
+                    "rgba":kit,"isolated":True,"needs_manual_cutout":False,
+                }):
+                    result=product_photo(canvas,b"fixture",(58,630,1142,1012),workbench=True)
+                x0,y0,x1,y1=result["position"]
+                self.assertGreaterEqual(y0,630)
+                self.assertEqual(y1,996)
+                pixels=canvas.crop((x0,y0,x1,y1)).getcolors(maxcolors=100000)
+                colors={pixel for _,pixel in pixels}
+                self.assertIn((255,0,0,255),colors)
+                self.assertIn((0,255,0,255),colors)
 
     def test_reference_is_bundled_and_is_real_photographic_scene(self):
         self.assertTrue(SOURCE_PATH.exists())

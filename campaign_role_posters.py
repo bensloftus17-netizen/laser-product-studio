@@ -69,7 +69,7 @@ def fitted(draw, text, box, sizes, color, max_lines=3, bold=True):
     record_text(text,box,rows,size,"headline" if size>=35 else "text")
 
 
-def product_photo(canvas, blob, bounds, *, scale=1.0):
+def product_photo(canvas, blob, bounds, *, scale=1.0, workbench=False):
     """Safely isolate genuine tool pixels and place WITHOUT a white card.
 
     Real white/metal components stay original. If automatic edge segmentation
@@ -86,11 +86,24 @@ def product_photo(canvas, blob, bounds, *, scale=1.0):
     w,h=max(1,x1-x0),max(1,y1-y0)
     limit_w=max(1,round(w*.94*min(scale,1.0)))
     limit_h=max(1,round(h*.94*min(scale,1.0)))
-    ratio=min(limit_w/max(1,image.width),limit_h/max(1,image.height))
+    on_bench=workbench and info["isolated"]
+    if on_bench:
+        limit_h=min(limit_h,max(1,h-24))
+    depth=.74 if on_bench else 1.0
+    ratio=min(limit_w/image.width,limit_h/(image.height*depth))
     image=image.resize((max(1,int(image.width*ratio)),
-                        max(1,int(image.height*ratio))),Image.Resampling.LANCZOS)
+                        max(1,int(image.height*ratio*depth))),Image.Resampling.LANCZOS)
+    if on_bench:
+        # A shallow trapezoid follows the table perspective. Transform the
+        # entire source cutout together so no kit component is rearranged.
+        inset=image.width*.07
+        top_width=1-2*inset/image.width
+        slope=(1-top_width)/image.height
+        image=image.transform(image.size,Image.Transform.PERSPECTIVE,
+            (1/top_width,inset/image.height/top_width,-inset/top_width,
+             0,1/top_width,0,0,slope/top_width),Image.Resampling.BICUBIC)
     x=x0+(w-image.width)//2
-    y=y0+(h-image.height)//2
+    y=y1-image.height-16 if on_bench else y0+(h-image.height)//2
     if not info["isolated"]:
         # Low-confidence photo: never fake extraction or allow a full-canvas
         # white rectangle. Deliberate smaller framed source-photo preview
@@ -100,7 +113,13 @@ def product_photo(canvas, blob, bounds, *, scale=1.0):
         d.rounded_rectangle((max(0,x-pad),max(0,y-pad),
                              min(W,x+image.width+pad),min(H,y+image.height+pad)),
                             radius=16,fill="#16354F",outline="#6E9AB5",width=3)
-    if info["isolated"]:
+    if on_bench:
+        # Keep the contact shadow tight to each genuine component.
+        shadow=Image.new("RGBA",image.size,(5,16,28,0))
+        shadow.putalpha(image.getchannel("A").filter(ImageFilter.GaussianBlur(4)).point(
+            lambda value:int(value*.48)))
+        canvas.alpha_composite(shadow,(x+3,y+6))
+    elif info["isolated"]:
         from PIL import ImageStat
         alpha=image.getchannel("A")
         mean=sum(ImageStat.Stat(image.convert("RGB"),mask=alpha).mean)/3
