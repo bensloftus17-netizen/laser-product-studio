@@ -14,6 +14,13 @@ from app import V7_HOME_PAGE
 
 
 class RenderWakeUpTests(unittest.TestCase):
+    def test_build_defers_product_lookup_to_the_admitted_job(self):
+        handler = V7_HOME_PAGE.split("$('campaignBtn').addEventListener('click',async()=>{", 1)[1]
+        handler = handler.split("$('distributorBrand').addEventListener", 1)[0]
+        self.assertIn("await startFullQualityCampaign(part,body)", handler)
+        self.assertNotIn("await load(", handler)
+        self.assertNotIn("!activePhoto", handler)
+
     def test_api_clients_check_response_type_and_use_safe_lookup_retries(self):
         html=V7_HOME_PAGE
         self.assertIn("async function readApiJson(response)",html)
