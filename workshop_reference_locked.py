@@ -143,7 +143,7 @@ def render_locked_workshop_promo(product, official_photo, concept, scene=None,
              maximum=52, minimum=21, max_lines=3,
              role="headline")
     # Place the full product inside the photographed table area.
-    photo_placer(canvas,official_photo,(58, 630, 1142, 1012),
+    photo_placer(canvas,official_photo,(58, 505, 1142, 1012),
                  scale=(1.0, .90, .96)[variant%3],workbench=True)
     d=ImageDraw.Draw(canvas, "RGBA")
     # Lower information bays reproduce the user reference's 3-column grid

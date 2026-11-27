@@ -152,10 +152,10 @@ class WorkshopPromoTemplateV64Tests(unittest.TestCase):
 
     def test_website_has_real_selector_and_payload_reaches_backend(self):
         page=app.V7_HOME_PAGE
-        self.assertIn('id="promoTemplate"',page)
+        self.assertIn("The price promo uses the Workshop Showcase layout.",page)
         self.assertIn('value="workshop_showcase" selected',page)
-        self.assertIn('value="ai_original"',page)
-        self.assertIn("promo_template:$('promoTemplate').value",page)
+        self.assertNotIn('value="ai_original"',page)
+        self.assertNotIn("promo_template:$('promoTemplate').value",page)
         self.assertIn("Template: Workshop Showcase",page)
         self.assertIn("Internal pilot · V",page)
 

@@ -506,8 +506,6 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
         role_photos.append(candidate)
         if len(role_photos)==4:
             break
-    def _poster_photo(index):
-        return role_photos[index] if index<len(role_photos) else genuine_photo
     def _format_photo(key):
         return role_photos[(FORMAT_ORDER.index(key)+3)%len(role_photos)]
     def _photo_source(blob):
@@ -519,6 +517,14 @@ def build_campaign(product, genuine_photo, distributor=None, *, use_gemini=True,
                         "type":item.get("type"),"sha256":digest}
         return {"source_url":product.get("photo_source"),
                 "type":"original official hero","sha256":digest}
+    workshop_photo=next((blob for blob in role_photos
+                         if _photo_source(blob)["type"]=="laid-out contents"),None)
+
+    def _poster_photo(index):
+        if index==1 and promo_template=="workshop_showcase" and workshop_photo is not None:
+            return workshop_photo
+        return role_photos[index] if index<len(role_photos) else genuine_photo
+
     photo_choices=[{
         "index":i,**_photo_source(blob),
         "label":("Main product image" if i==0 else
